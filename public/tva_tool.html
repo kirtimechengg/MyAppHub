@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVA & Coupling Review (Cloud)</title>
+    
+    <!-- Fonts & Styles -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* Shared App Styles */
+        body { font-family: 'Instrument Sans', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- 1. SHARED NAVIGATION -->
+    <div id="global-nav"></div>
+
+    <!-- 2. REACT ROOT -->
+    <div id="root" class="flex-1"></div>
+
+    <!-- 3. REQUIRED FIREBASE SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        // --- APP CORE ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = {
+                    theme: 'light',
+                    notifications: 0,
+                    lastActive: null,
+                    globalNote: ''
+                };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (typeof firebase === 'undefined') return;
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence();
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) {
+                    console.log("Persistence disabled:", err.code);
+                }
+
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav(); 
+                    } else {
+                        this.renderNav();
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        } else {
+                            this.updateGlobalStore({ theme: 'light', created: Date.now() });
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                try {
+                    await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                        { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+                        { merge: true }
+                    );
+                } catch (e) {
+                    console.error("Sync Error:", e);
+                }
+            }
+
+            subscribe(callback) {
+                this.stateListeners.push(callback);
+                callback(this.globalState);
+            }
+
+            notifyListeners() {
+                this.stateListeners.forEach(cb => cb(this.globalState));
+            }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+        }
+
+        // Initialize Global Instance
+        window.Core = new AppCore();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => window.Core.init());
+        } else {
+            window.Core.init();
+        }
+    </script>
+
+    <!-- 5. REACT LOGIC -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // --- ICONS ---
+        const Icons = {
+            Shield: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>,
+            Activity: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+            Settings: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+            Wind: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            Beaker: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>,
+            FileText: () => <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            AlertTriangle: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+            CheckCircle: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>,
+            Info: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            ChevronDown: () => <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>,
+            RotateCcw: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+            Download: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            Upload: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
+            Save: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>,
+            Table: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7-4h14M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" /></svg>,
+            Plus: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>,
+            Trash: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+            Search: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+            X: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        };
+
+        const DEFAULT_PROJECT_DETAILS = {
+            endCustomer: "",
+            project: "",
+            specifications: "",
+            service: "",
+            manufacturer: "",
+            model: "",
+            configuration: "Motor + Gear Increaser + Barrel Compressor"
+        };
+        const TRAIN_CONFIGURATIONS = [
+            "Motor + Gear Increaser + Barrel Compressor",
+            "Motor + IGCC Compressor",
+            "Turbine + Gear Reducer + Generator",
+            "Steam Turbine + Compressor",
+            "Gas Turbine + Compressor",
+            "Motor + Direct Drive + Compressor",
+            "Expander + Gear + Generator"
+        ];
+        
+        // --- COMPLETE DEFAULT DATA ---
+        const DEFAULT_DATA = {
+            model: {
+                id: "model",
+                title: "1. Mass-Elastic Model (API 684)",
+                iconKey: "FileText",
+                items: [
+                    { id: "m1", category: "Stiffness (K)", label: "Shaft Penetration Factor", requirement: "1/3rd Rule or FEA (API 684 2.4.3)", insight: "Shaft stiffness must be reduced to account for penetration into hubs (couplings/impellers). Generally, 1/3 of the shaft diameter length inside the hub is considered 'effective' length. Without this, TNFs will be over-predicted.", checked: false, status: "pending", notes: "" },
+                    { id: "m2", category: "Inertia (J)", label: "Coupling Spacer Inertia Allocation", requirement: "Distributed to Hubs (API 684)", insight: "The coupling spacer inertia is not a 'node' if it has no stiffness to ground. It is typically split: 50% added to Driver Hub Inertia, 50% to Driven Hub Inertia. Verify this split in the model.", checked: false, status: "pending", notes: "" },
+                    { id: "m3", category: "Gearbox", label: "Gear Mesh Stiffness", requirement: "Finite Stiffness vs Rigid", insight: "For accurate results, gear teeth mesh should be modeled as a torsional spring, not a rigid link. The Gear Ratio must be exact (e.g., 23/55 teeth = 0.41818), not rounded.", checked: false, status: "pending", notes: "" },
+                    { id: "m4", category: "Coupling", label: "Coupling Stiffness Nonlinearity", requirement: "Check at various loads", insight: "Elastomeric or disc coupling stiffness can vary with torque load. Ensure the 'Dynamic Torsional Stiffness' at operating torque is used, not static or zero-load stiffness.", checked: false, status: "pending", notes: "" },
+                    { id: "m5", category: "Diameter", label: "Effective Diameter (Splines/Hollow)", requirement: "Use Effective D, not OD", insight: "For splined shafts or hollow sections, using the Outer Diameter (OD) overestimates stiffness. Check if 'Effective Diameter' was calculated for these sections.", checked: false, status: "pending", notes: "" },
+                    { id: "m6", category: "Thermal", label: "Hot Modulus of Elasticity (E)", requirement: "Adjust E for Operating Temp", insight: "Young's Modulus drops as temperature rises. For hot gas compressors, ensure stiffness values (K) are calculated using E at operating temperature, not ambient.", checked: false, status: "pending", notes: "" },
+                    { id: "m7", category: "Motor", label: "Motor Rotor Core Stiffness", requirement: "Laminated vs Solid Steel", insight: "Motor rotors are laminated. They are less stiff than a solid steel cylinder of the same dimension. Ensure the model accounts for this reduced 'effective' stiffness.", checked: false, status: "pending", notes: "" },
+                    { id: "m8", category: "Fits", label: "Shrink Fit Stiffening", requirement: "Evaluate Stiffening Effect", insight: "Heavy shrink fits at the coupling hub or impeller can locally increase shaft stiffness. A conservative analysis might ignore this, but a precise one should consider it.", checked: false, status: "pending", notes: "" },
+                    { id: "m9", category: "Damping", label: "Modal Damping Values", requirement: "Max 1-2% Log Dec allowed", insight: "API 684 warns against overestimating damping. Verify that the damping ratio used (typically 0.01 to 0.02) is not artificially inflated to pass the analysis.", checked: false, status: "pending", notes: "" }
+                ]
+            },
+            campbell: {
+                id: "campbell",
+                title: "2. Interference Analysis (Campbell)",
+                iconKey: "Activity",
+                items: [
+                    { id: "c1", category: "Speed Range", label: "Plot Range Definition", requirement: "0% to 115% of Trip Speed (API 617 4.8.2.3)", insight: "Campbell diagram must cover the entire range from zero to trip speed (or 125% of operating speed per some company specs).", checked: false, status: "pending", notes: "" },
+                    { id: "c2", category: "Excitations", label: "Harmonic Orders", requirement: "1x, 2x, VFD Harmonics, Grid Freq", insight: "Must plot: 1x & 2x Motor Speed, 1x & 2x Compressor Speed. For VFD: 6x, 12x, 18x (for 6-pulse), or specific inter-harmonics. Grid frequency (50/60Hz) and 2x Grid Freq (100/120Hz) for electrical faults.", checked: false, status: "pending", notes: "" },
+                    { id: "c3", category: "Margins", label: "Separation Margins (SM)", requirement: "10% Continuous / 5% Transient", insight: "API 617 4.8.2.5: TNFs must be >10% away from any operating speed (Min to Max Governor). If TNF is within 10%, a Stress Analysis is MANDATORY.", checked: false, status: "pending", notes: "" },
+                    { id: "c4", category: "VFD", label: "VFD Air Gap Torque", requirement: "Torque Ripple Spectrum", insight: "Supplier must input the 'Air Gap Torque' spectrum from the VFD vendor. This includes integer harmonics (6n, 12n) and sidebands (e.g., |6n +/- 1|).", checked: false, status: "pending", notes: "" },
+                    { id: "c5", category: "Visibility", label: "Intersection Zoom/Clarity", requirement: "Clear margin verification", insight: "Thick lines on plots can hide a 9% margin violation. Demand zoomed-in plots at the operating speed intersections to prove the 10% clearance.", checked: false, status: "pending", notes: "" },
+                    { id: "c6", category: "Mode Shapes", label: "Mode Shape Plotting", requirement: "Identify Nodal Points", insight: "Check the mode shape for the 1st TNF. If the 'Node' (zero amplitude point) is at the coupling, the coupling damping will be ineffective. Critical for damper sizing.", checked: false, status: "pending", notes: "" },
+                    { id: "c7", category: "Grid", label: "Grid Frequency Variation", requirement: "Analyze +/- 5% Grid Freq", insight: "Grid frequency isn't always exactly 60Hz. Analyze excitation lines at 57Hz and 63Hz to ensure margins hold during grid fluctuations.", checked: false, status: "pending", notes: "" },
+                    { id: "c8", category: "Speed", label: "Min Continuous Speed", requirement: "Check margin at Turndown", insight: "Don't just check at 100% speed. Ensure separation margins exist at the Minimum Governor Speed (turndown) where the compressor might run for hours.", checked: false, status: "pending", notes: "" },
+                    { id: "c9", category: "VFD", label: "VFD Inter-harmonics", requirement: "Non-integer harmonics check", insight: "Modern VFDs produce inter-harmonics (non-integers) that can excite TNFs. Ensure the VFD vendor provided a full spectrum, not just '6-pulse' assumptions.", checked: false, status: "pending", notes: "" }
+                ]
+            },
+            transient: {
+                id: "transient",
+                title: "3. Transient & Stress Analysis",
+                iconKey: "AlertTriangle",
+                items: [
+                    { id: "t1", category: "Short Circuit", label: "2 & 3 Phase Short Circuit", requirement: "SF > 1.0 vs Yield (API 617 4.8.2.9)", insight: "3-Phase SC is usually the worst case for torque magnitude (often 3-5x nominal). Shafts must not yield. Couplings must not slip (if hydraulically fitted) at this peak torque.", checked: false, status: "pending", notes: "" },
+                    { id: "t2", category: "Startup", label: "Synchronous Motor Startup", requirement: "Cumulative Fatigue Usage < 1.0", insight: "Sync motors produce oscillating torque (2x slip frequency) during start. Analysis must simulate the full startup from 0 to 100% speed. Total fatigue damage (Palmgren-Miner) must be < 1.0 for the specified number of starts (e.g., 5000).", checked: false, status: "pending", notes: "" },
+                    { id: "t3", category: "Infinite Life", label: "Goodman Diagram Evaluation", requirement: "SF > 2.0 (API 617 4.8.2.7)", insight: "For continuous operation interferences, plot Mean Stress (x-axis) vs Alternating Stress (y-axis). The operating point must be inside the material endurance limit with a Safety Factor of at least 2.0.", checked: false, status: "pending", notes: "" },
+                    { id: "t4", category: "Coupling", label: "Coupling Capacity Check", requirement: "Torque Rating Validation", insight: "Ensure Coupling 'Max Transient Torque' > Short Circuit Peak. Ensure Coupling 'Continuous Torque' > Max Motor Torque (incl Service Factor).", checked: false, status: "pending", notes: "" },
+                    { id: "t5", category: "Trip", label: "Loss of Load / Trip", requirement: "Reverse Torque Check", insight: "If the compressor trips while the motor has high inertia, torque can reverse direction rapidly. Check if keyways/couplings can handle this bidirectional shock.", checked: false, status: "pending", notes: "" },
+                    { id: "t6", category: "Sync", label: "Out-of-Phase Synchronization", requirement: "Worst-Case Breaker Reclose", insight: "For synchronous motors: Reclosing the breaker when phases are 120-180° out of phase creates massive torque. Has this 'maloperation' scenario been checked?", checked: false, status: "pending", notes: "" },
+                    { id: "t7", category: "Fatigue", label: "Cumulative Damage Limit", requirement: "Miner's Rule < 0.1 (Conservative)", insight: "While <1.0 is the theoretical limit, robust design usually targets <0.1 cumulative damage factor to account for material scatter and modeling uncertainties.", checked: false, status: "pending", notes: "" },
+                    { id: "t8", category: "SCF", label: "Stress Concentration Factors", requirement: "Apply SCF at Keyways/Fillets", insight: "Calculated stress is nominal. Ensure Stress Concentration Factors (SCF) (typically 2.0 - 3.0) are applied at stress risers like keyways and shoulder fillets.", checked: false, status: "pending", notes: "" },
+                    { id: "t9", category: "Plasticity", label: "Limited Plastic Deformation", requirement: "Permissible Strain < 0.2%", insight: "For rare transient events (like short circuits), API allows limited plastic deformation. If yielding occurs, verify the strain is minimal and won't cause unbalance.", checked: false, status: "pending", notes: "" }
+                ]
+            },
+            coupling_dwg: {
+                id: "coupling_dwg",
+                title: "4. Coupling Drawing Check (API 671)",
+                iconKey: "Settings",
+                items: [
+                    { id: "d1", category: "Fits", label: "Hydraulic Fit Details", requirement: "Taper 1:24 (preferred) or 1:50", insight: "Drawing must specify: Contact area req (>70-80%), Pull-up distance, Dilation pressure (for removal), and Residual contact pressure (must exceed torque + moment + centrifugal lift-off).", checked: false, status: "pending", notes: "" },
+                    { id: "d2", category: "Solo Plate", label: "Solo Run / Moment Simulator", requirement: "Included in BOM", insight: "When motor runs uncoupled (Solo Run), the shaft end needs a weight to simulate the coupling hub mass/moment to prevent rotordynamic instability. Is this 'Solo Plate' provided?", checked: false, status: "pending", notes: "" },
+                    { id: "d3", category: "Balancing", label: "Balance Standard", requirement: "AGMA 9000 Class 9 / ISO 1940 G1.0", insight: "For high speed (>3600 rpm), usually Component Balance + Assembly Check Balance is required. Mandrel balancing is preferred for hubs. Verify balance holes are prohibited in the effective spacer length.", checked: false, status: "pending", notes: "" },
+                    { id: "d4", category: "Geometry", label: "Puller Holes & Overhang", requirement: "Maintenance Features", insight: "Are threaded puller holes provided on the hub face? Is the 'Shaft End to Hub Face' dimension defined (Overhang)? Verify reduced keys are used if keyway exists (Half-key convention).", checked: false, status: "pending", notes: "" },
+                    { id: "d5", category: "Shims", label: "Shim Pack / Disc Pack", requirement: "Pre-stretch / Compression", insight: "Some couplings require the spacer to be compressed/stretched during install to account for thermal growth. Check the 'Gap' dimension vs 'Free Length'.", checked: false, status: "pending", notes: "" },
+                    { id: "d6", category: "Keyway", label: "Keyway Fillet Radii", requirement: "Specified Radii (No Sharp Corners)", insight: "If the coupling is keyed, the drawing must specify fillet radii in the keyway corners to reduce stress concentration. Sharp corners are fatigue cracks waiting to happen.", checked: false, status: "pending", notes: "" },
+                    { id: "d7", category: "VFD", label: "Electrical Insulation", requirement: "Insulated Hub/Spacer", insight: "For VFD drives, the coupling is often the electrical break to prevent eddy currents from arcing through compressor bearings. Verify insulation washers/sleeves are shown.", checked: false, status: "pending", notes: "" },
+                    { id: "d8", category: "Weight", label: "Center of Gravity (CG)", requirement: "Verify Overhung Moment", insight: "The drawing must explicitly state the Weight and the Center of Gravity relative to the shaft end. This calculates the 'Overhung Moment' which affects rotordynamics.", checked: false, status: "pending", notes: "" },
+                    { id: "d9", category: "Dynamics", label: "Axial Natural Frequency (ANF)", requirement: "ANF Calculation > Operating Range", insight: "Disc couplings act as axial springs. Ensure the ANF is calculated and has a 20% margin from operating speed/2x speed to prevent axial resonance.", checked: false, status: "pending", notes: "" },
+                    { id: "d10", category: "Material", label: "Hub Hardness", requirement: "Hardness for Hydraulic Removal", insight: "Hubs removed hydraulically need sufficient hardness (e.g., 30-35 HRC) to prevent galling or seizing on the shaft during removal.", checked: false, status: "pending", notes: "" }
+                ]
+            },
+            datasheet: {
+                id: "datasheet",
+                title: "5. Coupling Datasheet (API 671)",
+                iconKey: "Table",
+                items: [
+                    { id: "ds1", category: "Rating", label: "Torque Ratings", requirement: "Selection Service Factor", insight: "API 671 typically requires min Service Factor 1.5. Max Continuous Torque Rating of coupling must be > (Motor Rated Torque x 1.5).", checked: false, status: "pending", notes: "" },
+                    { id: "ds2", category: "Misalignment", label: "Misalignment Capacity", requirement: "Combined limit > Machine Growth", insight: "Check capacity for: Axial (+/-), Angular (deg), and Parallel Offset (mm). The coupling must handle the 'Combined' worst case of thermal growth + mechanical tolerance.", checked: false, status: "pending", notes: "" },
+                    { id: "ds3", category: "Material", label: "Material Grades", requirement: "42CrMo4 / AISI 4140 or better", insight: "Hubs/Spacers usually high strength alloy steel. Shims usually Stainless Steel (301/316) or Inconel. Bolts usually 12.9 grade or AerMet 100 for high performance.", checked: false, status: "pending", notes: "" },
+                    { id: "ds4", category: "Windage", label: "Windage & Heat", requirement: "Guard Temperature check", insight: "For high speed couplings, windage creates significant heat. Check if the coupling design is 'Low Windage' (smooth surface) or if the guard requires ventilation.", checked: false, status: "pending", notes: "" },
+                    { id: "ds5", category: "Tolerance", label: "Inertia Tolerance", requirement: "Max Deviation +/- 5%", insight: "Datasheet should state the tolerance on the quoted Mass Moment of Inertia. Large deviations invalidate the Torsional Analysis.", checked: false, status: "pending", notes: "" },
+                    { id: "ds6", category: "Capacity", label: "Peak Overload Capacity", requirement: "115% of Max Transient", insight: "API 671 requires the coupling to survive 115% of the system's worst-case transient torque (e.g., Short Circuit) without failure.", checked: false, status: "pending", notes: "" },
+                    { id: "ds7", category: "Factor", label: "Service Factor Base", requirement: "Applied to Driver Rating", insight: "Verify the Service Factor (e.g., 1.5) is applied to the Driver (Motor) Nameplate Rating, NOT the absorbed power of the compressor.", checked: false, status: "pending", notes: "" },
+                    { id: "ds8", category: "Stiffness", label: "Axial Stiffness (Ka)", requirement: "Review Thrust Load Impact", insight: "High axial stiffness transmits thermal growth forces to the machine thrust bearings. Verify Ka is low enough to keep thrust loads within machine limits.", checked: false, status: "pending", notes: "" },
+                    { id: "ds9", category: "Lateral", label: "Lateral Critical Speed Impact", requirement: "Coupling Half Weight", insight: "The 'Coupling Half Weight' acts as an overhung mass. Verify this specific weight does not drop the machine's 2nd Critical Speed into the operating range.", checked: false, status: "pending", notes: "" }
+                ]
+            }
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-200 animate-[fadeIn_0.2s_ease-out]">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-100">
+                            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <Icons.X />
+                            </button>
+                        </div>
+                        <div className="p-4">{children}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const TVAReviewTool = () => {
+            const [activeSection, setActiveSection] = useState('model');
+            const [checklistData, setChecklistData] = useState(DEFAULT_DATA);
+            const [projectDetails, setProjectDetails] = useState(DEFAULT_PROJECT_DETAILS);
+            const [progress, setProgress] = useState(0);
+            const [searchQuery, setSearchQuery] = useState("");
+            const [saving, setSaving] = useState(false);
+            const [user, setUser] = useState(null);
+
+            // Modal States
+            const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
+            const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+            const [newSectionData, setNewSectionData] = useState({ title: '', iconKey: 'Shield' });
+            const [newItemData, setNewItemData] = useState({ category: '', label: '', requirement: '', insight: '' });
+            
+            const fileInputRef = useRef(null);
+            
+            // --- FIREBASE INTEGRATION ---
+            
+            // 1. Listen for Auth State
+            useEffect(() => {
+                const checkAuth = setInterval(() => {
+                    if (window.Core && window.Core.user) {
+                        setUser(window.Core.user);
+                        clearInterval(checkAuth);
+                        loadFromFirebase(window.Core.user.uid);
+                    }
+                }, 500);
+                return () => clearInterval(checkAuth);
+            }, []);
+
+            // 2. Load Data
+            const loadFromFirebase = (uid) => {
+                if(!window.Core || !window.Core.db) return;
+                
+                const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('tva_tool');
+                
+                docRef.get().then((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if(data.checklist) setChecklistData(data.checklist);
+                        if(data.project) setProjectDetails(data.project);
+                    } else {
+                        // First time? Save default
+                        saveToFirebase(checklistData, projectDetails, uid);
+                    }
+                }).catch(err => console.error("Load Error:", err));
+            };
+
+            // 3. Debounced Save (Native implementation)
+            function debounce(func, wait) {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), wait);
+                };
+            }
+            const saveRef = useRef(debounce((d, p, u) => saveToFirebase(d, p, u), 2000));
+
+            const saveToFirebase = async (data, proj, uid) => {
+                if(!window.Core || !window.Core.db) return;
+                setSaving(true);
+                try {
+                    await window.Core.db.collection('users').doc(uid).collection('app_data').doc('tva_tool').set({
+                        checklist: data,
+                        project: proj,
+                        lastModified: new Date().toISOString()
+                    }, { merge: true });
+                    setTimeout(() => setSaving(false), 500);
+                } catch(e) {
+                    console.error("Save failed", e);
+                    setSaving(false);
+                }
+            };
+
+            // Trigger Save on Change
+            useEffect(() => {
+                if(user) {
+                    setSaving(true); // Show immediate feedback
+                    saveRef.current(checklistData, projectDetails, user.uid);
+                    calculateProgress();
+                }
+            }, [checklistData, projectDetails, user]);
+
+
+            const calculateProgress = () => {
+                let total = 0;
+                let checked = 0;
+                Object.values(checklistData).forEach(section => {
+                    section.items.forEach(item => {
+                        total++;
+                        if (item.checked) checked++;
+                    });
+                });
+                setProgress(total === 0 ? 0 : Math.round((checked / total) * 100));
+            };
+
+            const resetData = () => {
+                if (confirm("Reset all data to default? This cannot be undone.")) {
+                    setChecklistData(DEFAULT_DATA);
+                    setProjectDetails(DEFAULT_PROJECT_DETAILS);
+                    // Force immediate save for reset
+                    if(user) saveToFirebase(DEFAULT_DATA, DEFAULT_PROJECT_DETAILS, user.uid);
+                }
+            };
+
+            // --- EXPORT/IMPORT LOGIC ---
+            
+            const exportJSON = () => {
+                const dataToSave = {
+                    project: projectDetails,
+                    checklist: checklistData
+                };
+                const dataStr = JSON.stringify(dataToSave, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `TVA_Review_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleImportClick = () => {
+                if(fileInputRef.current) fileInputRef.current.click();
+            };
+
+            const handleImportFile = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (importedData && typeof importedData === 'object') {
+                            if (confirm("Overwrite current data with imported file?")) {
+                                let newChecklist = importedData.checklist || importedData; // fallback
+                                let newProject = importedData.project || DEFAULT_PROJECT_DETAILS;
+                                
+                                setChecklistData(newChecklist);
+                                setProjectDetails(newProject);
+                                
+                                // Save immediately to cloud
+                                if(user) saveToFirebase(newChecklist, newProject, user.uid);
+                                alert("Import successful!");
+                            }
+                        } else {
+                            alert("Invalid file format.");
+                        }
+                    } catch (error) {
+                        console.error("Import error:", error);
+                        alert("Failed to parse JSON.");
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const exportPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Header
+                doc.setFontSize(22);
+                doc.setTextColor(41, 128, 185); 
+                doc.text("Deep Dive: TVA & Coupling Review", 14, 20);
+                
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 26);
+                
+                // Project Details
+                doc.setDrawColor(200);
+                doc.setFillColor(245, 247, 250);
+                doc.rect(14, 32, 182, 50, 'F');
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text("Project Information", 18, 40);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(10);
+                
+                doc.text(`End Customer: ${projectDetails.endCustomer}`, 18, 48);
+                doc.text(`Project Name: ${projectDetails.project}`, 18, 54);
+                doc.text(`Specs: ${projectDetails.specifications}`, 18, 60);
+                doc.text(`Train Config: ${projectDetails.configuration}`, 18, 66);
+                
+                doc.text(`Service: ${projectDetails.service}`, 110, 48);
+                doc.text(`Manufacturer: ${projectDetails.manufacturer}`, 110, 54);
+                doc.text(`Model: ${projectDetails.model}`, 110, 60);
+
+                let yPos = 90;
+
+                Object.values(checklistData).forEach(section => {
+                    if (yPos > 270) { doc.addPage(); yPos = 20; }
+                    doc.setFontSize(14);
+                    doc.setTextColor(0);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(section.title, 14, yPos);
+                    yPos += 5;
+
+                    const tableData = section.items.map(item => [
+                        item.label,
+                        item.requirement,
+                        item.status.toUpperCase(),
+                        item.notes || "-"
+                    ]);
+
+                    doc.autoTable({
+                        startY: yPos,
+                        head: [['Item', 'Requirement', 'Status', 'Notes']],
+                        body: tableData,
+                        theme: 'grid',
+                        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+                        styles: { fontSize: 8, cellPadding: 2 },
+                        columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 50 }, 2: { cellWidth: 20 }, 3: { cellWidth: 'auto' } },
+                        didDrawPage: (data) => { yPos = data.cursor.y + 15; }
+                    });
+                    yPos = doc.lastAutoTable.finalY + 15;
+                });
+
+                doc.save(`TVA_Review_${projectDetails.project || 'Report'}.pdf`);
+            };
+
+            const exportExcel = () => {
+                const projectData = [
+                    { Field: "End Customer", Value: projectDetails.endCustomer },
+                    { Field: "Project Name", Value: projectDetails.project },
+                    { Field: "Review Date", Value: new Date().toLocaleString() }
+                ];
+                const flattenedData = [];
+                Object.values(checklistData).forEach(section => {
+                    section.items.forEach(item => {
+                        flattenedData.push({
+                            Section: section.title,
+                            Category: item.category,
+                            Item: item.label,
+                            Requirement: item.requirement,
+                            Status: item.status.toUpperCase(),
+                            Notes: item.notes
+                        });
+                    });
+                });
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projectData), "Info");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flattenedData), "Checklist");
+                XLSX.writeFile(wb, `TVA_Review_${projectDetails.project || 'Data'}.xlsx`);
+            };
+
+            // --- SEARCH LOGIC ---
+            const getSearchResults = () => {
+                if (!searchQuery.trim()) return null;
+                const lowerQuery = searchQuery.toLowerCase();
+                const terms = lowerQuery.split(/\s+/).filter(t => t.length > 0);
+                const results = [];
+                Object.entries(checklistData).forEach(([key, section]) => {
+                    const matchingItems = section.items.filter(item => {
+                        const textContent = `${item.label} ${item.requirement} ${item.insight} ${item.category} ${item.notes || ''}`.toLowerCase();
+                        return terms.every(term => textContent.includes(term));
+                    });
+                    if (matchingItems.length > 0) results.push({ ...section, items: matchingItems, originalKey: key });
+                });
+                return results;
+            };
+
+            // --- HANDLERS ---
+            const handleCheck = (sectionKey, itemId) => {
+                setChecklistData(prev => {
+                    const newData = JSON.parse(JSON.stringify(prev));
+                    const item = newData[sectionKey].items.find(i => i.id === itemId);
+                    if(item) {
+                        item.checked = !item.checked;
+                        item.status = item.checked ? 'compliant' : 'pending';
+                    }
+                    return newData;
+                });
+            };
+
+            const handleStatusChange = (sectionKey, itemId, newStatus) => {
+                setChecklistData(prev => {
+                    const newData = JSON.parse(JSON.stringify(prev));
+                    const item = newData[sectionKey].items.find(i => i.id === itemId);
+                    if(item) item.status = newStatus;
+                    return newData;
+                });
+            };
+
+            const handleNoteChange = (sectionKey, itemId, note) => {
+                setChecklistData(prev => {
+                    const newData = JSON.parse(JSON.stringify(prev));
+                    const item = newData[sectionKey].items.find(i => i.id === itemId);
+                    if(item) item.notes = note;
+                    return newData;
+                });
+            };
+
+            const handleAddSection = (e) => {
+                e.preventDefault();
+                const newId = `custom_${Date.now()}`;
+                setChecklistData(prev => ({
+                    ...prev,
+                    [newId]: { id: newId, title: newSectionData.title, iconKey: newSectionData.iconKey, isCustom: true, items: [] }
+                }));
+                setActiveSection(newId);
+                setIsSectionModalOpen(false);
+            };
+
+            const handleAddItem = (e) => {
+                e.preventDefault();
+                setChecklistData(prev => {
+                    const newData = JSON.parse(JSON.stringify(prev));
+                    newData[activeSection].items.push({
+                        id: `item_${Date.now()}`,
+                        category: newItemData.category || "General",
+                        label: newItemData.label,
+                        requirement: newItemData.requirement,
+                        insight: newItemData.insight,
+                        checked: false, status: "pending", notes: "", isCustom: true
+                    });
+                    return newData;
+                });
+                setIsItemModalOpen(false);
+            };
+
+            const ActiveIcon = Icons[checklistData[activeSection]?.iconKey || 'Shield'];
+            const searchResults = getSearchResults();
+
+            return (
+                <div className="p-6 max-w-7xl mx-auto">
+                    
+                    {/* Hidden Input for Import */}
+                    <input type="file" ref={fileInputRef} onChange={handleImportFile} className="hidden" accept=".json" />
+
+                    {/* Header */}
+                    <header className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <a href="index.html" className="text-slate-400 hover:text-blue-600 transition-colors text-sm font-medium">← Dashboard</a>
+                                        <span className="text-slate-300">/</span>
+                                        <h1 className="text-2xl font-bold text-slate-900">TVA Deep Review</h1>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-slate-500 text-sm">Cloud Synced Tool</p>
+                                        {saving ? 
+                                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="animate-pulse">●</span> Saving...</span> : 
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">● Saved</span>
+                                        }
+                                    </div>
+                                </div>
+                                
+                                {/* Search */}
+                                <div className="relative w-full md:w-96 group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500">
+                                        <Icons.Search />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        className="block w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all shadow-sm sm:text-sm"
+                                        placeholder="Search requirements..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                    {searchQuery && (
+                                        <button onClick={() => setSearchQuery("")} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                                            <Icons.X />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Actions Toolbar */}
+                            <div className="flex flex-col md:flex-row justify-end items-center gap-4 pt-2 border-t border-slate-100 mt-2">
+                                <div className="flex flex-wrap items-center gap-2 justify-end w-full">
+                                    <button onClick={handleImportClick} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200">
+                                        <Icons.Upload /> Import
+                                    </button>
+                                    <button onClick={exportJSON} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
+                                        <Icons.Download /> Backup
+                                    </button>
+                                    <button onClick={resetData} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200">
+                                        <Icons.RotateCcw /> Reset
+                                    </button>
+                                    <div className="h-6 w-px bg-slate-200 mx-1 hidden md:block"></div>
+                                    <button onClick={exportExcel} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200">
+                                        <Icons.Table /> Excel
+                                    </button>
+                                    <button onClick={exportPDF} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+                                        <Icons.FileText /> PDF Report
+                                    </button>
+                                </div>
+                                
+                                <div className="flex items-center gap-3 w-full md:w-auto min-w-[200px] justify-end">
+                                    <span className="text-xs font-bold text-slate-500 whitespace-nowrap">{progress}% Reviewed</span>
+                                    <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                                        <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Project Info */}
+                    {!searchQuery && (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <Icons.Info /> Project Details
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {['endCustomer', 'project', 'manufacturer', 'model', 'specifications'].map(field => (
+                                <div key={field}>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1 capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</label>
+                                    <input 
+                                        type="text" 
+                                        value={projectDetails[field]}
+                                        onChange={(e) => setProjectDetails({...projectDetails, [field]: e.target.value})}
+                                        className="w-full text-sm p-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Configuration</label>
+                                <select 
+                                    value={projectDetails.configuration}
+                                    onChange={(e) => setProjectDetails({...projectDetails, configuration: e.target.value})}
+                                    className="w-full text-sm p-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+                                >
+                                    {TRAIN_CONFIGURATIONS.map(cfg => <option key={cfg} value={cfg}>{cfg}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    )}
+
+                    {/* Main Content Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        
+                        {/* Sidebar */}
+                        <nav className="lg:col-span-1 space-y-2">
+                            {Object.entries(checklistData).map(([key, section]) => {
+                                const SectionIcon = Icons[section.iconKey] || Icons.Shield;
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => { setActiveSection(key); setSearchQuery(""); }}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                                            activeSection === key && !searchQuery
+                                            ? 'bg-blue-600 text-white shadow-md' 
+                                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-transparent hover:border-slate-200'
+                                        }`}
+                                    >
+                                        <SectionIcon />
+                                        <span className="font-medium text-sm">{section.title}</span>
+                                    </button>
+                                );
+                            })}
+                            <button onClick={() => setIsSectionModalOpen(true)} className="w-full py-3 mt-4 text-sm text-slate-500 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-500 transition-colors">
+                                + Add Section
+                            </button>
+                            
+                            <div className="mt-8 p-4 bg-amber-50 rounded-lg border border-amber-100 shadow-sm">
+                                <h3 className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                                    <Icons.AlertTriangle /> Critical Reminder
+                                </h3>
+                                <p className="text-xs text-amber-700 leading-relaxed mb-2">
+                                    <strong>Separation Margins:</strong> If TNFs fall within 10% of operating speed, a Damped Response Analysis is MANDATORY per API 617.
+                                </p>
+                            </div>
+                        </nav>
+
+                        {/* Checklist */}
+                        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            
+                            {/* SEARCH RESULTS VIEW */}
+                            {searchQuery ? (
+                                <div>
+                                    <div className="p-4 bg-blue-50 border-b border-blue-100">
+                                        <h2 className="font-bold text-blue-900">
+                                            Found {searchResults ? searchResults.reduce((acc, curr) => acc + curr.items.length, 0) : 0} matches
+                                        </h2>
+                                    </div>
+                                    {searchResults && searchResults.map(section => (
+                                        <div key={section.id} className="border-b border-slate-100 last:border-0">
+                                            <div className="px-6 py-2 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                Found in: {section.title}
+                                            </div>
+                                            {section.items.map(item => (
+                                                <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                                                    {/* Render Item (Simplified for brevity, reusing structure) */}
+                                                    <div className="flex items-start gap-4">
+                                                        <button onClick={() => handleCheck(section.originalKey, item.id)} className={`mt-1 flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${item.checked ? 'bg-blue-600 border-blue-600' : 'border-slate-300 hover:border-blue-400'}`}>
+                                                            {item.checked && <Icons.CheckCircle className="text-white w-4 h-4" />}
+                                                        </button>
+                                                        <div className="flex-1">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.category}</span>
+                                                                    <h3 className="text-base font-bold text-slate-800 mt-1">{item.label}</h3>
+                                                                </div>
+                                                                <select value={item.status} onChange={(e) => handleStatusChange(section.originalKey, item.id, e.target.value)} className={`text-xs font-bold uppercase rounded px-2 py-1 border-0 focus:ring-0 cursor-pointer ${item.status === 'compliant' ? 'bg-green-100 text-green-700' : item.status === 'deviation' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                                    <option value="pending">Pending</option><option value="compliant">Compliant</option><option value="deviation">Deviation</option>
+                                                                </select>
+                                                            </div>
+                                                            <p className="text-sm text-slate-600 mb-2"><strong className="text-slate-900">Req:</strong> {item.requirement}</p>
+                                                            <textarea value={item.notes} onChange={(e) => handleNoteChange(section.originalKey, item.id, e.target.value)} placeholder="Observations..." className="w-full text-sm p-2 bg-white border border-slate-200 rounded focus:border-blue-500 outline-none" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                /* NORMAL VIEW */
+                                checklistData[activeSection] && (
+                                <>
+                                    <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                            <ActiveIcon /> {checklistData[activeSection].title}
+                                        </h2>
+                                        <button onClick={() => setIsItemModalOpen(true)} className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-sm">
+                                            + Add Item
+                                        </button>
+                                    </div>
+
+                                    <div className="divide-y divide-slate-100">
+                                        {checklistData[activeSection].items.map((item) => (
+                                            <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex items-start gap-4">
+                                                    <button onClick={() => handleCheck(activeSection, item.id)}
+                                                        className={`mt-1 flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                                                            item.checked ? 'bg-blue-600 border-blue-600' : 'border-slate-300 hover:border-blue-400'
+                                                        }`}
+                                                    >
+                                                        {item.checked && <Icons.CheckCircle className="text-white w-4 h-4" />}
+                                                    </button>
+
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.category}</span>
+                                                                <h3 className="text-base font-bold text-slate-800 mt-1">{item.label}</h3>
+                                                            </div>
+                                                            <select
+                                                                value={item.status}
+                                                                onChange={(e) => handleStatusChange(activeSection, item.id, e.target.value)}
+                                                                className={`text-xs font-bold uppercase rounded px-2 py-1 border-0 focus:ring-0 cursor-pointer ${
+                                                                    item.status === 'compliant' ? 'bg-green-100 text-green-700' :
+                                                                    item.status === 'deviation' ? 'bg-red-100 text-red-700' :
+                                                                    'bg-slate-100 text-slate-500'
+                                                                }`}
+                                                            >
+                                                                <option value="pending">Pending</option>
+                                                                <option value="compliant">Compliant</option>
+                                                                <option value="deviation">Deviation</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <p className="text-sm text-slate-600 mb-2"><strong className="text-slate-900">Req:</strong> {item.requirement}</p>
+                                                        {item.insight && <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded mb-3 flex items-start gap-1"><Icons.Info /> {item.insight}</p>}
+
+                                                        <textarea
+                                                            value={item.notes}
+                                                            onChange={(e) => handleNoteChange(activeSection, item.id, e.target.value)}
+                                                            placeholder="Observations..."
+                                                            className="w-full text-sm p-2 bg-white border border-slate-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none h-16"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {checklistData[activeSection].items.length === 0 && <div className="p-8 text-center text-slate-400">No items yet.</div>}
+                                    </div>
+                                </>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Add Section Modal */}
+                    <Modal isOpen={isSectionModalOpen} onClose={() => setIsSectionModalOpen(false)} title="New Section">
+                        <form onSubmit={handleAddSection} className="space-y-4">
+                            <input autoFocus type="text" placeholder="Section Title" required className="w-full p-2 border rounded" value={newSectionData.title} onChange={e => setNewSectionData({...newSectionData, title: e.target.value})} />
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setIsSectionModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                                <button type="submit" className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Create</button>
+                            </div>
+                        </form>
+                    </Modal>
+
+                    {/* Add Item Modal */}
+                    <Modal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} title="New Check Point">
+                        <form onSubmit={handleAddItem} className="space-y-3">
+                            <input autoFocus type="text" placeholder="Label (e.g. VFD Check)" required className="w-full p-2 border rounded" value={newItemData.label} onChange={e => setNewItemData({...newItemData, label: e.target.value})} />
+                            <input type="text" placeholder="Category (e.g. General)" className="w-full p-2 border rounded" value={newItemData.category} onChange={e => setNewItemData({...newItemData, category: e.target.value})} />
+                            <textarea placeholder="Requirement" required className="w-full p-2 border rounded" value={newItemData.requirement} onChange={e => setNewItemData({...newItemData, requirement: e.target.value})} />
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setIsItemModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                                <button type="submit" className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Add</button>
+                            </div>
+                        </form>
+                    </Modal>
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TVAReviewTool />);
+    </script>
+</body>
+</html>

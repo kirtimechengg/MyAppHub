@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Minutes (Cloud)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { 
+                    colors: { slate: { 850: '#151f2e' } },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Table Styles */
+        .mom-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mom-table th { 
+            background-color: #f8fafc; position: sticky; top: 0; z-index: 20;
+            text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: 700; letter-spacing: 0.05em;
+            padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid #e2e8f0; 
+            white-space: nowrap; overflow: hidden; user-select: none;
+        }
+        .mom-table td { padding: 0.5rem 1rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; transition: background-color 0.1s; }
+        .mom-table tr:hover td { background-color: #f8fafc; }
+        
+        .dark .mom-table th { background-color: #1e293b; color: #94a3b8; border-color: #334155; }
+        .dark .mom-table td { border-color: #334155; color: #cbd5e1; }
+        .dark .mom-table tr:hover td { background-color: #1e293b; }
+        
+        .col-resizer { position: absolute; top: 0; right: 0; width: 4px; height: 100%; cursor: col-resize; z-index: 30; transition: background-color 0.2s; }
+        .col-resizer:hover, .col-resizer.resizing { background: #6366f1; }
+
+        .cell-input { 
+            width: 100%; background: transparent; padding: 0.4rem 0.5rem; border: 1px solid transparent; 
+            border-radius: 6px; outline: none; transition: all 0.2s; font-size: 0.875rem; 
+        }
+        .cell-input:hover { background-color: #fff; border-color: #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .cell-input:focus { background-color: #fff; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+        .dark .cell-input:hover { background-color: #334155; border-color: #475569; }
+        .dark .cell-input:focus { background-color: #334155; border-color: #6366f1; }
+        textarea.cell-input { resize: none; overflow: hidden; min-height: 2.5rem; height: auto; line-height: 1.5; }
+
+        /* Status Pills */
+        select.status-Open { background-color: #fef2f2; color: #dc2626; border-color: #fecaca; font-weight: 600; text-align: center; border-radius: 999px; padding: 0.2rem 0.8rem; height: 28px; width: auto; appearance: none; cursor: pointer; }
+        select.status-Closed { background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0; font-weight: 600; text-align: center; border-radius: 999px; padding: 0.2rem 0.8rem; height: 28px; width: auto; appearance: none; cursor: pointer; }
+        .dark select.status-Open { background-color: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+        .dark select.status-Closed { background-color: #052e16; color: #86efac; border-color: #14532d; }
+        
+        .btn-modern { @apply flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all transform active:scale-95; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
+        .pill { @apply px-3 py-1 rounded-full text-xs font-semibold border transition cursor-pointer select-none flex items-center gap-1.5; }
+        
+        /* Loader */
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #6366f1; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-200 transition-colors duration-200 font-sans">
+
+    <!-- 1. GLOBAL NAVIGATION -->
+    <div id="global-nav"></div>
+
+    <!-- 2. TOOL TOOLBAR -->
+    <nav class="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-6 py-3 flex justify-between items-center z-20 shadow-sm shrink-0">
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                <i class="fas fa-clipboard-list text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight tracking-tight">Meeting Minutes</h1>
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+                    <span id="status-indicator" class="flex items-center gap-1"><i class="fas fa-cloud"></i> Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="relative mr-2">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                <input type="text" placeholder="Search points..." onkeyup="searchMoM(this.value)" class="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-700 border-none rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white w-64 transition-all">
+            </div>
+            <button onclick="clearAll()" class="w-10 h-10 rounded-full bg-white dark:bg-slate-700 hover:text-red-500 hover:border-red-200 border border-slate-200 dark:border-slate-600 transition flex items-center justify-center text-slate-400" title="Clear All Data"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col p-6 overflow-hidden">
+        
+        <!-- Controls & Filters -->
+        <div class="flex-shrink-0 flex flex-col gap-5 mb-5">
+            
+            <!-- Filters Bar (Pills) -->
+            <div class="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 text-sm">
+                
+                <div class="flex items-center gap-3 border-r border-slate-200 dark:border-slate-700 pr-4">
+                    <div onclick="resetMomFilters()" class="cursor-pointer font-bold text-slate-700 dark:text-white hover:text-indigo-600 transition flex items-center gap-2">
+                        <i class="fas fa-layer-group text-slate-400"></i> Total: <span id="mom-stat-total" class="text-lg">0</span>
+                    </div>
+                    <span id="filter-active-indicator" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hidden font-bold uppercase tracking-wider">Filtered</span>
+                </div>
+
+                <div id="filter-pill-container" class="flex flex-wrap gap-2 items-center flex-1">
+                    <!-- Pills injected here -->
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Supplier Minutes</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Manage action items and technical points</p>
+                </div>
+                
+                <div class="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm gap-1">
+                    <!-- Font Controls -->
+                    <div class="flex items-center border-r border-slate-200 dark:border-slate-600 pr-2 mr-1">
+                        <button onclick="changeFontSize(-1)" class="w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-500">A-</button>
+                        <button onclick="changeFontSize(1)" class="w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-500">A+</button>
+                    </div>
+
+                    <!-- Data Tools Group -->
+                    <div class="flex items-center gap-1">
+                        <button onclick="openSettingsModal()" class="h-9 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition" title="Settings"><i class="fas fa-cog"></i></button>
+                        
+                        <div class="h-5 w-px bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                        
+                        <button onclick="downloadMoMTemplate()" class="btn-modern text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"><i class="fas fa-download text-emerald-500"></i> Template</button>
+                        <label class="btn-modern text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs cursor-pointer">
+                            <i class="fas fa-file-import text-orange-500"></i> Import
+                            <input type="file" onchange="initiateImport(this)" class="hidden" accept=".xlsx, .xls, .csv">
+                        </label>
+                        <button onclick="exportMoMExcel()" class="btn-modern text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"><i class="fas fa-file-excel text-green-600"></i> Excel</button>
+                        <button onclick="exportMoMPDF()" class="btn-modern text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"><i class="fas fa-file-pdf text-red-500"></i> PDF</button>
+                    </div>
+
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-600 mx-1"></div>
+
+                    <button onclick="addMoMRoW()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-md shadow-indigo-200 dark:shadow-none transition flex items-center gap-2 transform active:scale-95 ml-1">
+                        <i class="fas fa-plus"></i> Add Point
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div class="overflow-auto h-full w-full relative">
+                <table class="mom-table text-sm min-w-max" id="mom-table-el">
+                    <thead>
+                        <tr>
+                            <th id="col-sr" style="width: 60px;" onclick="sortMoM('date')">Sr. <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-tag" style="width: 120px;" onclick="sortMoM('tag')">Tag <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-short" style="width: 250px;" onclick="sortMoM('shortDesc')">Short Desc <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-desc" style="width: 300px;" onclick="sortMoM('desc')">Description <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-resp" style="width: 300px;" onclick="sortMoM('supplierResponse')">Response <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-action" style="width: 150px;" onclick="sortMoM('actionBy')">Action <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-forecast" style="width: 130px;" onclick="sortMoM('forecastDate')">Forecast <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-status" style="width: 110px;" onclick="sortMoM('status')">Status <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th id="col-prio" style="width: 90px;" onclick="sortMoM('priority')">Priority <i class="fas fa-sort ml-1 opacity-30 hover:opacity-100"></i><div class="col-resizer"></div></th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="mom-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 transition-opacity opacity-0 pointer-events-none">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 w-[600px] max-w-[90vw] flex flex-col max-h-[85vh] border border-white/10 transform scale-95 transition-transform">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+                <h3 class="text-xl font-bold text-slate-800 dark:text-white">System Settings</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-8" id="settings-content"></div>
+            <div class="flex justify-end mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <button onclick="closeSettingsModal()" class="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 w-[500px]">
+            <h3 class="text-xl font-bold mb-2 text-slate-800 dark:text-white">Import Data</h3>
+            <p class="text-slate-500 text-sm mb-6">Choose how to handle the new records.</p>
+            <div class="space-y-3">
+                <button onclick="processImport('replace')" class="w-full text-left p-4 border border-indigo-100 bg-indigo-50/50 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition group">
+                    <span class="font-bold text-indigo-700 block">Replace All</span>
+                    <span class="text-xs text-indigo-500">Clears current list and imports new data</span>
+                </button>
+                <button onclick="processImport('append')" class="w-full text-left p-4 border border-emerald-100 bg-emerald-50/50 rounded-xl hover:bg-emerald-50 hover:border-emerald-300 transition group">
+                    <span class="font-bold text-emerald-700 block">Append Records</span>
+                    <span class="text-xs text-emerald-500">Adds new records to the bottom of the list</span>
+                </button>
+            </div>
+            <div class="flex justify-end mt-6"><button onclick="closeImportModal()" class="text-sm font-medium text-slate-500 hover:text-slate-800">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- 3. REQUIRED SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        // --- APP CORE ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light' };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence(); 
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) { console.log("Persistence:", err.code); }
+
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav(); 
+                        if (this.onLogin) this.onLogin(user);
+                    } else {
+                        this.renderNav();
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                    { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, 
+                    { merge: true }
+                );
+            }
+
+            subscribe(cb) {
+                this.stateListeners.push(cb);
+                cb(this.globalState);
+            }
+
+            notifyListeners() {
+                this.stateListeners.forEach(cb => cb(this.globalState));
+            }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+
+            onLogin(user) {} 
+        }
+
+        // Initialize Global Instance
+        window.Core = new AppCore();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => window.Core.init());
+        } else {
+            window.Core.init();
+        }
+    </script>
+
+    <!-- 5. APP LOGIC -->
+    <script>
+        // Data Defaults
+        let momEntries = [];
+        let momSettings = {
+            tags: ['Feed','Diversion','Booster','IP','All'],
+            actions: ['Supplier','Client','Joint','Third Party'],
+            statuses: ['Open','Closed'],
+            priorities: ['P1','P2','P3']
+        };
+        let momColWidths = {};
+        
+        // App State
+        let momSort = { column: null, direction: 'asc' };
+        let momFilter = { status: [], priority: [], tag: [], actionBy: [] };
+        let currentFontSize = 14;
+        let momSearchQuery = "";
+        let saveTimeout = null;
+
+        // --- FIRESTORE INTEGRATION ---
+        Core.onLogin = function(user) {
+            loadFromFirestore(user.uid);
+        };
+
+        function loadFromFirestore(uid) {
+            if(!window.Core.db) return;
+            const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('mom_tool');
+            
+            docRef.onSnapshot((doc) => {
+                const statusEl = document.getElementById('status-indicator');
+                if (doc.exists) {
+                    const data = doc.data();
+                    momEntries = data.entries || [];
+                    if(data.settings) momSettings = data.settings;
+                    if(data.colWidths) momColWidths = data.colWidths;
+                    
+                    if (statusEl) statusEl.innerHTML = '<span class="text-green-500 flex items-center gap-1"><i class="fas fa-check-circle"></i> Synced</span>';
+                } else {
+                    // Initialize if empty
+                    momEntries = [];
+                    saveToFirestore();
+                }
+                renderMoM();
+            }, (error) => {
+                console.error("Sync error:", error);
+                const statusEl = document.getElementById('status-indicator');
+                if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Sync Error</span>';
+            });
+        }
+
+        // Replaces saveLocal
+        function saveToFirestore() {
+            const statusEl = document.getElementById('status-indicator');
+            if (statusEl) statusEl.innerHTML = '<span class="text-slate-400 flex items-center gap-1"><div class="loader"></div> Saving...</span>';
+            
+            if (!window.Core.user || !window.Core.db) {
+                // Fallback if auth lost, though unlikely with listener
+                localStorage.setItem('mom_backup', JSON.stringify(momEntries));
+                return;
+            }
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const uid = window.Core.user.uid;
+                    const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('mom_tool');
+                    
+                    await docRef.set({ 
+                        entries: momEntries,
+                        settings: momSettings,
+                        colWidths: momColWidths,
+                        lastModified: new Date().toISOString()
+                    }, { merge: true });
+                    
+                    if (statusEl) {
+                        statusEl.innerHTML = '<span class="text-green-500 flex items-center gap-1"><i class="fas fa-check-circle"></i> Saved</span>';
+                        setTimeout(() => {
+                            if(statusEl.innerText.includes('Saved')) statusEl.innerHTML = '<span class="text-green-500 flex items-center gap-1"><i class="fas fa-check-circle"></i> Synced</span>';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error("Save error", e);
+                    if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Save Failed</span>';
+                }
+            }, 2000); // 2-second debounce
+            
+            renderMoM(); // Optimistic update
+        }
+
+        // --- FILTER & SORT ---
+        function toggleMoMFilter(cat, val) {
+            const idx = momFilter[cat].indexOf(val);
+            if(idx > -1) momFilter[cat].splice(idx, 1); else momFilter[cat].push(val);
+            renderMoM();
+        }
+        
+        function resetMomFilters() {
+            momFilter = { status: [], priority: [], tag: [], actionBy: [] };
+            renderMoM();
+        }
+
+        function sortMoM(col) {
+            if (momSort.column === col) momSort.direction = momSort.direction === 'asc' ? 'desc' : 'asc';
+            else { momSort.column = col; momSort.direction = 'asc'; }
+            renderMoM();
+        }
+
+        function getFilteredEntries() {
+            // Hierarchical sort first
+            let roots = momEntries.filter(e => !e.parentId);
+            let children = momEntries.filter(e => e.parentId);
+
+            if (momSort.column && momSort.column !== 'date') {
+                const cmp = (a,b) => {
+                    let vA = (a[momSort.column]||'').toLowerCase(), vB = (b[momSort.column]||'').toLowerCase();
+                    return momSort.direction==='asc' ? (vA<vB?-1:1) : (vA>vB?-1:1);
+                };
+                roots.sort(cmp);
+            } else {
+                roots.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+
+            const result = [];
+            const matchesFilters = (item) => {
+                const f = momFilter;
+                if (f.status.length && !f.status.includes(item.status)) return false;
+                if (f.priority.length && !f.priority.includes(item.priority)) return false;
+                if (f.tag.length && !f.tag.includes(item.tag)) return false;
+                if (f.actionBy.length && !f.actionBy.includes(item.actionBy)) return false;
+                
+                if (momSearchQuery) {
+                    const str = Object.values(item).join(' ').toLowerCase();
+                    const terms = momSearchQuery.toLowerCase().split(/\s+/).filter(t=>t);
+                    if (!terms.every(t => str.includes(t))) return false;
+                }
+                return true;
+            };
+
+            roots.forEach((root, i) => {
+                root._displayId = (i+1).toString();
+                
+                // Sort children same as roots
+                let myChildren = children.filter(c => c.parentId === root.id);
+                if (momSort.column && momSort.column !== 'date') {
+                     const cmp = (a,b) => { let vA = (a[momSort.column]||'').toLowerCase(), vB = (b[momSort.column]||'').toLowerCase(); return momSort.direction==='asc' ? (vA<vB?-1:1) : (vA>vB?-1:1); };
+                     myChildren.sort(cmp);
+                } else {
+                     myChildren.sort((a,b) => new Date(a.date) - new Date(b.date));
+                }
+
+                const rootMatch = matchesFilters(root);
+                const childMatch = myChildren.filter(matchesFilters);
+                const hasActiveFilters = Object.values(momFilter).some(a=>a.length) || momSearchQuery;
+
+                if (rootMatch) {
+                    result.push(root);
+                    // If filter active, show matching kids. If no filter, show all kids (context)
+                    (hasActiveFilters ? childMatch : myChildren).forEach((c, j) => {
+                        c._displayId = `${root._displayId}.${j+1}`;
+                        result.push(c);
+                    });
+                } else if (childMatch.length > 0) {
+                    // Root didn't match, but kid did. Show root as container.
+                    result.push(root);
+                    childMatch.forEach((c, j) => {
+                        c._displayId = `${root._displayId}.${j+1}`;
+                        result.push(c);
+                    });
+                }
+            });
+            return result;
+        }
+
+        // --- RENDER ---
+        function renderMoM() {
+            renderInsights();
+            const tbody = document.getElementById('mom-tbody');
+            tbody.innerHTML = '';
+            
+            // Widths
+            document.querySelectorAll('th').forEach(th => {
+                if(th.id && momColWidths[th.id]) th.style.width = momColWidths[th.id];
+            });
+
+            const displayItems = getFilteredEntries();
+            
+            if(displayItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-12 text-slate-400 italic">No matching records found.</td></tr>';
+                return;
+            }
+
+            displayItems.forEach(entry => {
+                const tr = document.createElement('tr');
+                const isChild = entry.parentId;
+                
+                const makeSelect = (field, opts) => {
+                    const uniqueOpts = [...new Set([...opts, entry[field]||''])].filter(Boolean);
+                    return `<select class="cell-input ${field==='status'?'status-'+entry.status:'dark:bg-slate-800 dark:text-white'}" onchange="updateRow('${entry.id}','${field}',this.value)">
+                        ${!entry[field] ? '<option value="">Select</option>' : ''}
+                        ${uniqueOpts.map(o => `<option value="${o}" ${entry[field]===o?'selected':''}>${o}</option>`).join('')}
+                    </select>`;
+                };
+
+                const indent = isChild ? 'pl-8 border-l-4 border-indigo-100 dark:border-indigo-900' : '';
+
+                tr.innerHTML = `
+                    <td class="text-center py-2 font-bold text-slate-500 text-xs">${entry._displayId}</td>
+                    <td>${makeSelect('tag', momSettings.tags)}</td>
+                    <td class="mic-wrapper"><textarea class="cell-input dark:bg-slate-800 dark:text-white ${indent} font-medium" onchange="updateRow('${entry.id}','shortDesc',this.value)" oninput="autoResize(this)">${entry.shortDesc||''}</textarea></td>
+                    <td class="mic-wrapper"><textarea class="cell-input dark:bg-slate-800 dark:text-white text-slate-600" onchange="updateRow('${entry.id}','desc',this.value)" oninput="autoResize(this)">${entry.desc||''}</textarea></td>
+                    <td class="mic-wrapper"><textarea class="cell-input dark:bg-slate-800 dark:text-white text-slate-600" onchange="updateRow('${entry.id}','supplierResponse',this.value)" oninput="autoResize(this)">${entry.supplierResponse||''}</textarea></td>
+                    <td>${makeSelect('actionBy', momSettings.actions)}</td>
+                    <td><input type="date" class="cell-input dark:bg-slate-800 dark:text-white text-xs" value="${entry.forecastDate||''}" onchange="updateRow('${entry.id}','forecastDate',this.value)"></td>
+                    <td>${makeSelect('status', momSettings.statuses)}</td>
+                    <td>${makeSelect('priority', momSettings.priorities)}</td>
+                    <td class="text-right whitespace-nowrap pr-4">
+                        ${!isChild && entry.status==='Open' ? `<button onclick="addSubPoint('${entry.id}')" class="text-indigo-400 hover:text-indigo-600 p-1.5 rounded hover:bg-indigo-50 transition"><i class="fas fa-level-up-alt rotate-90"></i></button>`:''}
+                        <button onclick="deleteRow('${entry.id}')" class="text-slate-300 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Auto resize
+            requestAnimationFrame(() => document.querySelectorAll('textarea').forEach(autoResize));
+            initResizers();
+        }
+
+        function renderInsights() {
+            // Count logic
+            const getCount = (cat, val) => {
+                return momEntries.filter(e => {
+                    if (e[cat] !== val) return false;
+                    // Apply filters from OTHER categories (AND logic)
+                    for (let k in momFilter) {
+                        if (k === cat) continue; 
+                        if (momFilter[k].length && !momFilter[k].includes(e[k])) return false;
+                    }
+                    return true;
+                }).length;
+            };
+
+            const container = document.getElementById('filter-pill-container');
+            container.innerHTML = '';
+
+            const addPill = (cat, val) => {
+                const count = getCount(cat, val);
+                const isActive = momFilter[cat].includes(val);
+                
+                const btn = document.createElement('div');
+                // Pill Style logic
+                let baseStyle = "bg-white border-slate-200 text-slate-600 hover:border-indigo-300";
+                let activeStyle = "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none";
+                
+                if (cat === 'status' && val === 'Open') {
+                    baseStyle = "bg-red-50 border-red-100 text-red-600 hover:border-red-300";
+                    activeStyle = "bg-red-600 border-red-600 text-white shadow-md shadow-red-200";
+                } else if (cat === 'status' && val === 'Closed') {
+                    baseStyle = "bg-emerald-50 border-emerald-100 text-emerald-600 hover:border-emerald-300";
+                    activeStyle = "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-200";
+                }
+
+                btn.className = `pill ${isActive ? activeStyle : baseStyle} dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700`;
+                
+                // Dot indicator
+                let dot = '';
+                if(cat === 'status') {
+                    const dotColor = val === 'Open' ? 'bg-red-500' : 'bg-emerald-500';
+                    dot = `<span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1 ${isActive?'bg-white':''}"></span>`;
+                }
+
+                btn.innerHTML = `${dot}${val} <span class="opacity-60 text-[10px] ml-0.5 font-normal">(${count})</span>`;
+                btn.onclick = () => toggleMoMFilter(cat, val);
+                container.appendChild(btn);
+            };
+
+            // Render Specific Groups
+            addPill('status', 'Open');
+            addPill('status', 'Closed');
+            momSettings.actions.forEach(a => addPill('actionBy', a));
+            
+            // Total
+            const visible = getFilteredEntries().length;
+            document.getElementById('mom-stat-total').innerText = `${visible} / ${momEntries.length}`;
+            
+            const hasFilters = Object.values(momFilter).some(a=>a.length);
+            document.getElementById('filter-active-indicator').style.display = hasFilters ? 'inline' : 'none';
+        }
+
+        function updateRow(id, field, val) {
+            const item = momEntries.find(e => e.id === id);
+            if(item) {
+                item[field] = val;
+                if(field==='status' && val==='Closed') {
+                    const famId = item.parentId || item.id;
+                    momEntries.forEach(e => { if(e.id===famId || e.parentId===famId) e.status='Closed'; });
+                }
+                saveToFirestore();
+            }
+        }
+
+        function addMoMRoW() {
+            momEntries.push({ id: Date.now().toString(), parentId:null, shortDesc:"New Point", status:momSettings.statuses[0], priority:momSettings.priorities[0], date:new Date().toISOString() });
+            saveToFirestore();
+        }
+
+        function addSubPoint(pid) {
+            if(momEntries.filter(e=>e.parentId===pid).length >= 10) return alert("Max sub-points reached");
+            momEntries.push({ id: Date.now().toString(), parentId:pid, shortDesc:"Sub Point", status:momSettings.statuses[0], priority:momSettings.priorities[0], date:new Date().toISOString() });
+            saveToFirestore();
+        }
+
+        function deleteRow(id) {
+            if(confirm("Delete?")) {
+                momEntries = momEntries.filter(e => e.id !== id && e.parentId !== id);
+                saveToFirestore();
+            }
+        }
+
+        function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+        
+        function changeFontSize(d) {
+            currentFontSize += d;
+            document.getElementById('mom-table-el').style.fontSize = Math.max(10, Math.min(24, currentFontSize)) + 'px';
+        }
+        
+        function searchMoM(val) { momSearchQuery = val.trim(); renderMoM(); }
+
+        // --- RESIZERS ---
+        function initResizers() {
+            document.querySelectorAll('.col-resizer').forEach(r => {
+                r.addEventListener('mousedown', function(e) {
+                    const th = e.target.parentElement;
+                    const startX = e.pageX; const startW = th.offsetWidth;
+                    
+                    const mouseMove = (e) => { th.style.width = Math.max(30, startW + e.pageX - startX) + 'px'; };
+                    const mouseUp = () => { 
+                        momColWidths[th.id] = th.style.width; saveToFirestore();
+                        document.removeEventListener('mousemove', mouseMove); 
+                        document.removeEventListener('mouseup', mouseUp); 
+                    };
+                    document.addEventListener('mousemove', mouseMove);
+                    document.addEventListener('mouseup', mouseUp);
+                });
+            });
+        }
+
+        // --- SETTINGS ---
+        function openSettingsModal() {
+            const c = document.getElementById('settings-content'); c.innerHTML='';
+            
+            const createSection = (type, title) => {
+                const div = document.createElement('div');
+                div.className = "bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700";
+                div.innerHTML = `
+                    <h4 class="font-bold text-slate-700 dark:text-slate-300 text-sm mb-3 uppercase tracking-wide">${title}</h4>
+                    <div class="flex gap-2 mb-3">
+                        <input id="new-${type}" class="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm flex-1 dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Add new...">
+                        <button onclick="addSettingItem('${type}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg text-sm font-medium shadow-sm transition">Add</button>
+                    </div>
+                    <div id="list-${type}" class="flex flex-wrap gap-2"></div>
+                `;
+                c.appendChild(div);
+                renderSettingItems(type);
+            };
+
+            createSection('tags', 'Compressor Tags');
+            createSection('actions', 'Action By');
+            createSection('statuses', 'Status Options');
+            createSection('priorities', 'Priority Options');
+
+            const m = document.getElementById('settings-modal');
+            m.classList.remove('opacity-0', 'pointer-events-none');
+            m.classList.remove('hidden'); m.classList.add('flex');
+        }
+        function closeSettingsModal() { 
+            const m = document.getElementById('settings-modal');
+            m.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+            renderMoM(); 
+        }
+        
+        function renderSettingItems(type) {
+            const container = document.getElementById(`list-${type}`); container.innerHTML='';
+            momSettings[type].forEach(val => {
+                const b = document.createElement('div');
+                b.className = "bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 border border-slate-200 dark:border-slate-600 shadow-sm text-slate-600 dark:text-slate-300";
+                b.innerHTML = `<span>${val}</span><button onclick="removeSettingItem('${type}','${val}')" class="text-slate-400 hover:text-red-500 transition"><i class="fas fa-times"></i></button>`;
+                container.appendChild(b);
+            });
+        }
+        
+        function addSettingItem(type) {
+            const val = document.getElementById(`new-${type}`).value.trim();
+            if(val && !momSettings[type].includes(val)) {
+                momSettings[type].push(val);
+                saveToFirestore(); renderSettingItems(type);
+                document.getElementById(`new-${type}`).value='';
+            }
+        }
+        
+        function removeSettingItem(type, val) {
+            if(confirm("Remove this option?")) {
+                momSettings[type] = momSettings[type].filter(x => x !== val);
+                saveToFirestore(); renderSettingItems(type);
+            }
+        }
+
+        // --- IMPORTS/EXPORTS ---
+        let pendingFile;
+        function initiateImport(el) { pendingFile = el.files[0]; if(pendingFile) { document.getElementById('import-modal').classList.remove('hidden'); document.getElementById('import-modal').classList.add('flex'); } el.value=''; }
+        function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); document.getElementById('import-modal').classList.remove('flex'); }
+        
+        function processImport(mode) {
+            if(!pendingFile) return;
+            const r = new FileReader();
+            r.onload = e => {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+                if(rows.length<2) return alert("Empty file");
+                
+                // Mapper
+                const h = rows[0].map(x=>x.toString().toLowerCase().trim());
+                const idx = {
+                    tag: h.indexOf('tag'), short: h.indexOf('short desc'), desc: h.indexOf('description'), 
+                    resp: h.indexOf('response'), action: h.indexOf('action'), 
+                    status: h.indexOf('status'), sr: h.indexOf('sr no'), date: h.indexOf('date')
+                };
+                
+                const newEntries = [];
+                for(let i=1; i<rows.length; i++) {
+                    const row = rows[i];
+                    if(!row.length) continue;
+                    newEntries.push({
+                        id: Date.now().toString()+i,
+                        parentId: null,
+                        tag: row[idx.tag] || '',
+                        shortDesc: row[idx.short] || 'Imported',
+                        desc: row[idx.desc] || '',
+                        supplierResponse: row[idx.resp] || '',
+                        actionBy: row[idx.action] || '',
+                        status: row[idx.status] || 'Open',
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                if(mode==='replace') momEntries = newEntries; else momEntries = [...momEntries, ...newEntries];
+                saveToFirestore(); closeImportModal();
+            };
+            r.readAsArrayBuffer(pendingFile);
+        }
+
+        function exportMoMExcel() {
+            const data = [["Sr","Tag","Short Desc","Description","Response","Action","Status"], 
+                ...momEntries.map(e => [e._displayId, e.tag, e.shortDesc, e.desc, e.supplierResponse, e.actionBy, e.status])];
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "MoM");
+            XLSX.writeFile(wb, "Minutes.xlsx");
+        }
+
+        function exportMoMPDF() {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF('l');
+            doc.text("Meeting Minutes", 14, 10);
+            doc.autoTable({
+                head: [['Sr','Tag','Short Desc','Desc','Response','Action','Status']],
+                body: momEntries.map(e => [e._displayId, e.tag, e.shortDesc, e.desc, e.supplierResponse, e.actionBy, e.status]),
+                startY: 20, theme:'grid'
+            });
+            doc.save("Minutes.pdf");
+        }
+
+        function downloadMoMTemplate() {
+            const data = [["Sr No","Tag","Short Desc","Description","Response","Action","Status"], ["1","Feed","Sample Issue","Details","Reply","Supplier","Open"]];
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, "MoM_Template.xlsx");
+        }
+
+        function clearAll() { if(confirm("Clear All?")) { momEntries=[]; saveToFirestore(); } }
+
+        // Start
+        // Wait for Core login to trigger load
+    </script>
+</body>
+</html>

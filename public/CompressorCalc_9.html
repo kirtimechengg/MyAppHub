@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Centrifugal Compressor Power Estimator (Multi-Unit)</title>
+
+<style>
+:root{
+  /* Light theme palette */
+  --page-bg:#fdfdff;
+  --card-bg:#ffffff;
+  --surface:#f6f8fb;
+  --line:#dbe2ee;
+  --muted:#5f6e86;
+  --text:#0b1a2a;
+  --accent:#0b57d0;
+  --ok:#0a7f3f;
+  --warn:#9c6f00;
+  --bad:#b3261e;
+  --badge-bg:#eef3ff;
+  --code-bg:#f1f3f4;
+  --code-line:#d8e0ea;
+  --table-row:#fafcff;
+  --grid: minmax(260px, 1fr);
+}
+/* Base */
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page-bg);
+  font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;
+  color:var(--text);
+  line-height:1.45;
+}
+header{padding:28px 20px 8px}
+h1{margin:0;font-size:clamp(22px,3vw,28px);font-weight:700;letter-spacing:.2px}
+h2{font-size:18px;margin:18px 0 10px}
+main{
+  padding:10px 18px 48px;
+  display:grid;gap:18px;
+  grid-template-columns:1.2fr 1fr;
+}
+@media (max-width:1250px){main{grid-template-columns:1fr}}
+/* Cards */
+.card{
+  background:var(--card-bg);
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(17,26,44,.06);
+}
+.card .inner{padding:16px}
+/* Grids */
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr))}
+.grid3{display:grid;gap:12px;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr))}
+/* Inputs */
+label{display:block;color:#314155;font-size:12px;margin:0 0 6px}
+label .unit{ color: var(--muted); font-weight: normal; margin-left: 4px; }
+input,select{
+  width:100%;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:#fff;color:var(--text);font-size:14px;outline:none
+}
+input:focus,select:focus{border-color:#a9c3ff;box-shadow:0 0 0 3px #a9c3ff33}
+small.hint{color:var(--muted);display:block;margin-top:4px}
+/* Buttons */
+.btn{
+  background:linear-gradient(180deg,#1b63ff,#0b57d0);
+  border:none;color:#fff;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer; transition: transform 0.1s ease;
+}
+.btn:active{transform:translateY(1px)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* Badges */
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid #cdd9f6;border-radius:999px;padding:6px 10px;
+  color:#27426f;background:var(--badge-bg);font-size:12px
+}
+/* KPIs */
+.kpi{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi .box{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px
+}
+.kpi .number{font-weight:700;font-size:18px}
+.kpi .unit-label{font-size: 14px; color: var(--muted);}
+/* Separators */
+hr.sep{border:0;border-top:1px dashed var(--line);margin:14px 0}
+/* Tables */
+table{width:100%;border-collapse:separate;border-spacing:0 6px}
+th,td{
+  text-align:left;padding:8px 10px;background:var(--table-row);
+  border:1px solid var(--line);font-size:13px
+}
+th{color:#30425c;font-weight:700;background:#f0f4fb}
+tr td:first-child,tr th:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+tr td:last-child,tr th:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+/* Text helpers */
+.note{color:var(--muted)}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+/* Footer */
+footer{max-width:1200px;margin:24px auto 60px;padding:0 16px;color:var(--muted)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{
+  background:var(--code-bg);
+  border:1px solid var(--code-line);
+  border-radius:6px;padding:1px 6px
+}
+.hide{display:none}
+.small{font-size:12px}
+#errorBar{
+  position:sticky;top:0;z-index:10;display:none;
+  background:#fdecea;color:#8a1c1c;border-bottom:1px solid #f6b6b6;
+  padding:8px 14px;font-size:13px
+}
+</style>
+</head>
+<body>
+<div id="errorBar"></div>
+<header>
+  <h1>Centrifugal Compressor Power Estimator</h1>
+  <div class="row" style="padding:6px 2px 0">
+    <span class="badge">API-617 Style Sizing</span>
+    <span class="badge">SI / Metric / US Units</span>
+    <span class="badge">Gearbox & Coupling Losses</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: INPUTS -->
+  <section class="card">
+    <div class="inner">
+      <h2>1) Required Inputs</h2>
+
+       <div class="grid">
+        <div>
+          <label>Unit System</label>
+          <select id="unitSystem">
+            <option value="SI" selected>SI (barg, °C, Nm³/h, kW)</option>
+            <option value="Metric">Metric (kg/cm²g, °C, Nm³/h, kW)</option>
+            <option value="US">US (psig, °F, scfm, hp)</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      
+      <div class="grid">
+        <div>
+          <label>Flow input basis</label>
+          <select id="flowMode">
+            <option value="volumetric" selected>Standard Volumetric</option>
+            <option value="mass">Mass flow</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid" id="volumetricRow">
+        <div>
+          <label>Standard Flow <span class="unit" id="volFlowUnitLabel"></span></label>
+          <input type="number" id="volFlow" value="100000" min="0" step="100">
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid hide" id="massRow">
+        <div>
+          <label>Mass Flow <span class="unit" id="massFlowUnitLabel"></span></label>
+          <input type="number" id="massFlow" value="125000" min="0" step="100">
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>Molecular weight <strong>MW</strong><span class="unit">(kg/kmol)</span></label>
+          <input type="number" id="MW" value="18" min="2" step="0.1">
+        </div>
+        <div>
+          <label>Inlet T₁ <span class="unit" id="t1UnitLabel"></span></label>
+          <input type="number" id="T1" value="25" step="0.1">
+        </div>
+        <div>
+          <label>Inlet P₁ <span class="unit" id="p1UnitLabel"></span></label>
+          <input type="number" id="P1" value="1.0" step="0.1">
+        </div>
+        <div>
+          <label>Discharge P₂ <span class="unit" id="p2UnitLabel"></span></label>
+          <input type="number" id="P2" value="10" step="0.1">
+        </div>
+        <div>
+          <label><strong>Max T₂</strong> (limit)<span class="unit" id="t2maxUnitLabel"></span></label>
+          <input type="number" id="T2max" value="150" step="0.1">
+          <small class="hint">Assumes perfect intercooling to T₁ between stages</small>
+        </div>
+        <div></div>
+      </div>
+
+      <hr class="sep">
+      <h2>2) Thermodynamics & Efficiencies</h2>
+      <div class="grid3">
+        <div>
+          <label>k = c<sub>p</sub>/c<sub>v</sub></label>
+          <input type="number" id="k" value="1.30" step="0.01" min="1.05" max="1.67">
+        </div>
+        <div>
+          <label>Z (compressibility)</label>
+          <input type="number" id="Z" value="1.0" step="0.01" min="0.7" max="1.2">
+        </div>
+        <div>
+          <label>η<sub>p</sub> (Poly. Eff.)</label>
+          <select id="etaMode"><option value="auto" selected>Auto from flow</option><option value="manual">Manual</option></select>
+        </div>
+        <div id="etaBox" class="hide">
+          <label>η<sub>p</sub> (manual)</label>
+          <input type="number" id="etaP" value="0.78" step="0.01" min="0.6" max="0.9">
+        </div>
+        <div>
+          <label>η<sub>m</sub> (mechanical)</label>
+          <input type="number" id="etaM" value="0.98" step="0.01" min="0.9" max="1">
+          <small class="hint">Compressor bearing losses</small>
+        </div>
+        <div>
+          <label>Driver margin</label>
+          <select id="margin"><option value="0.10" selected>+10% (API)</option><option value="0.15">+15%</option><option value="0">0%</option></select>
+        </div>
+      </div>
+      
+      <hr class="sep">
+      <h2>3) Losses</h2>
+      <div class="grid">
+          <div>
+              <label>Gearbox & Coupling Losses</label>
+              <select id="lossMode">
+                  <option value="auto" selected>Automatic</option>
+                  <option value="manual">Manual</option>
+              </select>
+              <small class="hint">Auto: Gearbox=2%, Coupling=0.5%</small>
+          </div>
+          <div></div>
+      </div>
+      <div class="grid hide" id="manualLossBox">
+          <div>
+              <label>Gearbox Loss (%)</label>
+              <input type="number" id="gearLoss" value="2.0" step="0.1" min="0">
+          </div>
+          <div>
+              <label>Coupling Loss (%)</label>
+              <input type="number" id="couplingLoss" value="0.5" step="0.1" min="0">
+          </div>
+      </div>
+
+
+      <hr class="sep">
+      <h2>4) Architecture & Stage Heuristics</h2>
+      <div class="grid">
+        <div>
+          <label>Compressor architecture</label>
+          <select id="arch">
+            <option value="single" selected>Single‑shaft (inline)</option>
+            <option value="ig">Integrally‑geared (IGCC)</option>
+          </select>
+        </div>
+        <div>
+          <label>Head coefficient <strong>ψ</strong></label>
+          <input type="number" id="psi" value="0.60" step="0.01" min="0.3" max="0.9">
+          <small class="hint">Typical centrifugal ψ ≈ 0.5–0.6</small>
+        </div>
+      </div>
+      <div class="grid3">
+        <div>
+          <label>Tip‑speed cap U<sub>max</sub> <span class="unit" id="umaxUnitLabel"></span></label>
+          <input type="number" id="Umax" value="350" step="5" min="200" max="450">
+        </div>
+        <div>
+          <label>Tip Mach limit</label>
+          <input type="number" id="Mmax" value="0.90" step="0.01" min="0.7" max="1.0">
+        </div>
+        <div>
+          <label>Candidate shaft speeds (rpm)</label>
+          <input type="text" id="rpms" value="6000, 10000, 15000, 20000, 25000, 30000">
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>Diameter window <span class="unit" id="dwinUnitLabel"></span></label>
+          <input type="text" id="dwin" value="0.20–1.00">
+        </div>
+        <div>
+          <label>Manual D₂ per stage?</label>
+          <select id="manualD"><option value="off" selected>No (auto)</option><option value="on">Yes (show table)</option></select>
+        </div>
+      </div>
+
+      <div id="igBox" class="hide">
+        <hr class="sep">
+        <h2>IGCC Pinions</h2>
+        <div class="grid">
+          <div>
+            <label>Number of pinions</label>
+            <input type="number" id="pinions" value="2" min="1" max="6">
+          </div>
+          <div>
+            <label>Two impellers per pinion?</label>
+            <select id="twoImp"><option value="yes" selected>Yes (A & B)</option><option value="no">No (single)</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div id="stageTableBox" class="hide" style="margin-top:14px">
+        <hr class="sep">
+        <h2>Per‑stage Impellers (D₂, assignment)</h2>
+        <div style="overflow:auto;margin-top:8px">
+          <table id="stageTbl">
+             <!-- Table content is generated by JS -->
+          </table>
+        </div>
+
+        <div id="pinionBox" class="hide" style="margin-top:12px">
+          <h2>Pinion Summary</h2>
+          <div style="overflow:auto">
+            <table id="pinTbl">
+              <!-- Table content is generated by JS -->
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px" class="row">
+        <button class="btn" id="calcBtn" type="button">Calculate</button>
+        <span class="note">All results refresh instantly on input change.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: RESULTS -->
+  <section class="card">
+    <div class="inner">
+      <h2>Results</h2>
+      <div class="kpi" id="kpi"></div>
+
+      <h2 style="margin-top:18px">Stage & Wheel</h2>
+      <div class="kpi" id="stage"></div>
+
+      <div id="autoSD" style="margin-top:18px">
+        <h2>Speed–Diameter Options (Auto mode)</h2>
+        <div class="note" id="pick"></div>
+        <div style="overflow:auto; margin-top:8px">
+          <table id="tbl">
+             <!-- Table content is generated by JS -->
+          </table>
+        </div>
+      </div>
+
+      <h2 style="margin-top:18px">Method & checks</h2>
+      <div class="note" id="method"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <strong>Assumptions:</strong> Ideal‑gas shortcut (optional Z); polytropic analysis; <u>perfect intercooling to T₁</u>; head via ψU²; tip‑speed & tip‑Mach checks. Vendor validation/API‑617 datasheets required before purchase.
+</footer>
+
+<script>
+(function(){
+  /* ===== Constants ===== */
+  const Runi = 8314.462618; // J/(kmol·K)
+  const Patm_Pa = 101325;
+  const Tn_K = 273.15; // Normal temp 0°C
+  const Tstd_K = 288.71; // Standard temp 60°F
+  const INPUT_STORAGE_KEY = 'compressorInputs';
+  const INPUT_IDS = [
+    'unitSystem', 'flowMode', 'volFlow', 'massFlow', 'MW', 'T1', 'P1', 'P2', 
+    'T2max', 'k', 'Z', 'etaMode', 'etaP', 'etaM', 'margin', 'lossMode', 
+    'gearLoss', 'couplingLoss', 'arch', 'psi', 'Umax', 'Mmax', 'rpms', 
+    'dwin', 'manualD', 'pinions', 'twoImp'
+  ];
+
+  /* ===== Unit Conversion ===== */
+  const unitConfig = {
+    SI: {
+      pressure: { unit: 'barg', label: 'P (barg)' },
+      temp: { unit: '°C', label: 'T (°C)' },
+      volFlow: { unit: 'Nm³/h', label: 'Q (Nm³/h)' },
+      actualVolFlow: { unit: 'm³/h', label: 'Q (m³/h)' },
+      massFlow: { unit: 'kg/h', label: 'ṁ (kg/h)'},
+      power: { unit: 'kW', label: 'P (kW)'},
+      speed: { unit: 'm/s', label: 'U (m/s)'},
+      length: { unit: 'm', label: 'D (m)'},
+      head: { unit: 'kJ/kg', label: 'H (kJ/kg)'}
+    },
+    Metric: {
+      pressure: { unit: 'kg/cm²g', label: 'P (kg/cm²g)' },
+      temp: { unit: '°C', label: 'T (°C)' },
+      volFlow: { unit: 'Nm³/h', label: 'Q (Nm³/h)' },
+      actualVolFlow: { unit: 'm³/h', label: 'Q (m³/h)' },
+      massFlow: { unit: 'kg/h', label: 'ṁ (kg/h)'},
+      power: { unit: 'kW', label: 'P (kW)'},
+      speed: { unit: 'm/s', label: 'U (m/s)'},
+      length: { unit: 'm', label: 'D (m)'},
+      head: { unit: 'kJ/kg', label: 'H (kJ/kg)'}
+    },
+    US: {
+      pressure: { unit: 'psig', label: 'P (psig)' },
+      temp: { unit: '°F', label: 'T (°F)' },
+      volFlow: { unit: 'scfm', label: 'Q (scfm)' },
+      actualVolFlow: { unit: 'acfm', label: 'Q (acfm)' },
+      massFlow: { unit: 'lb/h', label: 'ṁ (lb/h)'},
+      power: { unit: 'hp', label: 'P (hp)'},
+      speed: { unit: 'ft/s', label: 'U (ft/s)'},
+      length: { unit: 'in', label: 'D (in)'},
+      head: { unit: 'ft-lbf/lb', label: 'H (ft-lbf/lb)'}
+    }
+  };
+
+  function convert(value, from, to) {
+      if (from === to) return value;
+      // Temperature
+      if (from === '°C' && to === 'K') return value + 273.15;
+      if (from === '°F' && to === 'K') return (value - 32) * 5 / 9 + 273.15;
+      if (from === 'K' && to === '°C') return value - 273.15;
+      if (from === 'K' && to === '°F') return (value - 273.15) * 9 / 5 + 32;
+      // Pressure (gauge to absolute Pa)
+      if (from === 'barg' && to === 'Pa_abs') return value * 1e5 + Patm_Pa;
+      if (from === 'kg/cm²g' && to === 'Pa_abs') return value * 98066.5 + Patm_Pa;
+      if (from === 'psig' && to === 'Pa_abs') return value * 6894.76 + Patm_Pa;
+      // Power
+      if (from === 'kW' && to === 'hp') return value * 1.34102;
+      if (from === 'hp' && to === 'kW') return value / 1.34102;
+      // Mass Flow
+      if (from === 'kg/h' && to === 'kg/s') return value / 3600;
+      if (from === 'lb/h' && to === 'kg/s') return value * 0.453592 / 3600;
+       if (from === 'kg/h' && to === 'lb/h') return value / 0.453592;
+      // Speed
+      if (from === 'm/s' && to === 'ft/s') return value * 3.28084;
+      if (from === 'ft/s' && to === 'm/s') return value / 3.28084;
+      // Length
+      if (from === 'm' && to === 'in') return value * 39.3701;
+      if (from === 'in' && to === 'm') return value / 39.3701;
+       // Head
+      if (from === 'J/kg' && to === 'ft-lbf/lb') return value * 0.33455;
+      if (from === 'J/kg' && to === 'kJ/kg') return value / 1000;
+      // Volumetric Flow
+      if (from === 'm³/s' && to === 'm³/h') return value * 3600;
+      if (from === 'm³/s' && to === 'acfm') return value * 2118.88;
+      
+      console.error(`Conversion not implemented: ${from} to ${to}`);
+      return value;
+  }
+
+  /* ===== Utilities ===== */
+  function el(id){ return document.getElementById(id); }
+  function qs(sel,root){ return (root||document).querySelector(sel); }
+  function qsa(sel,root){ return (root||document).querySelectorAll(sel); }
+  function clamp(x,a,b){ return Math.min(Math.max(x,a),b); }
+  function fmt(x,dec){ if(!isFinite(x)) return '—'; return Number(x).toLocaleString(undefined,{maximumFractionDigits:dec||2,minimumFractionDigits:dec||2}); }
+  function parseRange(txt, units) {
+    var s = (txt||'').replace(/\s/g,'');
+    var m = s.match(/([\d.]+)\s*[–-]\s*([\d.]+)/);
+    if (!m) return [ convert(0.2, 'm', units.length.unit), convert(1.0, 'm', units.length.unit) ];
+    var a = Number(m[1]), b = Number(m[2]); return a<b?[a,b]:[b,a];
+  }
+   function autoEtaP(Qn_m3h){
+    var Qcfm = 0.5885 * Qn_m3h;
+    var eta = 0.61 + 0.03 * Math.log(Math.max(Qcfm,1))/Math.log(10);
+    return clamp(eta,0.70,0.85);
+  }
+
+  /* ===== State Persistence ===== */
+  function saveInputs() {
+    const inputsToSave = {};
+    INPUT_IDS.forEach(id => {
+      const element = el(id);
+      if (element) {
+        inputsToSave[id] = element.value;
+      }
+    });
+    localStorage.setItem(INPUT_STORAGE_KEY, JSON.stringify(inputsToSave));
+  }
+
+  function loadInputs() {
+    const savedInputs = localStorage.getItem(INPUT_STORAGE_KEY);
+    if (savedInputs) {
+      const inputs = JSON.parse(savedInputs);
+      INPUT_IDS.forEach(id => {
+        const element = el(id);
+        if (element && inputs[id] !== undefined) {
+          element.value = inputs[id];
+        }
+      });
+    }
+  }
+
+  /* ===== UI State & Update ===== */
+  var stageRows = [], pinionData = [];
+
+  function showById(id,flag){
+    el(id).classList.toggle('hide', !flag);
+  }
+  
+  function updateUI() {
+    const system = el('unitSystem').value;
+    const units = unitConfig[system];
+
+    // Labels
+    el('t1UnitLabel').textContent = `(${units.temp.unit})`;
+    el('p1UnitLabel').textContent = `(${units.pressure.unit})`;
+    el('p2UnitLabel').textContent = `(${units.pressure.unit})`;
+    el('t2maxUnitLabel').textContent = `(${units.temp.unit})`;
+    el('volFlowUnitLabel').textContent = `(${units.volFlow.unit})`;
+    el('massFlowUnitLabel').textContent = `(${units.massFlow.unit})`;
+    el('umaxUnitLabel').textContent = `(${units.speed.unit})`;
+    el('dwinUnitLabel').textContent = `(${units.length.unit})`;
+    
+    // Flow mode
+    const flowMode = el('flowMode').value;
+    showById('volumetricRow', flowMode === 'volumetric');
+    showById('massRow', flowMode === 'mass');
+
+    // Architecture
+    const isIgcc = el('arch').value === 'ig';
+    showById('igBox', isIgcc);
+    qsa('.igcol').forEach(n => n.classList.toggle('hide', !isIgcc));
+
+    // Manual Diameters
+    const isManualD = el('manualD').value === 'on';
+    showById('stageTableBox', isManualD);
+    showById('autoSD', !isManualD);
+
+    // Manual Efficiency
+    showById('etaBox', el('etaMode').value === 'manual');
+    
+    // Manual Losses
+    showById('manualLossBox', el('lossMode').value === 'manual');
+  }
+  
+  function handleUnitChange(oldSystem, newSystem) {
+      const oldUnits = unitConfig[oldSystem];
+      const newUnits = unitConfig[newSystem];
+
+      // Convert input values ONLY if systems are different
+      if (oldSystem !== newSystem) {
+        // Temp
+        const t1_K = convert(Number(el('T1').value), oldUnits.temp.unit, 'K');
+        el('T1').value = fmt(convert(t1_K, 'K', newUnits.temp.unit), 1);
+        
+        const t2max_K = convert(Number(el('T2max').value), oldUnits.temp.unit, 'K');
+        el('T2max').value = fmt(convert(t2max_K, 'K', newUnits.temp.unit), 1);
+        
+        // Pressure
+        const p1_Pa = convert(Number(el('P1').value), oldUnits.pressure.unit, 'Pa_abs');
+        el('P1').value = fmt((p1_Pa - Patm_Pa) / (newUnits.pressure.unit === 'barg' ? 1e5 : newUnits.pressure.unit === 'kg/cm²g' ? 98066.5 : 6894.76), 2);
+
+        const p2_Pa = convert(Number(el('P2').value), oldUnits.pressure.unit, 'Pa_abs');
+        el('P2').value = fmt((p2_Pa - Patm_Pa) / (newUnits.pressure.unit === 'barg' ? 1e5 : newUnits.pressure.unit === 'kg/cm²g' ? 98066.5 : 6894.76), 2);
+        
+        // Tip Speed
+        const umax_ms = convert(Number(el('Umax').value), oldUnits.speed.unit, 'm/s');
+        el('Umax').value = fmt(convert(umax_ms, 'm/s', newUnits.speed.unit), 0);
+        
+        // Mass Flow
+        const mass_kgs = convert(Number(el('massFlow').value), oldUnits.massFlow.unit, 'kg/s');
+        el('massFlow').value = fmt(convert(mass_kgs * 3600, 'kg/h', newUnits.massFlow.unit), 0);
+
+      }
+      calc();
+  }
+
+
+  /* ===== Core Calculation ===== */
+  function calc() {
+    try {
+      el('errorBar').style.display = 'none';
+      saveInputs(); // Save inputs on every calculation
+
+      const system = el('unitSystem').value;
+      const units = unitConfig[system];
+
+      // --- Read and Convert Inputs to SI ---
+      const flowMode = el('flowMode').value;
+      const MW = Number(el('MW').value);
+      const T1_K = convert(Number(el('T1').value), units.temp.unit, 'K');
+      const P1_Pa = convert(Number(el('P1').value), units.pressure.unit, 'Pa_abs');
+      const P2_Pa = convert(Number(el('P2').value), units.pressure.unit, 'Pa_abs');
+      const T2max_K = el('T2max').value === '' ? null : convert(Number(el('T2max').value), units.temp.unit, 'K');
+      
+      const k = Number(el('k').value);
+      const Z = Number(el('Z').value);
+      const etaM = Number(el('etaM').value);
+      const margin = Number(el('margin').value);
+      const psi = Number(el('psi').value);
+      const Umax_ms = convert(Number(el('Umax').value), units.speed.unit, 'm/s');
+      const Mmax = Number(el('Mmax').value);
+      
+      const dRangeText = el('dwin').value;
+      const dRange = parseRange(dRangeText, units);
+      const Dmin_m = convert(dRange[0], units.length.unit, 'm');
+      const Dmax_m = convert(dRange[1], units.length.unit, 'm');
+
+      const Rsp = Runi / MW;
+      const PR = P2_Pa / P1_Pa;
+      
+      // --- Mass Flow Calculation ---
+      let mdot_kgs, Qn_m3h;
+      if (flowMode === 'volumetric') {
+        const volFlowVal = Number(el('volFlow').value);
+        if (system === 'US') { // scfm
+          const rho_std = Patm_Pa / (Rsp * Tstd_K);
+          const Q_m3s = (volFlowVal / 60) * 0.0283168; // scfm to m3/s
+          mdot_kgs = Q_m3s * rho_std;
+          const rho_norm = Patm_Pa / (Rsp * Tn_K);
+          Qn_m3h = (mdot_kgs / rho_norm) * 3600;
+        } else { // Nm³/h
+          Qn_m3h = volFlowVal;
+          const rho_norm = Patm_Pa / (Rsp * Tn_K);
+          mdot_kgs = (Qn_m3h / 3600) * rho_norm;
+        }
+      } else { // mass flow
+        mdot_kgs = convert(Number(el('massFlow').value), units.massFlow.unit, 'kg/s');
+        const rho_norm = Patm_Pa / (Rsp * Tn_K);
+        Qn_m3h = (mdot_kgs / rho_norm) * 3600;
+      }
+      
+      if (!(PR > 1) || !(mdot_kgs > 0) || !(MW > 0)) {
+        throw new Error("P₂ must be > P₁. Flow and MW must be positive.");
+      }
+      
+      const rho1_kgm3 = P1_Pa / (Z * Rsp * T1_K);
+      const Q_actual_m3s = mdot_kgs / rho1_kgm3;
+
+      // --- Thermodynamics ---
+      const etaP = (el('etaMode').value === 'manual') ? Number(el('etaP').value) : autoEtaP(Qn_m3h);
+      const n = 1 / (1 - ((k - 1) / (k * etaP)));
+      const exp = (n - 1) / n;
+      const Hp_Jkg = (n / exp) * Z * Rsp * T1_K * (Math.pow(PR, exp) - 1);
+      const a1_ms = Math.sqrt(k * Rsp * T1_K);
+
+      // --- Staging ---
+      let Ns_T = 1;
+      if (T2max_K) {
+        if(T2max_K <= T1_K) throw new Error("T₂(max) must be > T₁.");
+        const rstage_Tmax = Math.pow(T2max_K / T1_K, 1/exp);
+        if(rstage_Tmax <= 1) throw new Error("T₂(max) gives PR_stage ≤ 1.");
+        Ns_T = Math.ceil(Math.log(PR) / Math.log(rstage_Tmax));
+      }
+      const Hstage_cap_Jkg = psi * Umax_ms * Umax_ms;
+      const Ns_H = Math.max(1, Math.ceil(Hp_Jkg / Hstage_cap_Jkg));
+      let Ns = Math.max(Ns_H, Ns_T);
+      
+      // Refine stages based on Mach number
+      let Ureq_ms = Math.sqrt((Hp_Jkg / Ns) / psi);
+      for(let guard=0; Ureq_ms / a1_ms > Mmax && Ns < 50 && guard < 100; guard++) {
+        Ns++;
+        Ureq_ms = Math.sqrt((Hp_Jkg / Ns) / psi);
+      }
+
+      const rstage = Math.pow(PR, 1 / Ns);
+      const stageHead_Jkg = Hp_Jkg / Ns;
+      const T2_stageK = T1_K * Math.pow(rstage, exp);
+
+      // --- Power Calculation ---
+      const Pgas_kW = (mdot_kgs * Hp_Jkg) / 1000;
+      const Pshaft_kW = Pgas_kW / etaM;
+      
+      let gearLoss_pct, couplingLoss_pct;
+      if (el('lossMode').value === 'manual') {
+        gearLoss_pct = Number(el('gearLoss').value);
+        couplingLoss_pct = Number(el('couplingLoss').value);
+      } else {
+        gearLoss_pct = 2.0; // Automatic defaults
+        couplingLoss_pct = 0.5;
+      }
+      
+      const Pgear_loss_kW = Pshaft_kW * (gearLoss_pct / 100);
+      const Pcoupling_loss_kW = Pshaft_kW * (couplingLoss_pct / 100);
+      const Ptotal_consumed_kW = Pshaft_kW + Pgear_loss_kW + Pcoupling_loss_kW;
+      const Pdriver_kW = Ptotal_consumed_kW * (1 + margin);
+      
+      // --- Render Results ---
+      const pwrUnit = units.power.unit;
+      const spdUnit = units.speed.unit;
+      const lenUnit = units.length.unit;
+      const headUnit = units.head.unit;
+      const tempUnit = units.temp.unit;
+      const actualVolUnit = units.actualVolFlow.unit;
+      
+      el('kpi').innerHTML =
+        `<div class="box"><div class="number">${fmt(convert(mdot_kgs*3600, 'kg/h', units.massFlow.unit),0)} <span class="unit-label">${units.massFlow.unit}</span></div>Mass flow</div>`+
+        `<div class="box"><div class="number">${fmt(system === 'US' ? Qn_m3h * 0.5885 : Qn_m3h,0)} <span class="unit-label">${units.volFlow.unit}</span></div>Equiv. Std. Flow</div>`+
+        `<div class="box"><div class="number">${fmt(convert(Q_actual_m3s, 'm³/s', actualVolUnit),0)} <span class="unit-label">${actualVolUnit}</span></div>Actual Vol. Flow (Inlet)</div>`+
+        `<div class="box"><div class="number">${fmt(PR,3)}</div>Overall PR</div>`+
+        `<div class="box"><div class="number">${fmt(etaP,3)}</div>Polytropic η<sub>p</sub></div>`+
+        `<div class="box"><div class="number">${fmt(convert(Hp_Jkg, 'J/kg', headUnit), 2)} <span class="unit-label">${headUnit}</span></div>Total Polytropic Head</div>`+
+        `<div class="box"><div class="number">${fmt(convert(Pgas_kW, 'kW', pwrUnit),1)} <span class="unit-label">${pwrUnit}</span></div>Gas Power</div>`+
+        `<div class="box"><div class="number">${fmt(convert(Pshaft_kW, 'kW', pwrUnit),1)} <span class="unit-label">${pwrUnit}</span></div>Shaft Power (at coupling)</div>`+
+        `<div class="box"><div class="number bad">${fmt(convert(Pdriver_kW, 'kW', pwrUnit),1)} <span class="unit-label">${pwrUnit}</span></div>Driver Power (+${margin*100}%)</div>`;
+      
+      el('stage').innerHTML =
+        `<div class="box"><div class="number">${Ns}</div>Est. Stages</div>`+
+        `<div class="box"><div class="number">${fmt(rstage,3)}</div>Per‑stage PR</div>`+
+        `<div class="box"><div class="number">${fmt(convert(stageHead_Jkg, 'J/kg', headUnit),1)} <span class="unit-label">${headUnit}</span></div>Per‑stage Head</div>`+
+        `<div class="box"><div class="number">${fmt(convert(Ureq_ms, 'm/s', spdUnit),1)} <span class="unit-label">${spdUnit}</span></div>Required Tip Speed U</div>`+
+        `<div class="box"><div class="number">${fmt(convert(T2_stageK, 'K', tempUnit),1)} <span class="unit-label">${tempUnit}</span></div>Per-stage T₂</div>`;
+
+
+      if (el('manualD').value === 'on') {
+        // Manual D2 logic would go here, converting units as needed.
+      } else {
+        const rpms = el('rpms').value.split(',').map(s => Number(s.trim())).filter(n => n > 0);
+        const rows = rpms.map(N => {
+          const D_m = (Ureq_ms * 60) / (Math.PI * N);
+          const U_ms = Math.PI * D_m * N / 60;
+          const M = U_ms / a1_ms;
+          const okDia = (D_m >= Dmin_m && D_m <= Dmax_m);
+          return { N, U: U_ms, D: D_m, M, okDia };
+        });
+        const rec = rows.find(r => r.okDia) || rows[0] || {};
+        
+        el('tbl').innerHTML = `<thead>
+          <tr><th>Speed (rpm)</th><th>Tip speed U (${spdUnit})</th><th>Impeller D₂ (${lenUnit})</th><th>Tip Mach</th><th>In window?</th></tr>
+        </thead><tbody>${rows.map(r => `<tr>
+            <td>${fmt(r.N,0)}</td>
+            <td>${fmt(convert(r.U, 'm/s', spdUnit),1)}</td>
+            <td>${fmt(convert(r.D, 'm', lenUnit),3)}</td>
+            <td>${fmt(r.M,3)}</td>
+            <td>${r.okDia ? '<span class="ok">Yes</span>' : '<span class="warn">No</span>'}</td>
+          </tr>`).join('')}</tbody>`;
+
+        if(rec.N) {
+             el('pick').innerHTML = `Auto-pick: <strong>${fmt(rec.N,0)} rpm</strong> &rArr; D₂ &approx; <strong>${fmt(convert(rec.D,'m',lenUnit),3)} ${lenUnit}</strong> (${rec.okDia ? '<span class="ok">OK</span>':'<span class="warn">outside window</span>'})`;
+        } else {
+             el('pick').innerHTML = 'No suitable speed found in the provided list.';
+        }
+      }
+
+      el('method').innerHTML = `Calculations are performed in SI units. Polytropic head: H=(n/(n-1))·Z·R·T₁·[PR<sup>(n-1)/n</sup>-1]. Power train: P<sub>driver</sub> = (P<sub>gas</sub>/η<sub>m</sub> + P<sub>losses</sub>) &times; (1+margin).`;
+    
+    } catch(e) {
+      el('errorBar').style.display = 'block';
+      el('errorBar').textContent = 'Error: ' + e.message;
+      console.error(e);
+      el('kpi').innerHTML = '';
+      el('stage').innerHTML = '';
+    }
+  }
+
+  /* ===== Event Listeners ===== */
+  window.addEventListener('DOMContentLoaded', function(){
+    loadInputs();
+    let currentSystem = el('unitSystem').value;
+    
+    // Wire up all inputs to recalculate
+    qsa('input, select').forEach(node => {
+        const eventType = (node.tagName === 'SELECT' || node.type === 'text') ? 'change' : 'input';
+        node.addEventListener(eventType, () => {
+             if (node.id === 'unitSystem') {
+                 handleUnitChange(currentSystem, node.value);
+                 currentSystem = node.value;
+             } else {
+                 calc();
+             }
+             updateUI();
+        });
+    });
+
+    updateUI();
+    calc();
+  });
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engineering Unit Converter (Cloud)</title>
+
+<!-- Tailwind for Shell/Nav -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: { 
+                colors: { slate: { 850: '#151f2e' } },
+                fontFamily: { sans: ['Instrument Sans', 'sans-serif'] }
+            }
+        }
+    }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Tool Specific Styles -->
+<style>
+  :root { --bg:#f8fafc; --bg-soft:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --border:#e2e8f0; --focus:#60a5fa; --shadow:0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .dark { --bg:#0f172a; --bg-soft:#1e293b; --surface:#1e293b; --surface-2:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --accent:#3b82f6; --border:#334155; --focus:#60a5fa; --shadow:0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+  
+  html, body { height:100%; }
+  body { margin:0; font-family: 'Instrument Sans', sans-serif; background:var(--bg); color:var(--text); transition: background-color 0.3s, color 0.3s; }
+  .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+  
+  header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; margin-bottom: 24px; }
+  h1 { font-size:24px; margin:0; font-weight:700; color: var(--text); }
+  .sub { color:var(--muted); font-size:14px; margin:4px 0 0; }
+  
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .btn { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:8px; padding:8px 12px; font-weight:500; cursor:pointer; box-shadow:var(--shadow); transition: all 0.2s; font-size: 13px; }
+  .btn:hover { border-color:var(--accent); color: var(--accent); }
+  
+  .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  thead th { text-align:left; font-size:12px; font-weight: 600; text-transform: uppercase; color:var(--muted); background:var(--bg-soft); border-bottom:1px solid var(--border); padding:12px 16px; }
+  tbody tr { border-bottom:1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody td { padding:12px 16px; vertical-align:middle; }
+
+  /* Collapsed rows: hide columns 2..4 */
+  .row-collapsed td:nth-child(n+2) { display:none; }
+
+  .cat-cell { display:flex; align-items:center; gap:12px; font-weight:600; font-size: 15px; }
+  .cat-icon { width:24px; height:24px; display:grid; place-items:center; font-size:16px; background: var(--bg-soft); border-radius: 6px; }
+  
+  .toggle { width:24px; height:24px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--muted); display:grid; place-items:center; cursor:pointer; transition: all 0.2s; }
+  .toggle:hover { border-color:var(--accent); color: var(--accent); }
+  .chev { display:inline-block; transition: transform .2s ease; }
+  tr[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+
+  select, input[type="number"], input[readonly] { width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family: inherit; font-size:14px; transition: border-color 0.2s; }
+  select:focus, input[type="number"]:focus, input[readonly]:focus { outline:none; border-color:var(--focus); ring: 2px solid var(--focus); }
+  input[readonly] { background: var(--bg-soft); cursor: default; font-weight: 600; color: var(--accent); }
+
+  /* Unit pair with SWAP button */
+  .unit-pair { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; }
+  .swap-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--muted); display:grid; place-items:center; cursor:pointer; transition: all 0.2s; }
+  .swap-btn:hover { border-color:var(--accent); color: var(--accent); transform: rotate(180deg); }
+  .swap-icon { font-size:14px; line-height:1; }
+
+  .result-wrap { display:flex; align-items:center; gap:8px; }
+  .to-chip { padding:2px 8px; border:1px solid var(--border); border-radius:12px; font-size:11px; color:var(--muted); background:var(--bg-soft); white-space:nowrap; font-weight: 500; }
+
+  @media (max-width:768px) {
+    thead { display:none; }
+    table, tbody, tr, td { display:block; width:100%; }
+    tbody tr { border-bottom:1px solid var(--border); padding:16px; }
+    tbody td { padding:8px 0; border: none; }
+    tbody td:first-child { padding-bottom: 12px; border-bottom: 1px dashed var(--border); margin-bottom: 12px; }
+    .unit-pair { grid-template-columns:1fr auto 1fr; }
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+
+    <!-- 1. GLOBAL NAV -->
+    <div id="global-nav"></div>
+
+    <!-- 2. MAIN TOOL -->
+    <div class="wrap flex-1">
+        <header>
+            <div>
+                <h1>Engineering Unit Converter</h1>
+                <div class="sub">Standard Engineering Units · Cloud Synced</div>
+            </div>
+            <div class="toolbar">
+                <div id="sync-status" class="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1"></div>
+                <button class="btn" type="button" id="btn-expand-all" title="Expand all">⤢ Expand</button>
+                <button class="btn" type="button" id="btn-collapse-all" title="Collapse all">⤡ Collapse</button>
+                <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                <button class="btn" type="button" id="btn-export">⬇ CSV</button>
+                <button class="btn" type="button" id="btn-copy">⧉ Copy</button>
+                <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                <button class="btn text-red-500 hover:text-red-600 hover:border-red-200" type="button" id="btn-reset" title="Reset to defaults">↺ Reset</button>
+            </div>
+        </header>
+
+        <div class="table-wrap">
+            <table aria-label="All categories">
+                <thead>
+                    <tr>
+                        <th style="width:25%;">Category</th>
+                        <th style="width:35%;">Convert From</th>
+                        <th style="width:20%;">Input Value</th>
+                        <th style="width:20%;">Result</th>
+                    </tr>
+                </thead>
+                <tbody id="ac-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. REQUIRED FIREBASE SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        // --- APP CORE ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light' };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (typeof firebase === 'undefined') return;
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence();
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) {
+                    console.log("Persistence disabled:", err.code);
+                }
+
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav(); 
+                        if (this.onLogin) this.onLogin(user);
+                    } else {
+                        this.renderNav();
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                    { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, 
+                    { merge: true }
+                );
+            }
+
+            subscribe(cb) { this.stateListeners.push(cb); cb(this.globalState); }
+            notifyListeners() { this.stateListeners.forEach(cb => cb(this.globalState)); }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+
+            onLogin(user) {} 
+        }
+
+        window.Core = new AppCore();
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => window.Core.init());
+        else window.Core.init();
+    </script>
+
+    <!-- 5. APP LOGIC -->
+    <script>
+        // --- DATA & LOGIC ---
+        window.UOM=window.UOM||{};UOM.catalogs={
+          flow:{icon:'💧',units:[{code:'m3/s',label:'m³/s',toBase:v=>v,fromBase:v=>v},{code:'m3/h',label:'m³/h',toBase:v=>v/3600,fromBase:v=>v*3600},{code:'L/s',label:'L/s',toBase:v=>v*0.001,fromBase:v=>v/0.001},{code:'L/min',label:'L/min',toBase:v=>v*0.001/60,fromBase:v=>v*60/0.001},{code:'L/h',label:'L/h',toBase:v=>v*0.001/3600,fromBase:v=>v*3600/0.001},{code:'ft3/s',label:'ft³/s',toBase:v=>v*0.028316846592,fromBase:v=>v/0.028316846592},{code:'ft3/min',label:'ft³/min (CFM)',toBase:v=>v*0.028316846592/60,fromBase:v=>v*60/0.028316846592},{code:'US_gal/min',label:'gal (US)/min (GPM)',toBase:v=>v*0.003785411784/60,fromBase:v=>v*60/0.003785411784}]},
+          pressure:{icon:'🧭',units:[{code:'Pa',label:'Pa',toBase:v=>v,fromBase:v=>v},{code:'kPa',label:'kPa',toBase:v=>v*1000,fromBase:v=>v/1000},{code:'MPa',label:'MPa',toBase:v=>v*1e6,fromBase:v=>v/1e6},{code:'bar',label:'bar',toBase:v=>v*1e5,fromBase:v=>v/1e5},{code:'atm',label:'atm',toBase:v=>v*101325,fromBase:v=>v/101325},{code:'psi',label:'psi',toBase:v=>v*6894.757293168,fromBase:v=>v/6894.757293168},{code:'mmHg',label:'mmHg (torr)',toBase:v=>v*133.3223684211,fromBase:v=>v/133.3223684211},{code:'inHg',label:'inHg (0°C)',toBase:v=>v*3386.38816,fromBase:v=>v/3386.38816}]},
+          temperature:{icon:'🌡️',units:[{code:'K',label:'Kelvin'},{code:'C',label:'°C'},{code:'F',label:'°F'}]},
+          length:{icon:'📏',units:[{code:'m',label:'m',toBase:v=>v,fromBase:v=>v},{code:'cm',label:'cm',toBase:v=>v/100,fromBase:v=>v*100},{code:'mm',label:'mm',toBase:v=>v/1000,fromBase:v=>v*1000},{code:'in',label:'inch',toBase:v=>v*0.0254,fromBase:v=>v/0.0254},{code:'ft',label:'foot',toBase:v=>v*0.3048,fromBase:v=>v/0.3048},{code:'yd',label:'yard',toBase:v=>v*0.9144,fromBase:v=>v/0.9144},{code:'km',label:'km',toBase:v=>v*1000,fromBase:v=>v/1000},{code:'mi',label:'mile',toBase:v=>v*1609.344,fromBase:v=>v/1609.344}]},
+          viscosity:{icon:'🛢️',units:[{code:'Pa·s',label:'Pa·s',toBase:v=>v,fromBase:v=>v},{code:'P',label:'poise (P)',toBase:v=>v*0.1,fromBase:v=>v/0.1},{code:'cP',label:'centipoise (cP)',toBase:v=>v*0.001,fromBase:v=>v/0.001},{code:'mPa·s',label:'mPa·s',toBase:v=>v*0.001,fromBase:v=>v/0.001}]},
+          area:{icon:'🟦',units:[{code:'m2',label:'m²',toBase:v=>v,fromBase:v=>v},{code:'cm2',label:'cm²',toBase:v=>v/1e4,fromBase:v=>v*1e4},{code:'mm2',label:'mm²',toBase:v=>v/1e6,fromBase:v=>v*1e6},{code:'in2',label:'in²',toBase:v=>v*0.00064516,fromBase:v=>v/0.00064516},{code:'ft2',label:'ft²',toBase:v=>v*0.09290304,fromBase:v=>v/0.09290304},{code:'ha',label:'hectare',toBase:v=>v*10000,fromBase:v=>v/10000},{code:'acre',label:'acre',toBase:v=>v*4046.8564224,fromBase:v=>v/4046.8564224}]},
+          specific_heat:{icon:'🔥',units:[{code:'J/(kg·K)',label:'J/(kg·K)',toBase:v=>v,fromBase:v=>v},{code:'kJ/(kg·K)',label:'kJ/(kg·K)',toBase:v=>v*1000,fromBase:v=>v/1000},{code:'cal/(g·°C)',label:'cal/(g·°C)',toBase:v=>v*4184,fromBase:v=>v/4184},{code:'Btu/(lb·°F)',label:'Btu/(lb·°F)',toBase:v=>v*4186.8,fromBase:v=>v/4186.8}]},
+          power:{icon:'⚡',units:[{code:'W',label:'W',toBase:v=>v,fromBase:v=>v},{code:'kW',label:'kW',toBase:v=>v*1000,fromBase:v=>v/1000},{code:'MW',label:'MW',toBase:v=>v*1e6,fromBase:v=>v/1e6},{code:'hp',label:'hp (mech)',toBase:v=>v*745.699872,fromBase:v=>v/745.699872}]},
+          weight:{icon:'⚖️',units:[{code:'kg',label:'kg',toBase:v=>v,fromBase:v=>v},{code:'g',label:'g',toBase:v=>v/1000,fromBase:v=>v*1000},{code:'lb',label:'lb',toBase:v=>v*0.45359237,fromBase:v=>v/0.45359237},{code:'oz',label:'oz',toBase:v=>v*0.028349523125,fromBase:v=>v/0.028349523125},{code:'t',label:'tonne (t)',toBase:v=>v*1000,fromBase:v=>v/1000}]}
+        };
+        UOM.categoryLabels={flow:'Flow',pressure:'Pressure',temperature:'Temperature',length:'Length',viscosity:'Viscosity',area:'Area',specific_heat:'Specific Heat',power:'Power',weight:'Weight'};
+        
+        UOM.convert=function(category,from,to,value){ 
+            if(value===null||value===undefined||isNaN(value))return NaN; 
+            if(category==='temperature'){ 
+                const toK=(c,v)=>c==='K'?v:(c==='C'?v+273.15:(v-32)*5/9+273.15); 
+                const fromK=(c,vK)=>c==='K'?vK:(c==='C'?vK-273.15:(vK-273.15)*9/5+32); 
+                return fromK(to,toK(from,value)); 
+            } 
+            const cat=UOM.catalogs[category]; 
+            const f=cat.units.find(u=>u.code===from), t=cat.units.find(u=>u.code===to); 
+            if(!f||!t)return NaN; 
+            return t.fromBase(f.toBase(value)); 
+        };
+        
+        UOM.format=function(v){ 
+            if(v===null||v===undefined||isNaN(v))return ''; 
+            const abs=Math.abs(v); 
+            if(abs!==0&&(abs<1e-4||abs>=1e7))return Number(v).toExponential(6); 
+            return Number(v).toLocaleString(undefined,{maximumFractionDigits:8}); 
+        };
+
+        // --- FIRESTORE INTEGRATION ---
+        let appState = {};
+        let saveTimeout = null;
+
+        // Triggered by Core when auth is ready
+        Core.onLogin = function(user) {
+            loadFromFirestore(user.uid);
+        };
+
+        function loadFromFirestore(uid) {
+            if(!window.Core.db) return;
+            const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('uom_tool');
+            
+            docRef.onSnapshot((doc) => {
+                const statusEl = document.getElementById('sync-status');
+                if (doc.exists) {
+                    appState = doc.data().state || {};
+                    if (statusEl) statusEl.innerHTML = 'Synced';
+                } else {
+                    appState = {};
+                    saveToFirestore();
+                }
+                // Refresh UI with loaded state
+                const order=['flow','pressure','temperature','length','viscosity','area','specific_heat','power','weight'];
+                order.forEach(restoreAndWire);
+            }, (error) => {
+                console.error("Sync error:", error);
+                document.getElementById('sync-status').innerText = 'Offline';
+            });
+        }
+
+        function saveToFirestore() {
+            const statusEl = document.getElementById('sync-status');
+            if (statusEl) statusEl.innerText = 'Saving...';
+            
+            if (!window.Core.user || !window.Core.db) return;
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const uid = window.Core.user.uid;
+                    await window.Core.db.collection('users').doc(uid).collection('app_data').doc('uom_tool').set({ 
+                        state: appState,
+                        lastModified: new Date().toISOString()
+                    }, { merge: true });
+                    
+                    if (statusEl) statusEl.innerText = 'Synced';
+                } catch (e) {
+                    console.error("Save error", e);
+                    if (statusEl) statusEl.innerText = 'Error';
+                }
+            }, 1000);
+        }
+
+        // --- BUILDER & LOGIC ---
+        function restoreAndWire(key) {
+            const tr=document.getElementById(`row-${key}`) || createRow(key);
+            const tgl=document.getElementById(`tgl-${key}`);
+            const fromSel=document.getElementById(`from-${key}`);
+            const toSel=document.getElementById(`to-${key}`);
+            const val=document.getElementById(`val-${key}`);
+            const out=document.getElementById(`out-${key}`);
+            const chip=document.getElementById(`chip-${key}`);
+            
+            // Restore from state
+            const saved = appState[key] || {};
+            if(saved.from && [...fromSel.options].some(o=>o.value===saved.from)) fromSel.value=saved.from;
+            if(saved.to &&   [...toSel.options].some(o=>o.value===saved.to))     toSel.value=saved.to;
+            if(typeof saved.value!=='undefined' && saved.value!==null) val.value=saved.value;
+            chip.textContent=toSel.value;
+            
+            // Collapse State
+            const collapsed = !!saved.collapsed;
+            tr.classList.toggle('row-collapsed', collapsed);
+            tr.setAttribute('aria-expanded', (!collapsed).toString());
+            tgl.setAttribute('aria-expanded', (!collapsed).toString());
+
+            // Listeners
+            function persist(){ 
+                appState[key]={ from:fromSel.value, to:toSel.value, value:val.value, collapsed: tr.classList.contains('row-collapsed') }; 
+                saveToFirestore(); 
+            }
+
+            function update(){ 
+                const raw=parseFloat(val.value); 
+                if(isNaN(raw)){ out.value=''; } 
+                else { const res=UOM.convert(key,fromSel.value,toSel.value,raw); out.value=UOM.format(res); }
+                persist(); 
+            }
+
+            // Remove old listeners to avoid dupes (simple hack: clone node or just reliance on init)
+            // Ideally we'd use named functions but for this simple app, we just re-bind on load is fine as load only happens once typically
+            // If data updates from remote, we might re-run this. To be safe, we just update values if elements exist.
+            
+            fromSel.onchange = update;
+            toSel.onchange = ()=>{ chip.textContent=toSel.value; update(); };
+            val.oninput = update;
+            
+            document.getElementById(`swap-${key}`).onclick = () => { 
+                const tmp=fromSel.value; fromSel.value=toSel.value; toSel.value=tmp; 
+                chip.textContent=toSel.value; update(); 
+            };
+            
+            tgl.onclick = () => { 
+                tr.classList.toggle('row-collapsed'); 
+                const isCol = tr.classList.contains('row-collapsed');
+                tr.setAttribute('aria-expanded', (!isCol).toString());
+                tgl.setAttribute('aria-expanded', (!isCol).toString());
+                persist();
+            };
+
+            // Initial calc
+            if(val.value) update();
+        }
+
+        function createRow(key) {
+            const body = document.getElementById('ac-body');
+            const cat=UOM.catalogs[key]; 
+            const label=UOM.categoryLabels[key]||key; 
+            const icon=cat.icon||'◻️'; 
+            const opts=(cat.units||[]).map(u=>`<option value="${u.code}">${u.label||u.code}</option>`).join('');
+            
+            const tr = document.createElement('tr');
+            tr.id = `row-${key}`;
+            tr.setAttribute('data-cat', key);
+            tr.setAttribute('aria-expanded', 'true');
+            tr.innerHTML = `
+              <td class="cat-cell" data-col="Category">
+                <button type="button" class="toggle" id="tgl-${key}" title="Collapse/Expand"><span class="chev">▾</span></button>
+                <span class="cat-icon">${icon}</span>
+                <span>${label}</span>
+              </td>
+              <td data-col="From (Unit)">
+                <div class="unit-pair">
+                  <select id="from-${key}">${opts}</select>
+                  <button type="button" class="swap-btn" id="swap-${key}" title="Swap units"><span class="swap-icon">⇄</span></button>
+                  <select id="to-${key}">${opts}</select>
+                </div>
+              </td>
+              <td data-col="From (Unit Value)"><input id="val-${key}" type="number" step="any" inputmode="decimal" placeholder="—" /></td>
+              <td data-col="Converted value"><div class="result-wrap"><input id="out-${key}" type="text" readonly placeholder="—" /><span class="to-chip" id="chip-${key}"></span></div></td>
+            `;
+            body.appendChild(tr);
+            
+            // Set defaults if new
+            const toSel = tr.querySelector(`#to-${key}`);
+            if(toSel.options.length>1) toSel.selectedIndex=1;
+            
+            return tr;
+        }
+
+        // Initialize UI
+        (function(){
+            const order=['flow','pressure','temperature','length','viscosity','area','specific_heat','power','weight'];
+            order.forEach(createRow); // Create DOM first
+            
+            // Global Buttons
+            document.getElementById('btn-expand-all').onclick = () => { 
+                document.querySelectorAll('tr[data-cat]').forEach(tr => {
+                    tr.classList.remove('row-collapsed');
+                    tr.setAttribute('aria-expanded', 'true');
+                    const btn = tr.querySelector('.toggle');
+                    if(btn) btn.setAttribute('aria-expanded', 'true');
+                    // Update state
+                    const key = tr.getAttribute('data-cat');
+                    if(appState[key]) { appState[key].collapsed = false; }
+                });
+                saveToFirestore();
+            };
+
+            document.getElementById('btn-collapse-all').onclick = () => { 
+                document.querySelectorAll('tr[data-cat]').forEach(tr => {
+                    tr.classList.add('row-collapsed');
+                    tr.setAttribute('aria-expanded', 'false');
+                    const btn = tr.querySelector('.toggle');
+                    if(btn) btn.setAttribute('aria-expanded', 'false');
+                    const key = tr.getAttribute('data-cat');
+                    if(appState[key]) { appState[key].collapsed = true; }
+                });
+                saveToFirestore();
+            };
+
+            document.getElementById('btn-reset').onclick = () => {
+                if(confirm("Reset all values and units?")) {
+                    appState = {};
+                    saveToFirestore();
+                    location.reload(); // Simple reload to clear inputs
+                }
+            };
+
+            document.getElementById('btn-export').onclick = () => {
+                const rows=[["Category","From Unit","From Value","To Unit","Converted Value"]]; 
+                order.forEach(key=>{ 
+                    const label=UOM.categoryLabels[key]||key; 
+                    const f=document.getElementById(`from-${key}`), t=document.getElementById(`to-${key}`), v=document.getElementById(`val-${key}`), o=document.getElementById(`out-${key}`); 
+                    rows.push([label,f.value||'',v.value||'',t.value||'',o.value||'']);
+                }); 
+                const csv=rows.map(r=>r.map(c=>'"'+String(c).replaceAll('"','""')+'"').join(',')).join('\n'); 
+                const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); 
+                const url=URL.createObjectURL(blob); 
+                const a=document.createElement('a'); a.href=url; a.download='conversions.csv'; document.body.appendChild(a); a.click(); a.remove(); 
+            };
+
+            document.getElementById('btn-copy').onclick = async () => {
+                const lines=["Category,From Unit,From Value,To Unit,Converted Value"]; 
+                order.forEach(key=>{ 
+                    const label=UOM.categoryLabels[key]||key; 
+                    const f=document.getElementById(`from-${key}`), t=document.getElementById(`to-${key}`), v=document.getElementById(`val-${key}`), o=document.getElementById(`out-${key}`); 
+                    lines.push([label,f.value||'',v.value||'',t.value||'',o.value||''].join(','));
+                }); 
+                try{ await navigator.clipboard.writeText(lines.join('\n')); alert("Copied to clipboard"); }catch(e){} 
+            };
+        })();
+    </script>
+</body>
+</html>

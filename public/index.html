@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Hub</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- 1. NAVIGATION CONTAINER -->
+    <div id="global-nav"></div>
+
+    <!-- 2. MAIN CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+        
+        <!-- Auth View -->
+        <div id="auth-view" class="hidden max-w-md mx-auto mt-20 p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 text-center">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-6">A</div>
+            <h1 class="text-3xl font-bold mb-2">Welcome Back</h1>
+            <p class="text-slate-500 mb-6">Sign in to access your workspace</p>
+            <button onclick="login()" class="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">Sign In</button>
+            <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="hidden">
+            
+            <!-- Global Search & Header -->
+            <div class="relative mb-10">
+                <div class="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
+                    <div>
+                        <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">Dashboard</h1>
+                        <p class="text-slate-500 dark:text-slate-400">Your integrated engineering workspace</p>
+                    </div>
+                    <button onclick="toggleAppManager()" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <span class="text-lg">⚙️</span> Manage Apps
+                    </button>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="relative w-full max-w-3xl mx-auto group z-20">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg class="w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        id="global-search" 
+                        placeholder="Search apps, checklists, or specific data points..." 
+                        class="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 focus:border-blue-500 outline-none text-lg transition-all"
+                        oninput="handleSearch(this.value)"
+                    >
+                    <div class="absolute right-4 top-4">
+                        <span id="search-status" class="text-xs text-slate-400">Press / to search</span>
+                    </div>
+                </div>
+
+                <!-- Deep Search Results Overlay -->
+                <div id="search-results-panel" class="hidden absolute top-full left-0 right-0 mx-auto max-w-3xl mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-30 max-h-[60vh] overflow-y-auto">
+                    <!-- Results injected here -->
+                </div>
+            </div>
+            
+            <!-- App Manager Panel (Hidden) -->
+            <div id="app-manager" class="hidden mb-8 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 animate-fade-in">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
+                    <h3 class="font-bold text-lg flex items-center gap-2">🛠️ App Registry</h3>
+                    <button onclick="toggleAppManager()" class="text-slate-400 hover:text-slate-600">✕ Close</button>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2">
+                        <form onsubmit="registerApp(event)" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">App Name</label>
+                                    <input type="text" id="new-app-name" placeholder="e.g. Pump Sizing" required class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+                                    <input type="text" id="new-app-cat" placeholder="e.g. Engineering, Finance" required list="category-list" class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
+                                    <datalist id="category-list">
+                                        <option value="Engineering"></option>
+                                        <option value="Project Management"></option>
+                                        <option value="Utilities"></option>
+                                    </datalist>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Icon (Emoji)</label>
+                                    <input type="text" id="new-app-icon" placeholder="e.g. 🏗️" required class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600 text-center">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Filename / Link</label>
+                                    <input type="text" id="new-app-link" placeholder="e.g. pump_tool.html" required class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+                                <input type="text" id="new-app-desc" placeholder="Brief description of functionality" class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
+                            </div>
+
+                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-md">Add App to Dashboard</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800 text-sm">
+                        <h4 class="font-bold text-blue-700 dark:text-blue-300 mb-2">Quick Tips</h4>
+                        <ul class="space-y-2 text-slate-600 dark:text-slate-400">
+                            <li>• Use emojis for icons to keep the UI clean.</li>
+                            <li>• Group related tools by <strong>Category</strong>.</li>
+                            <li>• For search integration, ensure your apps save data to <code>app_data/{collectionID}</code>.</li>
+                            <li>• Default system apps cannot be deleted.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apps Container (Categorized) -->
+            <div id="apps-container" class="space-y-10 pb-20">
+                <!-- Categories will be injected here -->
+                <div class="animate-pulse space-y-4">
+                    <div class="h-8 bg-slate-200 w-48 rounded"></div>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="h-40 bg-slate-200 rounded-2xl"></div>
+                        <div class="h-40 bg-slate-200 rounded-2xl"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 3. FIREBASE SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+
+        // --- APP ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light' };
+                this.stateListeners = [];
+                this.apps = []; // Store app list locally
+                this.deepSearchData = {}; // Cache for deep search
+            }
+
+            async init() {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence(); 
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) { console.log("Persistence:", err.code); }
+
+                this.injectStyles();
+                this.setupAuth();
+                
+                // Keyboard shortcut for search
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+                        e.preventDefault();
+                        document.getElementById('global-search').focus();
+                    }
+                });
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    this.renderNav();
+                    if (user) {
+                        this.connectGlobalStore();
+                        if (this.onLogin) this.onLogin(user);
+                        // Start background fetch for deep search
+                        this.prefetchSearchData();
+                    } else {
+                        document.getElementById('auth-view').classList.remove('hidden');
+                        document.getElementById('dashboard-view').classList.add('hidden');
+                    }
+                });
+            }
+
+            // Prefetch common tool data for instant search
+            async prefetchSearchData() {
+                if(!this.user) return;
+                // List of known collections to index
+                const collections = ['tva_tool', 'dgs_tool'];
+                
+                collections.forEach(col => {
+                    this.db.collection('users').doc(this.user.uid).collection('app_data').doc(col)
+                        .onSnapshot(doc => {
+                            if(doc.exists) {
+                                this.deepSearchData[col] = doc.data();
+                            }
+                        });
+                });
+            }
+
+            connectGlobalStore() {
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        } else {
+                            this.updateGlobalStore({ theme: 'light' });
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                    { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, 
+                    { merge: true }
+                );
+            }
+
+            subscribe(cb) {
+                this.stateListeners.push(cb);
+                cb(this.globalState);
+            }
+
+            notifyListeners() {
+                this.stateListeners.forEach(cb => cb(this.globalState));
+            }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const nav = document.getElementById('global-nav');
+                if (!nav) return;
+                const email = this.user ? this.user.email : 'Guest';
+                const initial = email.charAt(0).toUpperCase();
+
+                nav.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <div class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-xl">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+                                ${this.user ? `
+                                    <div class="relative group cursor-pointer">
+                                        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">${initial}</div>
+                                        <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                            <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500">${email}</div>
+                                            <button onclick="window.Core.auth.signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+
+            onLogin(user) {} 
+        }
+
+        const Core = new AppCore();
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => Core.init());
+        else Core.init();
+        
+        // Expose Core globally for buttons
+        window.Core = Core;
+    </script>
+
+    <!-- 5. PAGE LOGIC -->
+    <script>
+        Core.onLogin = async function(user) {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            loadApps();
+        };
+
+        function login() {
+            const email = prompt("Enter email:");
+            const pass = prompt("Enter password:");
+            const errEl = document.getElementById('login-error');
+            
+            if(email && pass) {
+                errEl.classList.add('hidden');
+                Core.auth.signInWithEmailAndPassword(email, pass).catch(e => {
+                    errEl.textContent = e.message;
+                    errEl.classList.remove('hidden');
+                });
+            }
+        }
+
+        function toggleAppManager() {
+            const el = document.getElementById('app-manager');
+            el.classList.toggle('hidden');
+            if(!el.classList.contains('hidden')) document.getElementById('new-app-name').focus();
+        }
+
+        async function registerApp(e) {
+            e.preventDefault();
+            if(!Core.user) return;
+            
+            const newApp = {
+                name: document.getElementById('new-app-name').value,
+                icon: document.getElementById('new-app-icon').value,
+                category: document.getElementById('new-app-cat').value,
+                link: document.getElementById('new-app-link').value,
+                desc: document.getElementById('new-app-desc').value,
+                isSystem: false,
+                id: Date.now().toString()
+            };
+
+            const docRef = Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps');
+            
+            try {
+                const doc = await docRef.get();
+                let list = (doc.exists && doc.data().list) ? doc.data().list : [];
+                list.push(newApp);
+                await docRef.set({ list }, { merge: true });
+                
+                alert("App added successfully!");
+                e.target.reset();
+                toggleAppManager();
+            } catch (err) {
+                console.error(err);
+                alert("Error adding app");
+            }
+        }
+
+        function loadApps() {
+            if (!Core.user) return;
+            Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps')
+                .onSnapshot(doc => {
+                    const container = document.getElementById('apps-container');
+                    container.innerHTML = '';
+                    
+                    let apps = (doc.exists && doc.data().list) ? doc.data().list : [];
+                    Core.apps = apps; // Cache for search
+
+                    // --- INITIAL SETUP (First Run) ---
+                    if (apps.length === 0) {
+                        apps = [
+                            { name: 'Torsional Tool', icon: '⚙️', category: 'Engineering', link: 'tva_tool.html', desc: 'API 617/684 Analysis', isSystem: true, searchRef: 'tva_tool' },
+                            { name: 'DGS Validator', icon: '🌬️', category: 'Engineering', link: 'dgs_tool.html', desc: 'API 692 Inspection Checklist', isSystem: true, searchRef: 'dgs_tool' },
+                            { name: 'Add Page', icon: '➕', category: 'System', link: 'template.html', desc: 'Create a new page', isSystem: true }
+                        ];
+                        Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps').set({ list: apps });
+                    }
+
+                    // --- GROUP BY CATEGORY ---
+                    const grouped = apps.reduce((acc, app) => {
+                        const cat = app.category || 'Uncategorized';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(app);
+                        return acc;
+                    }, {});
+
+                    // --- RENDER ---
+                    Object.keys(grouped).sort().forEach(cat => {
+                        const section = document.createElement('div');
+                        section.className = "animate-fade-in-up";
+                        
+                        const gridHtml = grouped[cat].map((app, index) => `
+                            <div class="relative group p-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
+                                    ${!app.isSystem ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>` : ''}
+                                </div>
+                                <h3 class="font-bold text-lg mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
+                            </div>
+                        `).join('');
+
+                        section.innerHTML = `
+                            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                                <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                                ${cat}
+                            </h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                ${gridHtml}
+                            </div>
+                        `;
+                        container.appendChild(section);
+                    });
+                });
+        }
+
+        async function deleteApp(id) {
+            if(!confirm("Remove this app shortcut?")) return;
+            const docRef = Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps');
+            const doc = await docRef.get();
+            if(doc.exists) {
+                let list = doc.data().list;
+                // Filter by ID if exists, otherwise by name (legacy support)
+                list = list.filter(a => (a.id && a.id !== id) || (!a.id && a.name !== id));
+                await docRef.set({ list });
+            }
+        }
+
+        // --- GLOBAL SEARCH LOGIC ---
+        function handleSearch(query) {
+            const resultsPanel = document.getElementById('search-results-panel');
+            if (!query.trim()) {
+                resultsPanel.classList.add('hidden');
+                document.getElementById('apps-container').classList.remove('opacity-25');
+                return;
+            }
+
+            document.getElementById('apps-container').classList.add('opacity-25'); // Dim background
+            resultsPanel.classList.remove('hidden');
+            const term = query.toLowerCase();
+            let html = '';
+
+            // 1. Search Apps (Metadata)
+            const matchedApps = Core.apps.filter(app => 
+                app.name.toLowerCase().includes(term) || 
+                (app.desc && app.desc.toLowerCase().includes(term)) ||
+                (app.category && app.category.toLowerCase().includes(term))
+            );
+
+            if (matchedApps.length > 0) {
+                html += `<div class="p-4 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase text-slate-500">Apps</div>`;
+                matchedApps.forEach(app => {
+                    html += `
+                        <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" onclick="window.location.href='${app.link}'">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">${app.icon}</span>
+                                <div>
+                                    <div class="font-bold text-slate-800 dark:text-slate-200">${app.name}</div>
+                                    <div class="text-xs text-slate-500">${app.category} • ${app.desc}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // 2. Deep Search (Content)
+            // Searching TVA Tool Data
+            if (Core.deepSearchData['tva_tool'] && Core.deepSearchData['tva_tool'].checklist) {
+                const checklist = Core.deepSearchData['tva_tool'].checklist;
+                let tvaMatches = [];
+                
+                Object.values(checklist).forEach(section => {
+                    section.items.forEach(item => {
+                        const content = `${item.label} ${item.requirement} ${item.insight} ${item.notes || ''}`.toLowerCase();
+                        if (content.includes(term)) {
+                            tvaMatches.push({ ...item, sectionTitle: section.title });
+                        }
+                    });
+                });
+
+                if (tvaMatches.length > 0) {
+                    html += `<div class="p-4 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase text-slate-500 mt-2">Found in Torsional Tool</div>`;
+                    tvaMatches.slice(0, 5).forEach(match => {
+                        html += `
+                            <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" onclick="window.location.href='tva_tool.html'">
+                                <div class="text-sm font-medium text-slate-800 dark:text-slate-200">${match.label}</div>
+                                <div class="text-xs text-slate-500 truncate">${match.sectionTitle} • ${match.requirement}</div>
+                            </div>
+                        `;
+                    });
+                    if(tvaMatches.length > 5) html += `<div class="p-2 text-center text-xs text-blue-500 italic">+${tvaMatches.length - 5} more matches</div>`;
+                }
+            }
+
+            // Searching DGS Tool Data
+            if (Core.deepSearchData['dgs_tool'] && Core.deepSearchData['dgs_tool'].categories) {
+                const categories = Core.deepSearchData['dgs_tool'].categories;
+                let dgsMatches = [];
+                
+                categories.forEach(cat => {
+                    cat.items.forEach(item => {
+                        const content = `${item.text} ${item.comment || ''}`.toLowerCase();
+                        if (content.includes(term)) {
+                            dgsMatches.push({ ...item, catTitle: cat.title });
+                        }
+                    });
+                });
+
+                if (dgsMatches.length > 0) {
+                    html += `<div class="p-4 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase text-slate-500 mt-2">Found in DGS Validator</div>`;
+                    dgsMatches.slice(0, 5).forEach(match => {
+                        html += `
+                            <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" onclick="window.location.href='dgs_tool.html'">
+                                <div class="text-sm font-medium text-slate-800 dark:text-slate-200">${match.text}</div>
+                                <div class="text-xs text-slate-500 truncate">${match.catTitle}</div>
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            if (html === '') {
+                html = `<div class="p-8 text-center text-slate-400">No matches found for "${query}"</div>`;
+            }
+
+            resultsPanel.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

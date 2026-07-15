@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eisenhower Planner (Cloud)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { 
+                    colors: { slate: { 850: '#151f2e' } },
+                    fontFamily: { sans: ['Instrument Sans', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        body { font-family: 'Instrument Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .task-card { transition: transform 0.2s, box-shadow 0.2s; border-left-width: 4px; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.1); }
+        .task-card.dragging { opacity: 0.5; cursor: grabbing; transform: scale(0.95); }
+        
+        .view-section { display: none; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .drop-zone { transition: background-color 0.2s, border-color 0.2s; }
+        .drop-zone.drag-over { background-color: rgba(99, 102, 241, 0.05); border: 2px dashed #6366f1; }
+        
+        /* Modern Modal Styles */
+        .modal-backdrop { background-color: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); }
+        .modal-content { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        
+        /* Dropdown Animation */
+        .dropdown-enter { animation: dropIn 0.1s ease-out forwards; transform-origin: top right; }
+        @keyframes dropIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* Loader */
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #6366f1; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-200">
+
+    <!-- 1. GLOBAL NAVIGATION -->
+    <div id="global-nav"></div>
+
+    <!-- 2. TOOL TOOLBAR (Controls) -->
+    <div class="bg-white/90 dark:bg-slate-800/90 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 py-3 flex flex-wrap gap-y-3 justify-between items-center z-20 shrink-0 relative">
+        <div class="flex items-center gap-3">
+            <!-- Back Button -->
+            <a href="index.html" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                <i class="fas fa-check-double text-sm md:text-base"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base md:text-lg leading-tight tracking-tight">Eisenhower Planner</h1>
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-medium flex gap-2 md:gap-3 mt-0.5 items-center">
+                    <span id="clock-ist" class="hidden md:inline">--:--</span> 
+                    <span class="text-slate-300 hidden md:inline">|</span> 
+                    <span id="clock-uae" class="hidden lg:inline">--:--</span>
+                    <span class="text-slate-300 hidden lg:inline">|</span>
+                    <span id="clock-it" class="hidden xl:inline">--:--</span>
+                    <span class="text-slate-300 hidden xl:inline">|</span>
+                    <span id="status-indicator" class="flex items-center gap-1 text-slate-400"><i class="fas fa-cloud"></i> Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-3 overflow-x-auto max-w-full pb-1 md:pb-0">
+            <div class="bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl flex text-sm font-medium border border-slate-200 dark:border-slate-600 shrink-0">
+                <button onclick="switchView('matrix')" id="btn-matrix" class="px-3 md:px-5 py-1.5 rounded-lg transition-all text-xs md:text-sm">Matrix</button>
+                <button onclick="switchView('weekly')" id="btn-weekly" class="px-3 md:px-5 py-1.5 rounded-lg transition-all text-xs md:text-sm">Weekly</button>
+                <button onclick="switchView('charts')" id="btn-charts" class="px-3 md:px-5 py-1.5 rounded-lg transition-all text-xs md:text-sm">Charts</button>
+            </div>
+
+            <!-- Data Menu -->
+            <div class="relative shrink-0">
+                <button id="data-menu-btn" onclick="toggleDataMenu(event)" class="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 px-3 py-2 rounded-xl text-xs md:text-sm font-medium transition text-slate-700 dark:text-slate-200 shadow-sm">
+                    <i class="fas fa-file-export"></i> <span class="hidden md:inline">Data</span>
+                </button>
+                <div id="data-menu" class="hidden absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[100] dropdown-enter">
+                    <button onclick="exportToCSV()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-3 transition">
+                        <i class="fas fa-file-csv text-green-600"></i> Export Tasks (CSV)
+                    </button>
+                    <button onclick="exportJSON()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-3 transition">
+                        <i class="fas fa-code text-blue-600"></i> Backup JSON
+                    </button>
+                    <div class="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
+                    <label class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-3 transition cursor-pointer">
+                        <i class="fas fa-file-import text-orange-600"></i> Restore Backup
+                        <input type="file" onchange="importJSON(this)" class="hidden" accept=".json">
+                    </label>
+                </div>
+            </div>
+            
+            <button onclick="clearAll()" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:text-red-500 hover:border-red-200 transition flex items-center justify-center text-slate-400 shrink-0" title="Clear All Data">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 relative overflow-hidden p-4 md:p-6 bg-slate-50 dark:bg-slate-900">
+        
+        <!-- View 1: Matrix -->
+        <div id="view-matrix" class="view-section active h-full w-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-4 md:gap-6 h-full w-full">
+                <!-- Q1 -->
+                <div class="drop-zone bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative overflow-hidden group min-h-[200px]" ondrop="drop(event, 'q1')" ondragover="allowDrop(event)">
+                    <div class="px-5 py-4 border-b border-red-100 dark:border-red-900/30 flex justify-between items-center bg-red-50/30 dark:bg-red-900/10">
+                        <div><h2 class="font-bold text-red-700 dark:text-red-400 text-sm md:text-base">Q1: DO NOW</h2><p class="text-[10px] md:text-xs text-red-500 font-semibold tracking-wider uppercase">Urgent & Important</p></div>
+                        <button onclick="event.stopPropagation(); openTaskModal(null, 'q1')" class="w-8 h-8 rounded-full bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm hover:scale-110 transition flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="q1" class="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar"></div>
+                </div>
+                <!-- Q2 -->
+                <div class="drop-zone bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative overflow-hidden group min-h-[200px]" ondrop="drop(event, 'q2')" ondragover="allowDrop(event)">
+                    <div class="px-5 py-4 border-b border-blue-100 dark:border-blue-900/30 flex justify-between items-center bg-blue-50/30 dark:bg-blue-900/10">
+                        <div><h2 class="font-bold text-blue-700 dark:text-blue-400 text-sm md:text-base">Q2: SCHEDULE</h2><p class="text-[10px] md:text-xs text-blue-500 font-semibold tracking-wider uppercase">Not Urgent, Important</p></div>
+                        <button onclick="event.stopPropagation(); openTaskModal(null, 'q2')" class="w-8 h-8 rounded-full bg-white dark:bg-slate-700 text-blue-600 shadow-sm hover:scale-110 transition flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="q2" class="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar"></div>
+                </div>
+                <!-- Q3 -->
+                <div class="drop-zone bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative overflow-hidden group min-h-[200px]" ondrop="drop(event, 'q3')" ondragover="allowDrop(event)">
+                    <div class="px-5 py-4 border-b border-amber-100 dark:border-amber-900/30 flex justify-between items-center bg-amber-50/30 dark:bg-amber-900/10">
+                        <div><h2 class="font-bold text-amber-700 dark:text-amber-400 text-sm md:text-base">Q3: DELEGATE</h2><p class="text-[10px] md:text-xs text-amber-600 font-semibold tracking-wider uppercase">Urgent, Not Important</p></div>
+                        <button onclick="event.stopPropagation(); openTaskModal(null, 'q3')" class="w-8 h-8 rounded-full bg-white dark:bg-slate-700 text-amber-600 shadow-sm hover:scale-110 transition flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="q3" class="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar"></div>
+                </div>
+                <!-- Q4 -->
+                <div class="drop-zone bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative overflow-hidden group min-h-[200px]" ondrop="drop(event, 'q4')" ondragover="allowDrop(event)">
+                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-700/30">
+                        <div><h2 class="font-bold text-slate-600 dark:text-slate-400 text-sm md:text-base">Q4: DELETE / Done</h2><p class="text-[10px] md:text-xs text-slate-400 font-semibold tracking-wider uppercase">Neither</p></div>
+                        <button onclick="event.stopPropagation(); openTaskModal(null, 'q4')" class="w-8 h-8 rounded-full bg-white dark:bg-slate-700 text-slate-600 shadow-sm hover:scale-110 transition flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="q4" class="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Weekly -->
+        <div id="view-weekly" class="view-section h-full w-full flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
+            <!-- Sidebar (Mobile: Top, Desktop: Left) -->
+            <div class="w-full md:w-72 h-40 md:h-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col z-10 shadow-sm overflow-hidden shrink-0">
+                <div class="p-3 md:p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-800 dark:text-slate-200">Unscheduled</h3>
+                        <p class="text-xs text-slate-500">Drag to assign date</p>
+                    </div>
+                    <span id="unscheduled-count" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">0</span>
+                </div>
+                <div id="unscheduled-list" class="flex-1 p-3 overflow-y-auto space-y-2 bg-slate-50/30 dark:bg-slate-900/30 custom-scrollbar" ondrop="dropDate(event, '')" ondragover="allowDrop(event)"></div>
+            </div>
+            
+            <!-- Main Grid Area -->
+            <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="flex justify-between items-center p-3 md:p-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                    <h2 class="text-base md:text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200"><i class="far fa-calendar-alt text-indigo-500"></i><span id="weekly-range-label">Loading...</span></h2>
+                    <div class="flex gap-1 md:gap-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+                        <button onclick="changeWeek(-1)" class="btn-nav w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded hover:bg-white dark:hover:bg-slate-600 shadow-sm"><i class="fas fa-chevron-left text-xs"></i></button>
+                        <button onclick="resetWeek()" class="px-2 md:px-3 text-[10px] md:text-xs font-bold uppercase tracking-wide hover:bg-white dark:hover:bg-slate-600 rounded shadow-sm">Today</button>
+                        <button onclick="changeWeek(1)" class="btn-nav w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded hover:bg-white dark:hover:bg-slate-600 shadow-sm"><i class="fas fa-chevron-right text-xs"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-x-auto p-4 custom-scrollbar">
+                    <div class="grid grid-cols-5 gap-3 md:gap-4 min-w-[800px] h-full">
+                        <div id="week-grid" class="contents"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 3: Charts -->
+        <div id="view-charts" class="view-section h-full w-full flex flex-col overflow-y-auto custom-scrollbar">
+            <h2 class="text-2xl font-bold mb-6 text-slate-800 dark:text-white px-1">Productivity Insights</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                <!-- Stat Cards -->
+                <div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex justify-between items-start">
+                        <div><div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Tasks</div><div class="text-3xl md:text-4xl font-bold mt-2 text-slate-800 dark:text-white" id="stat-total">0</div></div>
+                        <div class="p-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-500"><i class="fas fa-list-ul"></i></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex justify-between items-start">
+                        <div><div class="text-xs font-bold text-emerald-500 uppercase tracking-wider">Completed</div><div class="text-3xl md:text-4xl font-bold mt-2 text-emerald-600" id="stat-completed">0</div></div>
+                        <div class="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-500"><i class="fas fa-check"></i></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex justify-between items-start">
+                        <div><div class="text-xs font-bold text-indigo-500 uppercase tracking-wider">Pending</div><div class="text-3xl md:text-4xl font-bold mt-2 text-indigo-600" id="stat-pending">0</div></div>
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-500"><i class="fas fa-hourglass-half"></i></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex justify-between items-start">
+                        <div><div class="text-xs font-bold text-blue-500 uppercase tracking-wider">Completion Rate</div><div class="text-3xl md:text-4xl font-bold mt-2 text-blue-600" id="stat-rate">0%</div></div>
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-500"><i class="fas fa-chart-line"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 pb-8">
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <h3 class="font-bold text-slate-700 dark:text-slate-300 mb-6">Weekly Workload</h3>
+                    <div class="relative h-80 w-full">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <h3 class="font-bold text-slate-700 dark:text-slate-300 mb-6">Matrix Distribution</h3>
+                    <div class="relative h-80 w-full flex justify-center">
+                        <canvas id="donutChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 transition-opacity opacity-0 pointer-events-none p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl modal-content p-6 md:p-8 w-full md:w-[450px] border border-white/20 transform scale-95 transition-transform duration-200">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800 dark:text-white" id="modal-heading">Add Task</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Description</label>
+                    <div class="relative">
+                        <textarea id="modal-title" rows="3" class="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-none" placeholder="What needs to be done?"></textarea>
+                        <button onclick="startDictation('modal-title')" class="absolute bottom-3 right-3 text-slate-400 hover:text-indigo-600 transition"><i class="fas fa-microphone"></i></button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Quadrant</label>
+                        <select id="modal-quadrant" class="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition appearance-none">
+                            <option value="q1">Q1: Do Now</option>
+                            <option value="q2">Q2: Schedule</option>
+                            <option value="q3">Q3: Delegate</option>
+                            <option value="q4">Q4: Delete</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Due Date</label>
+                        <input type="date" id="modal-date" class="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-8">
+                <button onclick="closeModal()" class="px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition">Cancel</button>
+                <button onclick="saveModal()" class="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none transition transform hover:-translate-y-0.5">Save Task</button>
+            </div>
+            <input type="hidden" id="modal-id">
+        </div>
+    </div>
+
+    <!-- Reminder Modal -->
+    <div id="reminder-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl modal-content p-6 md:p-8 w-full md:w-[500px] border-l-8 border-rose-500">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center text-lg"><i class="fas fa-bell"></i></span>
+                    Overdue Tasks
+                </h3>
+                <button onclick="closeReminderModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <p class="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">The following high-priority items are past their due date. Let's get them rescheduled.</p>
+            <div id="overdue-list" class="max-h-64 overflow-y-auto space-y-3 mb-8 pr-2 custom-scrollbar"></div>
+            <div class="flex justify-end">
+                <button onclick="closeReminderModal()" class="px-6 py-2.5 bg-slate-800 text-white dark:bg-white dark:text-slate-900 rounded-xl font-medium shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5">Acknowledge</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. FIREBASE SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        // --- APP CORE ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light' };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence(); 
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) { console.log("Persistence:", err.code); }
+
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav(); 
+                        loadPlannerData(user.uid);
+                    } else {
+                        this.renderNav();
+                        // Handle logout or guest mode
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                    { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, 
+                    { merge: true }
+                );
+            }
+
+            subscribe(cb) {
+                this.stateListeners.push(cb);
+                cb(this.globalState);
+            }
+
+            notifyListeners() {
+                this.stateListeners.forEach(cb => cb(this.globalState));
+            }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+        }
+
+        // Initialize Global Instance
+        window.Core = new AppCore();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => window.Core.init());
+        } else {
+            window.Core.init();
+        }
+    </script>
+
+    <!-- 5. APP LOGIC -->
+    <script>
+        // Global variables
+        window.tasks = [];
+        window.weekOffset = 0;
+        let saveTimeout = null;
+
+        // --- Data Loading & Saving ---
+        function loadPlannerData(uid) {
+            if(!window.Core.db) return;
+            const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('planner');
+            
+            docRef.onSnapshot((doc) => {
+                const statusEl = document.getElementById('status-indicator');
+                if (doc.exists) {
+                    const data = doc.data();
+                    window.tasks = data.tasks || [];
+                    if (statusEl) statusEl.innerHTML = '<span class="text-green-500"><i class="fas fa-check-circle"></i> Synced</span>';
+                } else {
+                    // First time load
+                    window.tasks = [];
+                    window.saveToFirestore(); // Create the doc
+                }
+                window.refreshCurrentView();
+                setTimeout(window.checkOverdueTasks, 1000);
+            }, (error) => {
+                console.error("Sync error:", error);
+                const statusEl = document.getElementById('status-indicator');
+                if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Sync Error</span>';
+            });
+        }
+
+        window.saveToFirestore = () => {
+            const statusEl = document.getElementById('status-indicator');
+            if (statusEl) statusEl.innerHTML = '<div class="loader"></div> Saving...';
+            
+            if (!window.Core.user || !window.Core.db) return;
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const uid = window.Core.user.uid;
+                    const docRef = window.Core.db.collection('users').doc(uid).collection('app_data').doc('planner');
+                    await docRef.set({ tasks: window.tasks }, { merge: true });
+                    
+                    if (statusEl) {
+                        statusEl.innerHTML = '<span class="text-green-500"><i class="fas fa-check-circle"></i> Saved</span>';
+                        setTimeout(() => statusEl.innerHTML = '<span class="text-green-500"><i class="fas fa-check-circle"></i> Synced</span>', 2000);
+                    }
+                } catch (e) {
+                    console.error("Save error", e);
+                    if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Save Failed</span>';
+                }
+            }, 1000); // 1-second debounce
+            
+            window.refreshCurrentView();
+        };
+
+        // --- Core UI Logic (View Switching) ---
+        window.switchView = (n) => {
+            document.querySelectorAll('.view-section').forEach(el => { el.style.display='none'; el.classList.remove('active'); });
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => btn.className = "px-3 md:px-5 py-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all text-xs md:text-sm");
+            
+            const view = document.getElementById(`view-${n}`);
+            if(view) {
+                view.style.display = 'flex';
+                setTimeout(() => view.classList.add('active'), 10);
+            }
+            
+            const btn = document.getElementById(`btn-${n}`);
+            if(btn) btn.className = "px-3 md:px-5 py-1.5 rounded-lg bg-white dark:bg-slate-600 shadow-sm text-indigo-600 dark:text-indigo-300 font-bold transition-all ring-1 ring-black/5 dark:ring-white/10 text-xs md:text-sm";
+            
+            window.refreshCurrentView();
+        }
+
+        window.refreshCurrentView = () => {
+            let active = document.querySelector('.view-section.active');
+            if (!active) active = Array.from(document.querySelectorAll('.view-section')).find(el => el.style.display === 'flex');
+            if (!active) return;
+
+            if (active.id === 'view-matrix') window.render();
+            if (active.id === 'view-weekly') window.renderWeekly();
+            if (active.id === 'view-charts') window.renderCharts();
+        }
+
+        // --- Clocks ---
+        function updateClocks() {
+            const now = new Date();
+            const opts = {hour:'2-digit', minute:'2-digit', hour12:false};
+            const elIST = document.getElementById('clock-ist');
+            if(elIST) elIST.innerText = now.toLocaleTimeString('en-GB', {timeZone:'Asia/Kolkata', ...opts}) + ' IST';
+            const elUAE = document.getElementById('clock-uae');
+            if(elUAE) elUAE.innerText = now.toLocaleTimeString('en-GB', {timeZone:'Asia/Dubai', ...opts}) + ' UAE';
+            const elIT = document.getElementById('clock-it');
+            if(elIT) elIT.innerText = now.toLocaleTimeString('en-GB', {timeZone:'Europe/Rome', ...opts}) + ' IT';
+        }
+        setInterval(updateClocks, 1000); updateClocks();
+
+        // --- Render Matrix ---
+        window.render = () => {
+            ['q1','q2','q3','q4'].forEach(q => {
+                const c = document.getElementById(q); c.innerHTML='';
+                window.tasks.filter(t=>t.quadrant===q).forEach(t => c.appendChild(window.createTaskElement(t)));
+            });
+        }
+
+        // --- Render Weekly ---
+        window.changeWeek = (n) => { window.weekOffset+=n; window.renderWeekly(); }
+        window.resetWeek = () => { window.weekOffset=0; window.renderWeekly(); }
+
+        window.renderWeekly = () => {
+            const grid = document.getElementById('week-grid');
+            const unscheduled = document.getElementById('unscheduled-list');
+            grid.innerHTML=''; unscheduled.innerHTML='';
+            
+            window.tasks.filter(t=>!t.date).forEach(t => unscheduled.appendChild(window.createTaskElement(t, true)));
+            document.getElementById('unscheduled-count').innerText = window.tasks.filter(t=>!t.date).length;
+
+            const today = new Date();
+            today.setDate(today.getDate() + (window.weekOffset * 7));
+            const dayOfWeek = today.getDay();
+            const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            const monday = new Date(today.setDate(diff));
+            const friday = new Date(monday); friday.setDate(monday.getDate()+4);
+            
+            document.getElementById('weekly-range-label').innerText = `${monday.toLocaleDateString('en-US', {month:'short', day:'numeric'})} - ${friday.toLocaleDateString('en-US', {month:'short', day:'numeric'})}`;
+
+            const days = ['Mon','Tue','Wed','Thu','Fri'];
+            for(let i=0; i<5; i++) {
+                const curr = new Date(monday); curr.setDate(monday.getDate()+i);
+                const dStr = curr.toISOString().split('T')[0];
+                const isToday = dStr === new Date().toISOString().split('T')[0];
+                const col = document.createElement('div');
+                col.className = `flex flex-col h-full rounded-2xl border transition-all ${isToday ? 'bg-indigo-50/40 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800 shadow-inner' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} drop-zone overflow-hidden min-h-[150px]`;
+                col.ondrop = (e)=>window.dropDate(e, dStr); col.ondragover=window.allowDrop;
+                col.innerHTML = `
+                    <div class="p-3 border-b ${isToday?'border-indigo-100 dark:border-indigo-900':'border-slate-50 dark:border-slate-700'} relative group text-center bg-slate-50/50 dark:bg-slate-800/50">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5 block">${days[i]}</span>
+                        <div class="text-lg font-black text-slate-700 dark:text-slate-200 leading-none">${curr.getDate()}</div>
+                        <button onclick="event.stopPropagation(); openTaskModal(null, 'q2', '${dStr}')" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-white dark:bg-slate-700 text-indigo-600 shadow-sm border border-slate-100 dark:border-slate-600 hover:bg-indigo-50 flex items-center justify-center text-xs transition transform hover:scale-110 z-10"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="flex-1 p-2 space-y-2 overflow-y-auto" id="day-${dStr}"></div>
+                `;
+                grid.appendChild(col);
+                window.tasks.filter(t=>t.date===dStr).forEach(t=> col.querySelector(`#day-${dStr}`).appendChild(window.createTaskElement(t, true)));
+            }
+        }
+
+        // --- Task Element Factory ---
+        window.createTaskElement = (t, simple=false) => {
+            const el = document.createElement('div');
+            const qColors = {q1:'border-red-500', q2:'border-blue-500', q3:'border-amber-500', q4:'border-slate-400'};
+            const badge = {q1:'bg-red-50 text-red-600 border-red-100', q2:'bg-blue-50 text-blue-600 border-blue-100', q3:'bg-amber-50 text-amber-600 border-amber-100', q4:'bg-slate-100 text-slate-500 border-slate-200'};
+            
+            el.className = `task-card bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 border-l-[4px] ${qColors[t.quadrant]} cursor-grab flex flex-col gap-1 group relative hover:shadow-md dark:hover:shadow-slate-900/50`;
+            el.draggable=true; el.ondragstart=(e)=>window.drag(e, t.id); el.ondblclick=()=>window.openTaskModal(t.id);
+            
+            let dateHtml = '';
+            if(t.date && !simple) {
+                const d = new Date(t.date);
+                dateHtml = `<span class="text-[10px] bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-600 inline-flex items-center gap-1"><i class="far fa-calendar"></i> ${d.getMonth()+1}/${d.getDate()}</span>`;
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <span class="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 leading-snug pr-6 break-words">
+                        <span class="text-[8px] font-bold px-1 py-0.5 rounded border ${badge[t.quadrant]} mr-1 uppercase tracking-wide align-middle">${t.quadrant}</span>${t.title}
+                    </span>
+                    <button onclick="event.stopPropagation(); deleteTask('${t.id}')" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1"><i class="fas fa-times"></i></button>
+                </div>
+                ${dateHtml}
+                <div class="hidden group-hover:flex absolute right-1 bottom-1">
+                    <button onclick="event.stopPropagation(); openTaskModal('${t.id}')" class="text-[10px] bg-slate-100 dark:bg-slate-700 w-6 h-6 flex items-center justify-center rounded-full hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-600 transition"><i class="fas fa-pen"></i></button>
+                </div>
+            `;
+            return el;
+        }
+
+        // --- Drag Drop ---
+        let draggedId = null;
+        window.drag = (e, id) => { draggedId=id; e.dataTransfer.setData("text", id); e.target.classList.add('dragging'); }
+        window.allowDrop = (e) => { e.preventDefault(); e.target.closest('.drop-zone').classList.add('drag-over'); }
+        document.addEventListener('dragend', () => document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over')));
+        window.drop = (e, q) => { e.preventDefault(); const t = window.tasks.find(x=>x.id===draggedId); if(t){t.quadrant=q; window.saveToFirestore();} }
+        window.dropDate = (e, d) => { e.preventDefault(); const t = window.tasks.find(x=>x.id===draggedId); if(t){t.date=d; window.saveToFirestore();} }
+
+        // --- Modals & Data Ops ---
+        window.openTaskModal = (id, q=null, d=null) => {
+            const m = document.getElementById('task-modal');
+            document.getElementById('modal-id').value = id || '';
+            document.getElementById('modal-heading').innerText = id ? "Edit Task" : "Create New Task";
+            m.classList.remove('opacity-0', 'pointer-events-none');
+            
+            if(id) {
+                const t = window.tasks.find(x=>x.id===id);
+                document.getElementById('modal-title').value = t.title;
+                document.getElementById('modal-quadrant').value = t.quadrant;
+                document.getElementById('modal-date').value = t.date;
+            } else {
+                document.getElementById('modal-title').value = '';
+                document.getElementById('modal-quadrant').value = q || 'q2';
+                document.getElementById('modal-date').value = d || new Date().toISOString().split('T')[0];
+            }
+            m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => document.getElementById('modal-title').focus(), 50);
+        }
+        window.closeModal = () => { 
+            const m = document.getElementById('task-modal');
+            m.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+        }
+        
+        window.saveModal = () => {
+            const id = document.getElementById('modal-id').value;
+            const title = document.getElementById('modal-title').value;
+            if(!title) return alert("Please enter a task title");
+            const q = document.getElementById('modal-quadrant').value;
+            const d = document.getElementById('modal-date').value;
+            
+            if(id) {
+                const t = window.tasks.find(x=>x.id===id);
+                t.title=title; t.quadrant=q; t.date=d;
+            } else {
+                window.tasks.push({id: Date.now().toString(), title, quadrant:q, date:d, createdAt: new Date().toISOString()});
+            }
+            window.saveToFirestore(); window.closeModal();
+        }
+
+        window.deleteTask = (id) => { if(confirm("Delete this task?")) { window.tasks = window.tasks.filter(x=>x.id!==id); window.saveToFirestore(); } }
+        window.clearAll = () => { if(confirm("Are you sure? This will delete ALL tasks.")) { window.tasks=[]; window.saveToFirestore(); } }
+
+        // --- Export/Import ---
+        window.toggleDataMenu = (event) => {
+            if(event) event.stopPropagation();
+            const menu = document.getElementById('data-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                setTimeout(() => document.addEventListener('click', closeDataMenuOutside), 0);
+            } else {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closeDataMenuOutside);
+            }
+        }
+        function closeDataMenuOutside(e) {
+            const menu = document.getElementById('data-menu');
+            const btn = document.getElementById('data-menu-btn');
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closeDataMenuOutside);
+            }
+        }
+        window.exportJSON = () => { const d="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify({tasks: window.tasks})); const a=document.createElement('a'); a.href=d; a.download="planner.json"; document.body.appendChild(a); a.click(); a.remove(); window.toggleDataMenu(); }
+        window.importJSON = (i) => { const f=i.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{ try{ const d=JSON.parse(e.target.result); if(Array.isArray(d)) window.tasks=d; else if(d.tasks) window.tasks=d.tasks; window.saveToFirestore(); alert("Import Successful!"); }catch(err){alert("Error reading file");} window.toggleDataMenu(); }; r.readAsText(f); }
+        window.exportToCSV = () => { const h=["Subject","Date","Quadrant"]; const r=window.tasks.map(t=>[t.title,t.date,t.quadrant].map(s=>`"${(s||'').replace(/"/g,'""')}"`).join(',')); const c="data:text/csv;charset=utf-8,"+h.join(',')+'\n'+r.join('\n'); const a=document.createElement('a'); a.href=encodeURI(c); a.download="tasks.csv"; document.body.appendChild(a); a.click(); a.remove(); window.toggleDataMenu(); }
+
+        // --- Charts ---
+        let chart1, chart2;
+        window.renderCharts = () => {
+            if(chart1) chart1.destroy(); if(chart2) chart2.destroy();
+            if(document.getElementById('view-charts').style.display === 'none') return;
+
+            const counts = {q1:0, q2:0, q3:0, q4:0};
+            window.tasks.forEach(t => { if(counts[t.quadrant] !== undefined) counts[t.quadrant]++; });
+            
+            const total = window.tasks.length;
+            const completed = counts.q4;
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-completed').innerText = completed;
+            document.getElementById('stat-pending').innerText = total - completed;
+            document.getElementById('stat-rate').innerText = total > 0 ? Math.round((completed/total)*100) + '%' : '0%';
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const color = isDark ? '#94a3b8' : '#64748b';
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            chart2 = new Chart(document.getElementById('donutChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Do Now', 'Schedule', 'Delegate', 'Delete'],
+                    datasets: [{data: [counts.q1, counts.q2, counts.q3, counts.q4], backgroundColor:['#ef4444','#3b82f6','#f59e0b', isDark?'#475569':'#cbd5e1'], borderWidth:0, hoverOffset: 10}]
+                },
+                options: { 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position:'bottom', labels:{color, padding: 20, font: {family: 'Instrument Sans', size: 12} } } },
+                    cutout: '70%'
+                }
+            });
+
+            const today = new Date(); today.setDate(today.getDate()+(window.weekOffset*7));
+            const diff = today.getDate()-today.getDay()+(today.getDay()===0?-6:1);
+            const monday = new Date(today.setDate(diff));
+            const daily = [0,0,0,0,0];
+            window.tasks.forEach(t => {
+                if(t.date) {
+                    const d = new Date(t.date);
+                    const diffTime = d - monday;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    if(diffDays >= 0 && diffDays < 5) daily[diffDays]++;
+                }
+            });
+
+            chart1 = new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Mon','Tue','Wed','Thu','Fri'],
+                    datasets: [{
+                        label:'Tasks Due', 
+                        data: daily, 
+                        backgroundColor:'#6366f1', 
+                        borderRadius:6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y:{beginAtZero:true, ticks:{color, font:{family:'Instrument Sans'}}, grid:{color: gridColor, drawBorder: false}}, 
+                        x:{ticks:{color, font:{family:'Instrument Sans'}}, grid:{display:false}} 
+                    },
+                    plugins: { legend:{display:false} }
+                }
+            });
+        }
+        
+        window.checkOverdueTasks = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const overdue = window.tasks.filter(t => t.date && t.date < today && t.quadrant !== 'q4');
+
+            if (overdue.length > 0) {
+                const list = document.getElementById('overdue-list');
+                list.innerHTML = '';
+                overdue.forEach(t => {
+                    const el = document.createElement('div');
+                    el.className = "flex justify-between items-center p-4 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/30 transition hover:bg-rose-100/50";
+                    const qLabels = {q1: "Do Now", q2: "Schedule", q3: "Delegate"};
+                    el.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-rose-100 text-sm">${t.title}</div>
+                            <div class="text-xs font-semibold text-rose-500 mt-1 flex items-center gap-2">
+                                <span class="bg-rose-100 px-1.5 py-0.5 rounded text-[10px]">${qLabels[t.quadrant]}</span>
+                                <span>Due: ${t.date}</span>
+                            </div>
+                        </div>
+                        <button onclick="rescheduleTask('${t.id}')" class="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg hover:border-rose-300 hover:text-rose-600 transition shadow-sm font-medium">Today</button>
+                    `;
+                    list.appendChild(el);
+                });
+                const m = document.getElementById('reminder-modal');
+                m.classList.remove('hidden'); m.classList.add('flex');
+            }
+        }
+        window.closeReminderModal = () => { 
+            const m = document.getElementById('reminder-modal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+        }
+        window.rescheduleTask = (id) => {
+            const t = window.tasks.find(x => x.id === id);
+            if(t) { t.date = new Date().toISOString().split('T')[0]; window.saveToFirestore(); window.checkOverdueTasks(); }
+        }
+
+        // Voice
+        window.startDictation = (id) => {
+            if('webkitSpeechRecognition' in window) {
+                const r = new webkitSpeechRecognition(); r.lang="en-US";
+                r.onresult = e => { document.getElementById(id).value += ' ' + e.results[0][0].transcript; };
+                r.start();
+            } else alert("Speech recognition not supported");
+        }
+
+        // Start
+        window.switchView('matrix');
+    </script>
+</body>
+</html>

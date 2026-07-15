@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRS Generator (Cloud)</title>
+    
+    <!-- Tailwind for Shell/Nav -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { 
+                    colors: { slate: { 850: '#151f2e' } },
+                    fontFamily: { sans: ['Instrument Sans', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- External Libraries (Tool Specific) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        /* Specific Tool Styles - Scoped where possible */
+        :root { 
+            --primary: #0ea5e9; 
+            --primary-hover: #0284c7;
+            --success: #10b981;
+            --bg: #f8fafc; 
+            --panel: #ffffff; 
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --border-hover: #cbd5e1;
+        }
+
+        body { 
+            background: var(--bg); 
+            color: var(--text-main); 
+            line-height: 1.5;
+        }
+        
+        .main-card { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            background: var(--panel); 
+            padding: 45px; 
+            border-radius: 24px; 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0,0,0,0.02); 
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .header-section { text-align: center; margin-bottom: 40px; }
+        h1 { color: var(--text-main); margin: 0 0 10px 0; font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; }
+        .tagline { color: var(--text-muted); margin: 0; font-size: 1.05rem; }
+        
+        .badge-secure { 
+            background: #f1f5f9; color: var(--text-muted); padding: 6px 14px; 
+            border-radius: 20px; font-size: 0.75em; font-weight: 600; letter-spacing: 0.5px;
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 15px;
+        }
+
+        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+        
+        .upload-box { 
+            border: 2px dashed var(--border); padding: 40px 20px; text-align: center; 
+            border-radius: 16px; cursor: pointer; transition: all 0.25s ease; 
+            background: #fcfcfc; position: relative; display: flex; flex-direction: column; align-items: center;
+        }
+        
+        .upload-box * { pointer-events: none; }
+        .upload-box .action-btn { pointer-events: auto; }
+        
+        .upload-box:hover { border-color: var(--border-hover); background: #f8fafc; }
+        .upload-box.dragover { border-color: var(--primary); background: #f0f9ff; transform: scale(1.02); }
+        .upload-box.loaded { border-color: var(--success); background: #f0fdf4; border-style: solid; }
+        
+        .status-icon { position: absolute; top: 15px; right: 15px; color: var(--success); display: none; }
+        .upload-box.loaded .status-icon { display: block; }
+
+        .icon-svg { width: 48px; height: 48px; margin-bottom: 15px; color: var(--text-muted); transition: 0.3s; }
+        .upload-box.dragover .icon-svg { color: var(--primary); transform: translateY(-5px); }
+        .upload-box.loaded .icon-svg { color: var(--success); }
+
+        .upload-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 5px; color: var(--text-main); }
+        .file-name { font-size: 0.9rem; color: var(--text-muted); word-break: break-all; min-height: 20px; }
+
+        .action-btn {
+            margin-top: 15px; background: white; border: 1px solid var(--border);
+            padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+            cursor: pointer; color: var(--text-main); transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: none; z-index: 10;
+        }
+        .action-btn:hover { background: #f1f5f9; border-color: var(--border-hover); }
+
+        .btn-primary { 
+            display: flex; align-items: center; justify-content: center; width: 100%; padding: 18px; 
+            background: var(--primary); color: white; border: none; border-radius: 12px; 
+            font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 6px 15px rgba(14, 165, 233, 0.3); }
+        .btn-primary:disabled { background: var(--border-hover); box-shadow: none; cursor: not-allowed; color: #94a3b8; }
+        
+        #console { 
+            margin-top: 30px; background: #0f172a; color: #10b981; 
+            padding: 20px; border-radius: 12px; font-family: 'JetBrains Mono', 'Consolas', monospace; 
+            height: 140px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #1e293b;
+        }
+        #console div { margin-bottom: 4px; }
+
+        .macro-section { margin-top: 45px; border-top: 1px solid var(--border); padding-top: 30px; }
+        .macro-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; }
+        .macro-box {
+            background: #f8fafc; border: 1px solid var(--border); border-radius: 12px;
+            padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #334155;
+            height: 220px; overflow-y: auto; white-space: pre; tab-size: 4;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .copy-btn {
+            background: var(--text-main); color: white; border: none; padding: 8px 16px;
+            border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .copy-btn:hover { background: #334155; }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 9999; 
+            align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s;
+        }
+        .modal-box {
+            background: white; padding: 30px 40px; border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); 
+            max-width: 400px; text-align: center; transform: translateY(20px); transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .modal-overlay.show { opacity: 1; }
+        .modal-overlay.show .modal-box { transform: translateY(0); }
+        .modal-msg { margin-bottom: 25px; color: var(--text-main); font-weight: 600; font-size: 1.1rem; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .upload-grid { grid-template-columns: 1fr; }
+            .main-card { padding: 25px; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- 1. GLOBAL NAV -->
+    <div id="global-nav"></div>
+
+    <!-- 2. MAIN TOOL -->
+    <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
+        
+        <div class="main-card">
+            <div class="header-section">
+                <h1>CRS Report Generator</h1>
+                <p class="tagline">Extract PDF comments seamlessly into your Excel template.</p>
+                <div class="flex justify-center gap-2 mt-4">
+                    <span class="badge-secure">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        Local Processing
+                    </span>
+                    <span class="badge-secure text-blue-600 bg-blue-50 border border-blue-100">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Connected to App Hub
+                    </span>
+                </div>
+            </div>
+            
+            <div class="upload-grid">
+                <!-- Template Box -->
+                <div class="upload-box" id="boxTemplate">
+                    <svg class="status-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    
+                    <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    
+                    <div class="upload-title">1. Excel Template</div>
+                    <div class="file-name" id="nameTemplate">Drag & drop or click to upload</div>
+                    <button class="action-btn" id="changeTemplateBtn" onclick="triggerInput('inputTemplate', event)">Change Template</button>
+                    <input type="file" id="inputTemplate" accept=".xlsx" style="display:none">
+                </div>
+
+                <!-- PDF Box -->
+                <div class="upload-box" id="boxPdf">
+                    <svg class="status-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    
+                    <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15.5l3-3 3 3"></path><path d="M12 15.5v-6"></path></svg>
+
+                    <div class="upload-title">2. PDF Document</div>
+                    <div class="file-name" id="namePdf">Drag & drop or click to upload</div>
+                    <input type="file" id="inputPdf" accept="application/pdf" style="display:none">
+                </div>
+            </div>
+
+            <button id="runBtn" class="btn-primary" disabled>Generate CRS Report</button>
+            <div id="console">> System ready. Waiting for files...</div>
+
+            <div class="macro-section">
+                <div class="macro-header">
+                    <div>
+                        <h3 style="margin:0 0 5px 0; color:var(--text-main);">Step 3: Post-Processing Macro</h3>
+                        <p style="margin:0; font-size:0.9em; color:var(--text-muted);">Converts floating images to Excel cell pictures.</p>
+                    </div>
+                    <button class="copy-btn" onclick="copyMacro()">Copy VBA Code</button>
+                </div>
+                <div class="macro-box" id="vbaCode">Sub ConvertImagesToCells()
+    ' Loops through all pictures in Column B (Row 12+) 
+    ' and converts them to "Picture in Cell"
+    
+    Dim ws As Worksheet
+    Dim shp As Shape
+    Dim targetRange As Range
+    Dim i As Long
+    
+    Set ws = ActiveSheet
+    
+    ' Disable screen updating for speed
+    Application.ScreenUpdating = False
+    
+    ' Loop BACKWARDS because Cutting changes the shape count
+    For i = ws.Shapes.Count To 1 Step -1
+        Set shp = ws.Shapes(i)
+        
+        ' Check if it is a Picture
+        If shp.Type = msoPicture Or shp.Type = msoLinkedPicture Then
+            
+            ' Check if it is in Column B (Col 2) and Row >= 12
+            If shp.TopLeftCell.Column = 2 And shp.TopLeftCell.Row >= 12 Then
+                
+                Set targetRange = shp.TopLeftCell
+                
+                ' Cut the floating picture
+                shp.Cut
+                
+                ' Select the cell and Paste as Picture-in-Cell
+                targetRange.Select
+                On Error Resume Next
+                Selection.PastePictureInCell
+                On Error GoTo 0
+                
+            End If
+        End If
+    Next i
+    
+    Application.ScreenUpdating = True
+    MsgBox "All images in Column B converted to Cells!", vbInformation
+End Sub</div>
+            </div>
+        </div>
+
+        <canvas id="hiddenCanvas" style="display:none"></canvas>
+
+        <!-- Custom Message Modal -->
+        <div class="modal-overlay" id="customAlert">
+            <div class="modal-box">
+                <p class="modal-msg" id="alertMessage"></p>
+                <button onclick="closeAlert()" class="btn-primary" style="padding:12px; width:100%; font-size:1rem;">Acknowledge</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 3. REQUIRED FIREBASE SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- 4. EMBEDDED CONFIG & CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        // --- APP CORE ENGINE ---
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light' };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (typeof firebase === 'undefined') return;
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+
+                try {
+                    await this.db.enablePersistence();
+                    console.log("🔌 Offline mode enabled");
+                } catch (err) {
+                    console.log("Persistence disabled:", err.code);
+                }
+
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav(); 
+                    } else {
+                        this.renderNav();
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                    { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, 
+                    { merge: true }
+                );
+            }
+
+            subscribe(cb) { this.stateListeners.push(cb); cb(this.globalState); }
+            notifyListeners() { this.stateListeners.forEach(cb => cb(this.globalState)); }
+
+            injectStyles() {
+                if(typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    }
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+                                <button onclick="window.Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+        }
+
+        window.Core = new AppCore();
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => window.Core.init());
+        else window.Core.init();
+    </script>
+
+    <script>
+        // --- OFFLINE CONFIGURATION ---
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const CONFIG = {
+            scale: 3.0,             
+            startRow: 12,           
+            targetWidth: 1000,      
+            colWidthPx: 390,        
+            borderColor: '#333333',
+            jpegQuality: 0.95       
+        };
+
+        // --- STATE ---
+        let files = { template: null, pdf: null };
+        const els = {
+            btn: document.getElementById('runBtn'),
+            log: document.getElementById('console'),
+            names: { template: document.getElementById('nameTemplate'), pdf: document.getElementById('namePdf') },
+            boxes: { template: document.getElementById('boxTemplate'), pdf: document.getElementById('boxPdf') }
+        };
+
+        // --- UTILITIES ---
+        const log = (msg) => {
+            els.log.innerHTML += `<div>> ${msg}</div>`;
+            els.log.scrollTop = els.log.scrollHeight;
+        };
+
+        const showAlert = (msg) => {
+            document.getElementById('alertMessage').innerText = msg;
+            const modal = document.getElementById('customAlert');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+        };
+
+        const closeAlert = () => {
+            const modal = document.getElementById('customAlert');
+            modal.classList.remove('show');
+            setTimeout(() => modal.style.display = 'none', 200);
+        };
+
+        const parseDate = (d) => {
+            if (!d) return "";
+            try {
+                let s = d.replace("D:", "").replace("'", "");
+                return s.length >= 8 ? `${s.substring(6,8)}/${s.substring(4,6)}/${s.substring(0,4)}` : d;
+            } catch { return ""; }
+        };
+
+        function copyMacro() {
+            const code = document.getElementById('vbaCode').innerText;
+            const textArea = document.createElement("textarea");
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showAlert("Macro code copied to clipboard!");
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        const checkReady = () => {
+            if (files.template && files.pdf) {
+                els.btn.disabled = false;
+                els.btn.textContent = "Generate CRS Report";
+            }
+        };
+
+        function triggerInput(id, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            document.getElementById(id).click();
+        }
+
+        // --- FIRESTORE LOGGING ---
+        async function logUsageToFirestore(fileName) {
+            if (!window.Core.user || !window.Core.db) return;
+            try {
+                const uid = window.Core.user.uid;
+                await window.Core.db.collection('users').doc(uid).collection('app_activity').add({
+                    app: 'crs_tool',
+                    action: 'generate_report',
+                    fileName: fileName || 'unknown',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log("Activity logged to Cloud.");
+            } catch (e) {
+                console.warn("Could not log activity (offline?)", e);
+            }
+        }
+
+        // --- INDEXED DB (PERSISTENT TEMPLATE) ---
+        const DB_NAME = "CRS_Storage";
+        const STORE_NAME = "templates";
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME);
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e);
+            });
+        }
+
+        async function saveTemplateToDB(file) {
+            try {
+                const db = await initDB();
+                // Store file blob and name
+                db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).put({ file: file, name: file.name }, 'default_template');
+                log("Template saved to local browser storage.");
+            } catch (e) { console.warn("Could not save template to DB", e); }
+        }
+
+        async function loadTemplateFromDB() {
+            try {
+                const db = await initDB();
+                return new Promise((resolve) => {
+                    const req = db.transaction(STORE_NAME).objectStore(STORE_NAME).get('default_template');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch (e) { return null; }
+        }
+
+        // --- DRAG & DROP & FILE SELECTION ---
+        async function processFileSelection(type, file) {
+            if (!file) return;
+            
+            // Validation
+            const isExcel = file.name.toLowerCase().endsWith('.xlsx');
+            const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+            
+            if (type === 'template' && !isExcel) return showAlert("Please upload a valid Excel (.xlsx) template file.");
+            if (type === 'pdf' && !isPdf) return showAlert("Please upload a valid PDF document.");
+
+            files[type] = file;
+            els.names[type].textContent = file.name;
+            els.boxes[type].classList.add('loaded');
+            
+            if (type === 'template') {
+                await saveTemplateToDB(file);
+                document.getElementById('changeTemplateBtn').style.display = 'inline-block';
+                els.names[type].style.color = 'var(--success)';
+                els.names[type].style.fontWeight = '600';
+            }
+            
+            checkReady();
+        }
+
+        function setupDragAndDrop(boxId, inputId, type) {
+            const box = document.getElementById(boxId);
+            const input = document.getElementById(inputId);
+
+            // Click to upload (delegated to box)
+            box.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON') input.click();
+            });
+
+            // Input change
+            input.addEventListener('change', (e) => processFileSelection(type, e.target.files[0]));
+
+            // Drag events
+            box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('dragover'); });
+            box.addEventListener('dragleave', (e) => { e.preventDefault(); box.classList.remove('dragover'); });
+            box.addEventListener('drop', (e) => {
+                e.preventDefault(); 
+                box.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processFileSelection(type, e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        setupDragAndDrop('boxTemplate', 'inputTemplate', 'template');
+        setupDragAndDrop('boxPdf', 'inputPdf', 'pdf');
+
+        // Load saved template on startup
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedData = await loadTemplateFromDB();
+            if (savedData && savedData.file) {
+                files.template = savedData.file;
+                els.names.template.textContent = `Saved: ${savedData.name}`;
+                els.names.template.style.color = 'var(--success)';
+                els.names.template.style.fontWeight = '600';
+                els.boxes.template.classList.add('loaded');
+                document.getElementById('changeTemplateBtn').style.display = 'inline-block';
+                log("Loaded previously saved Excel template.");
+                checkReady();
+            }
+        });
+
+        // --- ENGINE LOGIC ---
+        els.btn.addEventListener('click', async () => {
+            els.btn.disabled = true;
+            els.btn.textContent = "Processing... (Please wait)";
+            log("Starting Engine...");
+
+            // Log activity to Firestore
+            if(files.pdf) logUsageToFirestore(files.pdf.name);
+
+            try {
+                // 1. Extract Base Filename for Document Number
+                let baseName = files.pdf.name.replace(/\.pdf$/i, "");
+
+                // 2. Load Template
+                log("Reading Excel Template...");
+                const workbook = new ExcelJS.Workbook();
+                const tplBuffer = await files.template.arrayBuffer();
+                await workbook.xlsx.load(tplBuffer);
+                const sheet = workbook.worksheets[0]; 
+                
+                // 3. Set Export Date & Document Number
+                sheet.getCell('M3').value = new Date();
+                
+                // Advanced Name Manager Resolution for "Document_Number"
+                let docNumInjected = false;
+                try {
+                    if (workbook.definedNames && workbook.definedNames.model) {
+                        const dn = workbook.definedNames.model.find(m => m.name === 'Document_Number');
+                        if (dn && dn.ranges && dn.ranges.length > 0) {
+                            const rangeStr = dn.ranges[0]; // e.g., "Sheet1!$B$2"
+                            const parts = rangeStr.split('!');
+                            if (parts.length === 2) {
+                                const wsName = parts[0].replace(/'/g, '');
+                                const cellRef = parts[1].replace(/\$/g, '');
+                                const targetWs = workbook.getWorksheet(wsName);
+                                if (targetWs) {
+                                    targetWs.getCell(cellRef).value = baseName;
+                                    docNumInjected = true;
+                                    log(`Injected Document_Number: ${baseName}`);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) { console.warn("Defined names check failed", e); }
+                
+                // Fallback if it's a simple worksheet-scoped name
+                if (!docNumInjected) {
+                    try {
+                        const docNumCell = sheet.getCell('Document_Number');
+                        if (docNumCell) {
+                            docNumCell.value = baseName;
+                            docNumInjected = true;
+                            log(`Injected Document_Number: ${baseName}`);
+                        }
+                    } catch (nameErr) {
+                        log("Notice: 'Document_Number' named cell not found in template.");
+                    }
+                }
+
+                // 4. Load PDF
+                log("Reading PDF Document...");
+                const pdfBuffer = await files.pdf.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(pdfBuffer).promise;
+                log(`PDF Loaded successfully: ${pdf.numPages} pages found.`);
+
+                const canvas = document.getElementById('hiddenCanvas');
+                const ctx = canvas.getContext('2d');
+                let rowIdx = CONFIG.startRow;
+                let commentCount = 0;
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const annos = await page.getAnnotations();
+                    const valid = annos.filter(a => ['FreeText', 'Text', 'Line', 'Square', 'Circle', 'Highlight', 'Ink', 'PolyLine'].includes(a.subtype));
+
+                    if (valid.length === 0) continue;
+
+                    const vp = page.getViewport({ scale: CONFIG.scale });
+                    canvas.width = vp.width; canvas.height = vp.height;
+                    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+                    for (const anno of valid) {
+                        let text = anno.contentsObj ? anno.contentsObj.str : anno.contents;
+                        if (!text || text.trim().length === 0) continue;
+                        commentCount++;
+
+                        // Geometry & Resizing
+                        const r = vp.convertToViewportRectangle(anno.rect);
+                        let x = Math.min(r[0], r[2]), y = Math.min(r[1], r[3]);
+                        let w = Math.abs(r[2]-r[0]), h = Math.abs(r[3]-r[1]);
+                        const pad = (w < 60 || h < 60) ? 80 : 10;
+                        x = Math.max(0, x - pad); y = Math.max(0, y - pad);
+                        w = Math.min(canvas.width - x, w + (pad*2)); h = Math.min(canvas.height - y, h + (pad*2));
+
+                        const rawCanvas = document.createElement('canvas');
+                        rawCanvas.width = w; rawCanvas.height = h;
+                        const rawCtx = rawCanvas.getContext('2d');
+                        rawCtx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+
+                        let finalW = w, finalH = h;
+                        if (w > CONFIG.targetWidth) {
+                            const ratio = CONFIG.targetWidth / w;
+                            finalW = CONFIG.targetWidth; finalH = h * ratio;
+                        }
+
+                        const finalCanvas = document.createElement('canvas');
+                        finalCanvas.width = finalW; finalCanvas.height = finalH;
+                        const finalCtx = finalCanvas.getContext('2d');
+                        finalCtx.fillStyle = "#FFFFFF"; finalCtx.fillRect(0, 0, finalW, finalH);
+                        finalCtx.drawImage(rawCanvas, 0, 0, finalW, finalH);
+                        finalCtx.strokeStyle = CONFIG.borderColor; finalCtx.lineWidth = 4;
+                        finalCtx.strokeRect(0, 0, finalW, finalH);
+
+                        const img64 = finalCanvas.toDataURL('image/jpeg', CONFIG.jpegQuality);
+
+                        // Excel Mapping
+                        const row = sheet.getRow(rowIdx);
+                        
+                        // Formatting Serial Number / Page Number
+                        const paddedSrNo = String(commentCount).padStart(2, '0');
+                        row.getCell(1).value = `${paddedSrNo} / Page ${i}`;
+                        
+                        row.getCell(3).value = text;
+                        const dateStr = parseDate(anno.modificationDate);
+                        const author = anno.titleObj?.str || anno.title || 'Unknown';
+                        row.getCell(4).value = `${author}\n${dateStr}`; 
+
+                        // Alignment
+                        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+                        row.getCell(3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                        row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+                        // Row Height
+                        const aspectRatio = finalH / finalW;
+                        const reqHeight = (CONFIG.colWidthPx * aspectRatio) * 0.75; 
+                        row.height = Math.min(Math.max(60, reqHeight), 450);
+
+                        // Image Embedding (Floated first, Macro will fix later)
+                        const imgId = workbook.addImage({ base64: img64, extension: 'jpeg' });
+                        sheet.addImage(imgId, {
+                            tl: { col: 1, row: rowIdx - 1 }, 
+                            br: { col: 2, row: rowIdx },
+                            editAs: 'oneCell' 
+                        });
+
+                        rowIdx++;
+                    }
+                }
+
+                if (commentCount === 0) {
+                    showAlert("No text comments found in the uploaded PDF.");
+                    log("Aborted: No text comments extracted.");
+                    els.btn.disabled = false;
+                    els.btn.textContent = "Generate CRS Report";
+                    return;
+                }
+
+                // Borders
+                log("Applying borders...");
+                const lastRowIndex = rowIdx - 1;
+                for (let r = CONFIG.startRow; r <= lastRowIndex; r++) {
+                    const currentRow = sheet.getRow(r);
+                    for (let c = 1; c <= 13; c++) {
+                        currentRow.getCell(c).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                    }
+                }
+
+                // Download / Save Output
+                const dateTag = new Date().toISOString().slice(0,10).replace(/-/g,"");
+                const outName = `${baseName}_CRS_${dateTag}.xlsx`;
+                
+                log(`Packaging file: ${outName}`);
+                const bufferOut = await workbook.xlsx.writeBuffer();
+                const blobOut = new Blob([bufferOut], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                
+                // Modern File System Access API
+                if (window.showSaveFilePicker) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: outName,
+                            types: [{
+                                description: 'Excel Workbook',
+                                accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']},
+                            }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blobOut);
+                        await writable.close();
+                        log("✅ DONE! File saved successfully.");
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.error(err);
+                            saveAs(blobOut, outName);
+                            log("✅ DONE! File downloaded successfully.");
+                        } else {
+                            log("Save cancelled by user.");
+                        }
+                    }
+                } else {
+                    saveAs(blobOut, outName);
+                    log("✅ DONE! File downloaded successfully.");
+                }
+                
+                els.btn.disabled = false;
+                els.btn.textContent = "Generate CRS Report";
+
+            } catch (err) {
+                console.error(err);
+                log(`ERROR: ${err.message}`);
+                showAlert(`Error: ${err.message}`);
+                els.btn.disabled = false;
+                els.btn.textContent = "Generate CRS Report";
+            }
+        });
+    </script>
+
+</body>
+</html>
