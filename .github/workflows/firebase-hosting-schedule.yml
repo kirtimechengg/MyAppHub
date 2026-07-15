@@ -1,6 +1,12 @@
 name: Recurring Deploy to Firebase Hosting
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'public/**/*.html'
+      - 'public/*.html'
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
