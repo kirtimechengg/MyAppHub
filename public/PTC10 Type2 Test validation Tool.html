@@ -46,7 +46,8 @@ body{font-family:var(--ui);background:var(--ground);color:var(--ink);
   font-size:calc(14px*var(--scale));overflow:hidden}
 button{font-family:var(--ui);cursor:pointer}
 
-#app{display:grid;grid-template-columns:calc(212px*var(--scale)) 1fr;grid-template-rows:calc(52px*var(--scale)) 1fr;
+#app{display:grid;grid-template-columns:calc(212px*var(--scale)) 1fr;
+  grid-template-rows:calc(52px*var(--scale)) calc(40px*var(--scale)) 1fr;
   height:100vh;transition:grid-template-columns .18s ease}
 body.navcollapsed #app{grid-template-columns:52px 1fr}
 body.navcollapsed nav .grp{opacity:0;height:0;padding:0;overflow:hidden}
@@ -70,7 +71,23 @@ header .proj::placeholder{color:rgba(255,255,255,.6)}
   border-radius:var(--r-md);padding:6px 11px;font-size:calc(13px*var(--scale))}
 .hbtn:hover{background:rgba(255,255,255,.24)}
 
+/* top-level mode switch — Generic vs Siemens. A full-width tab row so the two validation
+   paths read as separate destinations rather than items buried in one long side-nav list. */
+.modebar{grid-column:1/-1;background:var(--panel);border-bottom:1px solid var(--rule);
+  display:flex;align-items:stretch;gap:2px;padding:0 12px}
+.modebar button{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);
+  font-family:var(--ui);font-weight:600;font-size:calc(13px*var(--scale));padding:0 14px;
+  display:flex;align-items:center;gap:7px;cursor:pointer}
+.modebar button:hover{color:var(--ink)}
+.modebar button.on{color:var(--accent-ink);border-bottom-color:var(--blue-2)}
+.modebar button .n{font-family:var(--mono);font-weight:400;font-size:calc(10.5px*var(--scale));
+  color:var(--muted);border:1px solid var(--rule);border-radius:999px;padding:0 6px;line-height:1.6}
+
 nav{background:var(--nav-bg);padding:10px 0;overflow-y:auto}
+/* mode-tagged nav items: body[data-mode] decides which set is visible; untagged items
+   (none currently) would show in both */
+body[data-mode="generic"] nav [data-m="siemens"]{display:none}
+body[data-mode="siemens"] nav [data-m="generic"]{display:none}
 nav button{display:block;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;
   color:var(--nav-fg);padding:calc(10px*var(--dens)) 16px;font-size:calc(13.5px*var(--scale))}
 nav button:hover{background:rgba(255,255,255,.06);color:#fff}
@@ -364,25 +381,31 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <button class="hbtn" onclick="previewReport()">Report / PDF</button>
   </header>
 
+  <div class="modebar">
+    <button class="on" data-mode="generic" onclick="setMode('generic')">Generic validation</button>
+    <button data-mode="siemens" onclick="setMode('siemens')">Siemens <span class="n">Type 2</span></button>
+  </div>
+
   <nav>
-    <div class="grp">Setup</div>
-    <button class="on" data-v="v-units"><span class="ico">⚙</span>Units &amp; settings</button>
-    <button data-v="v-spec"><span class="ico">▤</span>Specified conditions</button>
-    <div class="grp">Type 2 test</div>
-    <button data-v="v-gas"><span class="ico">⚗</span>Test gas selection</button>
-    <button data-v="v-with"><span class="ico">✓</span>Verify — with Re<sub>m</sub> corr.</button>
-    <button data-v="v-without"><span class="ico">≈</span>Verify — without corr.</button>
-    <div class="grp">Siemens</div>
-    <button data-v="v-sie-cmp"><span class="ico">⇄</span>Actual vs Test</button>
-    <button data-v="v-sie-calc"><span class="ico">⛓</span>Stage calculation</button>
-    <div class="grp">Mechanical</div>
-    <button data-v="v-ck"><span class="ico">☑</span>MRT / AGES checklist</button>
-    <div class="grp">Output</div>
-    <button data-v="v-att"><span class="ico">📎</span>Attachments</button>
-    <button data-v="v-report"><span class="ico">▦</span>Report of test</button>
-    <button data-v="v-eq"><span class="ico">∑</span>Formula reference</button>
-    <div class="grp">Help</div>
-    <button data-v="v-guide"><span class="ico">?</span>User guide</button>
+    <div class="grp" data-m="generic">Setup</div>
+    <button class="on" data-m="generic" data-v="v-units"><span class="ico">⚙</span>Units &amp; settings</button>
+    <button data-m="generic" data-v="v-spec"><span class="ico">▤</span>Specified conditions</button>
+    <div class="grp" data-m="generic">Type 2 test</div>
+    <button data-m="generic" data-v="v-gas"><span class="ico">⚗</span>Test gas selection</button>
+    <button data-m="generic" data-v="v-with"><span class="ico">✓</span>Verify — with Re<sub>m</sub> corr.</button>
+    <button data-m="generic" data-v="v-without"><span class="ico">≈</span>Verify — without corr.</button>
+    <div class="grp" data-m="generic">Mechanical</div>
+    <button data-m="generic" data-v="v-ck"><span class="ico">☑</span>MRT / AGES checklist</button>
+    <div class="grp" data-m="generic">Output</div>
+    <button data-m="generic" data-v="v-att"><span class="ico">📎</span>Attachments</button>
+    <button data-m="generic" data-v="v-report"><span class="ico">▦</span>Report of test</button>
+    <button data-m="generic" data-v="v-eq"><span class="ico">∑</span>Formula reference</button>
+    <div class="grp" data-m="generic">Help</div>
+    <button data-m="generic" data-v="v-guide"><span class="ico">?</span>User guide</button>
+
+    <div class="grp" data-m="siemens">Siemens validation</div>
+    <button data-m="siemens" data-v="v-sie-cmp"><span class="ico">⇄</span>Actual vs Test</button>
+    <button data-m="siemens" data-v="v-sie-calc"><span class="ico">⛓</span>Stage calculation</button>
   </nav>
 
   <main>
@@ -2554,6 +2577,21 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".view").forEach(x=>x.classList.remove("on"));
   b.classList.add("on"); $(b.dataset.v).classList.add("on");
 });
+
+/* Generic / Siemens top-level mode. Purely a navigation split — both modes share the same
+   project state, save/load and report, so switching modes never loses or resets anything. */
+let MODE="generic";
+function setMode(m){
+  MODE=m;
+  document.body.dataset.mode=m;
+  document.querySelectorAll(".modebar button").forEach(b=>b.classList.toggle("on",b.dataset.mode===m));
+  const active=document.querySelector("nav button.on");
+  if(!active || active.dataset.m!==m){
+    const first=document.querySelector(`nav button[data-m="${m}"]`);
+    if(first) first.onclick();
+  }
+}
+setMode("generic");
 
 buildOnce(); drawCk(); drawAtt(); drawSie(); calc();
 </script>
