@@ -1,12 +1,14 @@
-name: Deploy to Firebase Hosting on HTML changes
+name: Deploy to Firebase Hosting
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'public/**/*.html'
-      - 'public/*.html'
+      # everything Firebase serves — html, app-core.js, firebase-config.js and
+      # anything added later. Pushes that only touch README or the workflows
+      # themselves still skip the deploy.
+      - 'public/**'
   workflow_dispatch:
 
 permissions:

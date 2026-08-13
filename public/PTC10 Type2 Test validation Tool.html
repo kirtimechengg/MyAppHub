@@ -6,19 +6,48 @@
 <title>Type 2 Test Validation Tool</title>
 <style>
 :root{
-  --ink:#12202E; --panel:#FFFFFF; --ground:#EEF1F4; --rule:#C9D2DA;
-  --blue:#1F4E78; --blue-2:#2E75B6; --ages:#C00000; --ages-bg:#FCE4E4;
-  --pass:#1E7A46; --fail:#B3261E; --warn:#8A6100;
-  --muted:#5C6B7A; --input:#0000FF; --calc:#12202E;
+  /* --- accent: overwritten by the accent preset in the appearance panel --- */
+  --blue:#1F4E78; --blue-2:#2E75B6;
+  --accent-soft:rgba(46,117,182,.22); --accent-ink-l:#1F4E78; --accent-ink-d:#8FB9E0;
+  --accent-ink:var(--accent-ink-l);
+  /* --- surfaces & ink --- */
+  --ink:#12202E; --panel:#FFFFFF; --panel-2:#FFFDE7; --ground:#EEF1F4;
+  --rule:#C9D2DA; --rule-soft:#E4E9ED; --field-bg:#FFFFFF; --fx-bg:#F7F9FB;
+  --thumb-bg:#F2F5F7; --hot-bg:#F2F7FB; --mode-bg:#E8F0F7;
+  --nav-bg:#12202E; --nav-fg:#A9BACB; --nav-grp:#61788D;
+  /* --- status --- */
+  --ages:#C00000; --ages-bg:#FCE4E4;
+  --pass:#1E7A46; --pass-bg:#E3F3EA; --pass-br:#9BCFB2;
+  --fail:#B3261E; --fail-bg:#FBE6E4; --fail-br:#E0A69F;
+  --warn:#8A6100; --warn-bg:#FBF2DC; --warn-br:#DFC58C; --warn-ink:#6B4E00;
+  --muted:#5C6B7A; --input:#0000FF; --calc:#12202E; --num-ink:#7A4B00;
+  /* --- typography & metrics: driven by the appearance panel --- */
   --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
   --mono:"Cascadia Mono","Cascadia Code",Consolas,"Courier New",monospace;
+  --scale:1; --dens:1; --r-sm:3px; --r-md:4px; --r-lg:6px;
+  color-scheme:light;
+}
+html[data-theme="dark"]{
+  --accent-ink:var(--accent-ink-d);
+  --ink:#E4EBF2; --panel:#16202C; --panel-2:#241F13; --ground:#0F1620;
+  --rule:#2C3A4A; --rule-soft:#233040; --field-bg:#1B2634; --fx-bg:#131C26;
+  --thumb-bg:#101922; --hot-bg:#14212E; --mode-bg:#1E2A38;
+  --nav-bg:#0B121A; --nav-fg:#9DB0C4; --nav-grp:#6C819A;
+  --ages:#FF8B84; --ages-bg:#3A1D1D;
+  --pass:#45C07C; --pass-bg:#12291D; --pass-br:#2A6B47;
+  --fail:#F2837B; --fail-bg:#2E1614; --fail-br:#7B3A34;
+  --warn:#DBB05A; --warn-bg:#2B2312; --warn-br:#6B5726; --warn-ink:#E8C77A;
+  --muted:#93A4B5; --input:#7FB6FF; --calc:#E4EBF2; --num-ink:#D9B171;
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;height:100%}
-body{font-family:var(--ui);background:var(--ground);color:var(--ink);font-size:14px;overflow:hidden}
+body{font-family:var(--ui);background:var(--ground);color:var(--ink);
+  font-size:calc(14px*var(--scale));overflow:hidden}
 button{font-family:var(--ui);cursor:pointer}
 
-#app{display:grid;grid-template-columns:212px 1fr;grid-template-rows:52px 1fr;height:100vh;transition:grid-template-columns .18s ease}
+#app{display:grid;grid-template-columns:calc(212px*var(--scale)) 1fr;grid-template-rows:calc(52px*var(--scale)) 1fr;
+  height:100vh;transition:grid-template-columns .18s ease}
 body.navcollapsed #app{grid-template-columns:52px 1fr}
 body.navcollapsed nav .grp{opacity:0;height:0;padding:0;overflow:hidden}
 body.navcollapsed nav button{text-align:center;padding:11px 0;font-size:0}
@@ -26,124 +55,149 @@ body.navcollapsed nav button .ico{display:inline;font-size:16px}
 body.navcollapsed nav button sub{display:none}
 nav button .ico{display:none;font-family:var(--mono);font-weight:700}
 .navtoggle{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;
-  border-radius:4px;width:32px;height:32px;font-size:15px;display:flex;align-items:center;justify-content:center;flex:none}
+  border-radius:var(--r-md);width:calc(32px*var(--scale));height:calc(32px*var(--scale));
+  font-size:calc(15px*var(--scale));display:flex;align-items:center;justify-content:center;flex:none}
 .navtoggle:hover{background:rgba(255,255,255,.24)}
 header{grid-column:1/-1;background:var(--blue);color:#fff;display:flex;align-items:center;gap:14px;padding:0 16px}
 header .mark{font-weight:600;white-space:nowrap}
 header .mark span{opacity:.72;font-weight:400}
 header .spacer{flex:1}
 header .proj{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff!important;
-  border-radius:4px;padding:5px 9px;font-family:var(--ui);font-size:13px;width:210px}
+  border-radius:var(--r-md);padding:5px 9px;font-family:var(--ui);font-size:calc(13px*var(--scale));width:210px}
 header .proj:focus{background:rgba(255,255,255,.2);outline:2px solid rgba(255,255,255,.5)}
 header .proj::placeholder{color:rgba(255,255,255,.6)}
 .hbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;
-  border-radius:4px;padding:6px 11px;font-size:13px}
+  border-radius:var(--r-md);padding:6px 11px;font-size:calc(13px*var(--scale))}
 .hbtn:hover{background:rgba(255,255,255,.24)}
 
-nav{background:var(--ink);padding:10px 0;overflow-y:auto}
+nav{background:var(--nav-bg);padding:10px 0;overflow-y:auto}
 nav button{display:block;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;
-  color:#A9BACB;padding:10px 16px;font-size:13.5px}
+  color:var(--nav-fg);padding:calc(10px*var(--dens)) 16px;font-size:calc(13.5px*var(--scale))}
 nav button:hover{background:rgba(255,255,255,.06);color:#fff}
-nav button.on{background:rgba(46,117,182,.22);border-left-color:var(--blue-2);color:#fff;font-weight:600}
-nav .grp{color:#61788D;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;padding:14px 16px 5px}
+nav button.on{background:var(--accent-soft);border-left-color:var(--blue-2);color:#fff;font-weight:600}
+nav .grp{color:var(--nav-grp);font-size:calc(10.5px*var(--scale));letter-spacing:.09em;text-transform:uppercase;padding:14px 16px 5px}
 
 main{overflow-y:auto;padding:20px 24px 60px}
 .view{display:none;max-width:1140px}
 .view.on{display:block}
-h1{font-size:19px;margin:0 0 3px;font-weight:600}
-.sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+h1{font-size:calc(19px*var(--scale));margin:0 0 3px;font-weight:600}
+.sub{color:var(--muted);font-size:calc(13px*var(--scale));margin:0 0 18px}
 
-.card{background:var(--panel);border:1px solid var(--rule);border-radius:6px;margin-bottom:18px;overflow:hidden}
-.card>h2{font-size:13px;margin:0;padding:9px 14px;background:var(--blue);color:#fff;font-weight:600;
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-lg);margin-bottom:18px;overflow:hidden}
+.card>h2{font-size:calc(13px*var(--scale));margin:0;padding:calc(9px*var(--dens)) 14px;background:var(--blue);color:#fff;font-weight:600;
   display:flex;align-items:center;gap:8px}
-.card>h2 .r{margin-left:auto;font-weight:400;opacity:.8;font-size:12px}
-.body{padding:12px 14px}
+.card>h2 .r{margin-left:auto;font-weight:400;opacity:.8;font-size:calc(12px*var(--scale))}
+.body{padding:calc(12px*var(--dens)) 14px}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-th{background:var(--blue-2);color:#fff;font-size:11.5px;text-align:left;padding:7px 10px;font-weight:600}
-td{padding:6px 10px;border-bottom:1px solid #E4E9ED;vertical-align:middle;word-break:break-word}
+th{background:var(--blue-2);color:#fff;font-size:calc(11.5px*var(--scale));text-align:left;
+  padding:calc(7px*var(--dens)) 10px;font-weight:600}
+td{padding:calc(6px*var(--dens)) 10px;border-bottom:1px solid var(--rule-soft);vertical-align:middle;word-break:break-word}
 tr.fxr td{padding-top:0}
-.unit{color:var(--muted);font-family:var(--mono);font-size:12px}
+.unit{color:var(--muted);font-family:var(--mono);font-size:calc(12px*var(--scale))}
 td.lbl{width:36%}
 tr.off{display:none}
 
-input[type=text],select{font-family:var(--mono);font-size:13px;color:var(--input);
-  border:1px solid var(--rule);border-radius:3px;padding:5px 7px;width:100%;background:#FFFDE7}
-input:focus,select:focus{outline:2px solid var(--blue-2);outline-offset:-1px;background:#fff}
-select{background:#FFFDE7;color:var(--input)}
-select.mode{background:#E8F0F7;color:var(--blue);font-weight:600;font-family:var(--ui);font-size:12px}
-.out{font-family:var(--mono);font-size:13.5px;font-weight:600;color:var(--calc)}
+input[type=text],select{font-family:var(--mono);font-size:calc(13px*var(--scale));color:var(--input);
+  border:1px solid var(--rule);border-radius:var(--r-sm);padding:5px 7px;width:100%;background:var(--panel-2)}
+input:focus,select:focus{outline:2px solid var(--blue-2);outline-offset:-1px;background:var(--field-bg)}
+select{background:var(--panel-2);color:var(--input)}
+select.mode{background:var(--mode-bg);color:var(--accent-ink);font-weight:600;font-family:var(--ui);font-size:calc(12px*var(--scale))}
+.out{font-family:var(--mono);font-size:calc(13.5px*var(--scale));font-weight:600;color:var(--calc)}
 .out.dim{color:var(--muted);font-weight:400}
 
-.fx{font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.5;
-  border-left:2px solid var(--blue-2);padding:3px 0 3px 8px;background:#F7F9FB;word-break:break-word}
-.fx b{color:var(--blue);font-weight:600}
-.fx .n{color:#7A4B00}
+.fx{font-family:var(--mono);font-size:calc(11.5px*var(--scale));color:var(--muted);line-height:1.5;
+  border-left:2px solid var(--blue-2);padding:3px 0 3px 8px;background:var(--fx-bg);word-break:break-word}
+.fx b{color:var(--accent-ink);font-weight:600}
+.fx .n{color:var(--num-ink)}
 body.hidefx tr.fxr{display:none}
 .chartpair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media(max-width:1000px){.chartpair{grid-template-columns:1fr}}
-.cflab{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
-.snap{width:100%;height:auto;border:1px solid var(--rule);border-radius:5px;background:#fff}
+.cflab{font-size:calc(11px*var(--scale));color:var(--muted);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+/* the ASME figure snaps are white-paper facsimiles — framed as paper in both themes */
+.snap{width:100%;height:auto;border:1px solid var(--rule);border-radius:var(--r-md);background:#fff}
 
-.badge{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;
-  border-radius:3px;white-space:nowrap}
-.b-pass{background:#E3F3EA;color:var(--pass);border:1px solid #9BCFB2}
-.b-fail{background:#FBE6E4;color:var(--fail);border:1px solid #E0A69F}
-.b-chk{background:#FBF2DC;color:var(--warn);border:1px solid #DFC58C}
-.note{font-size:12px;color:var(--muted);line-height:1.55}
+.badge{display:inline-block;font-family:var(--mono);font-size:calc(11px*var(--scale));font-weight:700;padding:2px 7px;
+  border-radius:var(--r-sm);white-space:nowrap}
+.b-pass{background:var(--pass-bg);color:var(--pass);border:1px solid var(--pass-br)}
+.b-fail{background:var(--fail-bg);color:var(--fail);border:1px solid var(--fail-br)}
+.b-chk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-br)}
+.note{font-size:calc(12px*var(--scale));color:var(--muted);line-height:1.55}
 .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
-.btn{background:#fff;border:1px solid var(--rule);border-radius:4px;padding:6px 12px;font-size:13px;color:var(--ink)}
-.btn:hover{border-color:var(--blue-2);color:var(--blue)}
+.btn{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-md);
+  padding:calc(6px*var(--dens)) 12px;font-size:calc(13px*var(--scale));color:var(--ink)}
+.btn:hover{border-color:var(--blue-2);color:var(--accent-ink)}
 .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.dgr{color:var(--fail);border-color:#E0A69F}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:1020px){.grid2{grid-template-columns:1fr}}
 
-.ck td{vertical-align:top;padding:7px 8px}
+.ck td{vertical-align:top;padding:calc(7px*var(--dens)) 8px}
 .ck tr.ages td{background:var(--ages-bg)}
 .ck tr.ages textarea{color:var(--ages);font-weight:600}
 .ck textarea{width:100%;border:1px solid transparent;background:transparent;font-family:var(--ui);
-  font-size:13px;resize:vertical;min-height:36px;padding:4px;border-radius:3px;color:inherit;line-height:1.45}
-.ck textarea:focus{background:#fff;border-color:var(--blue-2);outline:none}
-.ck input{background:#fff;color:var(--ink);font-family:var(--ui)}
-.ck .ref input{color:var(--muted);font-family:var(--mono);font-size:11.5px}
-.ck .act button{border:0;background:none;color:var(--muted);font-size:15px;padding:2px 5px;border-radius:3px}
-.ck .act button:hover{color:var(--fail);background:#FBE6E4}
-.seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
-.seg button{flex:1;border:0;background:#fff;padding:4px 0;font-size:11px;font-weight:600;color:var(--muted)}
+  font-size:calc(13px*var(--scale));resize:vertical;min-height:36px;padding:4px;border-radius:var(--r-sm);color:inherit;line-height:1.45}
+.ck textarea:focus{background:var(--field-bg);border-color:var(--blue-2);outline:none}
+.ck input{background:var(--field-bg);color:var(--ink);font-family:var(--ui)}
+.ck .ref input{color:var(--muted);font-family:var(--mono);font-size:calc(11.5px*var(--scale))}
+.ck .act button{border:0;background:none;color:var(--muted);font-size:calc(15px*var(--scale));padding:2px 5px;border-radius:var(--r-sm)}
+.ck .act button:hover{color:var(--fail);background:var(--fail-bg)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:var(--r-sm);overflow:hidden}
+.seg button{flex:1;border:0;background:var(--panel);padding:4px 0;font-size:calc(11px*var(--scale));font-weight:600;color:var(--muted)}
 .seg button.on[data-v="Y"]{background:var(--pass);color:#fff}
 .seg button.on[data-v="N"]{background:var(--fail);color:#fff}
 .seg button.on[data-v="NA"]{background:#8494A3;color:#fff}
-.tag{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:3px;border:1px solid var(--rule);
-  color:var(--muted);background:#fff;cursor:pointer}
+.tag{font-family:var(--mono);font-size:calc(10.5px*var(--scale));padding:1px 5px;border-radius:var(--r-sm);border:1px solid var(--rule);
+  color:var(--muted);background:var(--panel);cursor:pointer}
 .tag.on{background:var(--ages);color:#fff;border-color:var(--ages)}
 
-.big{font-family:var(--mono);font-size:22px;font-weight:700;padding:14px;text-align:center;border-radius:5px}
-.big.ok{background:#E3F3EA;color:var(--pass);border:2px solid var(--pass)}
-.big.no{background:#FBE6E4;color:var(--fail);border:2px solid var(--fail)}
-.eqlist{font-family:var(--mono);font-size:12.5px;line-height:2}
-.eqlist div{padding:5px 0;border-bottom:1px dashed #DDE3E8}
-.eqlist b{color:var(--blue)}
-.warnbox{background:#FBF2DC;border:1px solid #DFC58C;color:#6B4E00;padding:9px 11px;border-radius:4px;
-  font-size:12.5px;line-height:1.55;margin-bottom:12px}
+.big{font-family:var(--mono);font-size:calc(22px*var(--scale));font-weight:700;padding:14px;text-align:center;border-radius:var(--r-md)}
+.big.ok{background:var(--pass-bg);color:var(--pass);border:2px solid var(--pass)}
+.big.no{background:var(--fail-bg);color:var(--fail);border:2px solid var(--fail)}
+.eqlist{font-family:var(--mono);font-size:calc(12.5px*var(--scale));line-height:2}
+.eqlist div{padding:5px 0;border-bottom:1px dashed var(--rule-soft)}
+.eqlist b{color:var(--accent-ink)}
+.warnbox{background:var(--warn-bg);border:1px solid var(--warn-br);color:var(--warn-ink);padding:9px 11px;border-radius:var(--r-md);
+  font-size:calc(12.5px*var(--scale));line-height:1.55;margin-bottom:12px}
 
 /* ---------- attachments ---------- */
-#drop{border:2px dashed var(--rule);border-radius:6px;padding:26px;text-align:center;color:var(--muted);
-  background:#fff;margin-bottom:14px}
-#drop.hot{border-color:var(--blue-2);background:#F2F7FB;color:var(--blue)}
+#drop{border:2px dashed var(--rule);border-radius:var(--r-lg);padding:26px;text-align:center;color:var(--muted);
+  background:var(--panel);margin-bottom:14px}
+#drop.hot{border-color:var(--blue-2);background:var(--hot-bg);color:var(--accent-ink)}
 .atts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
-.att{border:1px solid var(--rule);border-radius:5px;background:#fff;overflow:hidden}
-.att .thumb{height:130px;background:#F2F5F7;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.att{border:1px solid var(--rule);border-radius:var(--r-md);background:var(--panel);overflow:hidden}
+.att .thumb{height:130px;background:var(--thumb-bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .att .thumb img{max-width:100%;max-height:100%;object-fit:contain}
-.att .pdfic{font-family:var(--mono);font-weight:700;color:var(--fail);font-size:13px;text-align:center;padding:8px}
+.att .pdfic{font-family:var(--mono);font-weight:700;color:var(--fail);font-size:calc(13px*var(--scale));text-align:center;padding:8px}
 .att .meta{padding:8px}
-.att .meta input{background:#fff;color:var(--ink);font-family:var(--ui);font-size:12px;margin-bottom:6px}
-.att .meta .fn{font-size:11px;color:var(--muted);font-family:var(--mono);word-break:break-all;margin-bottom:6px}
+.att .meta input{background:var(--field-bg);color:var(--ink);font-family:var(--ui);font-size:calc(12px*var(--scale));margin-bottom:6px}
+.att .meta .fn{font-size:calc(11px*var(--scale));color:var(--muted);font-family:var(--mono);word-break:break-all;margin-bottom:6px}
+
+/* ---------- appearance panel ---------- */
+.apRow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.swatch{width:26px;height:26px;border-radius:50%;border:2px solid var(--rule);cursor:pointer;padding:0;flex:none}
+.swatch.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
+.chip{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-md);color:var(--muted);
+  padding:4px 10px;font-size:calc(12px*var(--scale));font-family:var(--ui)}
+.chip:hover{border-color:var(--blue-2);color:var(--accent-ink)}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
 
 /* ================= A4 REPORT ================= */
-#printDoc{display:none;background:#fff}
+/* The report is paper: it stays on the light palette at 1:1 scale whatever the screen
+   theme is, so the preview always matches the printed PDF. Only the accent colour is
+   allowed through, so the document carries the chosen brand colour. */
+#printDoc{display:none;background:#fff;color-scheme:light;
+  --ink:#12202E; --panel:#FFFFFF; --panel-2:#FFFDE7; --ground:#EEF1F4;
+  --rule:#C9D2DA; --rule-soft:#E4E9ED; --field-bg:#FFFFFF; --fx-bg:#F7F9FB;
+  --ages:#C00000; --ages-bg:#FCE4E4;
+  --pass:#1E7A46; --pass-bg:#E3F3EA; --pass-br:#9BCFB2;
+  --fail:#B3261E; --fail-bg:#FBE6E4; --fail-br:#E0A69F;
+  --warn:#8A6100; --warn-bg:#FBF2DC; --warn-br:#DFC58C; --warn-ink:#6B4E00;
+  --muted:#5C6B7A; --input:#0000FF; --calc:#12202E; --num-ink:#7A4B00;
+  --accent-ink:var(--accent-ink-l);
+  --scale:1; --dens:1; --r-sm:3px; --r-md:4px; --r-lg:6px}
 body.preview{overflow:auto}
 body.preview #app{display:none}
-body.preview #printDoc{display:block;background:var(--ground);padding:20px 0}
+body.preview #printDoc{display:block;background:#EEF1F4;padding:20px 0}
 body.preview .page{margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .page{width:210mm;min-height:297mm;padding:14mm 13mm;background:#fff;position:relative;
   font-size:10.5px;color:#000;display:flex;flex-direction:column}
@@ -194,6 +248,88 @@ body.preview .page{margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
   .page .attimg img{max-height:205mm}
 }
 </style>
+
+<script>
+"use strict";
+/* ================= appearance — theme, accent, fonts, sizing =================
+   Stored per machine in localStorage, never in the .t2p.json project file, and
+   applied here in <head> so the first paint is already the right theme.
+   Everything is a system font stack — the tool must keep working offline. */
+const AP_KEY="t2.appearance.v1";
+const AP_DEF={theme:"system",accent:"navy",ui:"system",mono:"cascadia",scale:"1",dens:"normal",radius:"round",fx:true};
+const AP_ACCENT={
+  navy    :{n:"Navy",     d:"#1F4E78",m:"#2E75B6",soft:"rgba(46,117,182,.22)",inkL:"#1F4E78",inkD:"#8FB9E0"},
+  teal    :{n:"Teal",     d:"#0F5F5C",m:"#1D8A85",soft:"rgba(29,138,133,.24)",inkL:"#0F5F5C",inkD:"#7FCFC9"},
+  indigo  :{n:"Indigo",   d:"#3A3A8C",m:"#5B5BC4",soft:"rgba(91,91,196,.26)", inkL:"#3A3A8C",inkD:"#A9A9EA"},
+  slate   :{n:"Slate",    d:"#38465A",m:"#5A7290",soft:"rgba(90,114,144,.28)",inkL:"#38465A",inkD:"#A8BCD4"},
+  burgundy:{n:"Burgundy", d:"#7A2438",m:"#A8455C",soft:"rgba(168,69,92,.24)", inkL:"#7A2438",inkD:"#E8A0AE"}
+};
+const AP_UI={
+  system  :'"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif',
+  grotesk :'Inter,Roboto,"Helvetica Neue",Arial,sans-serif',
+  humanist:'"Segoe UI",Tahoma,Verdana,Geneva,sans-serif',
+  serif   :'Cambria,Georgia,"Times New Roman",serif'
+};
+const AP_MONO={
+  cascadia:'"Cascadia Mono","Cascadia Code",Consolas,"Courier New",monospace',
+  consolas:'Consolas,Menlo,"DejaVu Sans Mono",monospace',
+  system  :'ui-monospace,SFMono-Regular,"SF Mono",Consolas,monospace',
+  courier :'"Courier New",Courier,monospace'
+};
+const AP_DENS={compact:"0.72",normal:"1",roomy:"1.3"};
+const AP_RADIUS={sharp:["1px","2px","3px"],round:["3px","4px","6px"],soft:["6px","10px","14px"]};
+let AP=Object.assign({},AP_DEF);
+const apMQ=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null;
+const apResolved=()=>(AP.theme==="dark"||(AP.theme==="system"&&apMQ&&apMQ.matches))?"dark":"light";
+function apLoad(){ try{const r=localStorage.getItem(AP_KEY); if(r) Object.assign(AP,JSON.parse(r)||{});}catch(e){} }
+function apStore(){ try{localStorage.setItem(AP_KEY,JSON.stringify(AP));}catch(e){} }
+function apApply(){
+  const R=document.documentElement, st=R.style, was=R.dataset.theme, now=apResolved();
+  R.dataset.theme=now;
+  const a=AP_ACCENT[AP.accent]||AP_ACCENT.navy;
+  st.setProperty("--blue",a.d); st.setProperty("--blue-2",a.m); st.setProperty("--accent-soft",a.soft);
+  st.setProperty("--accent-ink-l",a.inkL); st.setProperty("--accent-ink-d",a.inkD);
+  st.setProperty("--ui",AP_UI[AP.ui]||AP_UI.system);
+  st.setProperty("--mono",AP_MONO[AP.mono]||AP_MONO.cascadia);
+  st.setProperty("--scale",AP.scale);
+  st.setProperty("--dens",AP_DENS[AP.dens]||AP_DENS.normal);
+  const r=AP_RADIUS[AP.radius]||AP_RADIUS.round;
+  st.setProperty("--r-sm",r[0]); st.setProperty("--r-md",r[1]); st.setProperty("--r-lg",r[2]);
+  if(document.body) document.body.classList.toggle("hidefx",!AP.fx);
+  /* the live charts are SVG strings, so they have to be redrawn to re-colour */
+  if(was!==now && typeof drawCharts==="function") drawCharts();
+}
+function apSync(){                                   // reflect AP back into the controls
+  const g=id=>document.getElementById(id);
+  if(!g("apTheme")) return;
+  const mark=(id,val)=>{const c=g(id); if(c) [...c.children].forEach(b=>b.classList.toggle("on",b.dataset.k===String(val)));};
+  mark("apTheme",AP.theme); mark("apAccent",AP.accent); mark("apScale",AP.scale);
+  mark("apDens",AP.dens); mark("apRadius",AP.radius);
+  if(g("apUi")) g("apUi").value=AP.ui;
+  if(g("apMono")) g("apMono").value=AP.mono;
+  if(g("fxToggle")) g("fxToggle").checked=AP.fx;
+  const t=g("apQuick");
+  if(t){ const lbl={light:"☀",dark:"☾",system:"◐"};
+    t.textContent=lbl[AP.theme]+" "+AP.theme.charAt(0).toUpperCase()+AP.theme.slice(1);
+    t.title="Theme: "+AP.theme+(AP.theme==="system"?" (following Windows) ":" ")+"— click to change"; }
+}
+function apSet(k,v){ AP[k]=v; apStore(); apApply(); apSync(); }
+function apCycleTheme(){ apSet("theme", AP.theme==="light"?"dark":(AP.theme==="dark"?"system":"light")); }
+function apReset(){ AP=Object.assign({},AP_DEF); apStore(); apApply(); apSync(); }
+function apBuildSwatches(){
+  const c=document.getElementById("apAccent"); if(!c||c.children.length) return;
+  Object.keys(AP_ACCENT).forEach(k=>{
+    const a=AP_ACCENT[k], b=document.createElement("button");
+    b.className="swatch"; b.dataset.k=k; b.title=a.n; b.setAttribute("aria-label",a.n);
+    b.style.background="linear-gradient(135deg,"+a.d+" 0 50%,"+a.m+" 50% 100%)";
+    b.onclick=()=>apSet("accent",k);
+    c.appendChild(b);
+  });
+}
+apLoad(); apApply();
+if(apMQ&&apMQ.addEventListener) apMQ.addEventListener("change",()=>{ if(AP.theme==="system"){ apApply(); apSync(); } });
+document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply(); apSync(); });
+</script>
 </head>
 <body>
 <div id="app">
@@ -203,6 +339,7 @@ body.preview .page{margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
     <input class="proj" id="projName" placeholder="Project name" value="Sample — 5-stage straight-through"/>
     <input class="proj" id="tagNo" style="width:120px" placeholder="Tag no." value="K-1001"/>
     <div class="spacer"></div>
+    <button class="hbtn" id="apQuick" onclick="apCycleTheme()">◐ System</button>
     <button class="hbtn" onclick="saveProject()">Save project</button>
     <button class="hbtn" onclick="document.getElementById('loadProj').click()">Open</button>
     <input type="file" id="loadProj" accept=".json" style="display:none" onchange="loadProject(this)"/>
@@ -258,9 +395,64 @@ body.preview .page{margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
         <tr><td>Power constant</td><td class="unit">C<sub>p</sub></td><td class="out" id="cCp"></td><td class="note">Polytropic efficiency</td></tr>
       </table>
     </div></div>
-    <div class="card"><h2>Display</h2><div class="body">
-      <label class="note"><input type="checkbox" id="fxToggle" checked style="width:auto;background:none"
-        onchange="document.body.classList.toggle('hidefx',!this.checked)"/> Show the formula trace under every calculated value</label>
+    <div class="card"><h2>Appearance <span class="r">saved on this computer — not in the project file</span></h2><div class="body">
+      <table>
+        <colgroup><col style="width:36%"><col style="width:300px"><col></colgroup>
+        <tr><td class="lbl">Theme</td>
+          <td><div class="apRow" id="apTheme">
+            <button class="chip" data-k="light"  onclick="apSet('theme','light')">☀ Light</button>
+            <button class="chip" data-k="dark"   onclick="apSet('theme','dark')">☾ Dark</button>
+            <button class="chip" data-k="system" onclick="apSet('theme','system')">◐ System</button>
+          </div></td>
+          <td class="note">System follows the Windows / browser light-dark setting and switches live.</td></tr>
+        <tr><td class="lbl">Accent colour</td>
+          <td><div class="apRow" id="apAccent"></div></td>
+          <td class="note">Tints the header, side menu, card titles, table headers and the chart curves.</td></tr>
+        <tr><td class="lbl">Interface font</td>
+          <td><select class="mode" id="apUi" onchange="apSet('ui',this.value)">
+            <option value="system">System UI — Segoe UI</option>
+            <option value="grotesk">Grotesk — Inter / Roboto</option>
+            <option value="humanist">Humanist — Segoe / Verdana</option>
+            <option value="serif">Serif — Cambria / Georgia</option>
+          </select></td>
+          <td class="note">Installed system typefaces only, so the tool keeps working offline.</td></tr>
+        <tr><td class="lbl">Number &amp; formula font</td>
+          <td><select class="mode" id="apMono" onchange="apSet('mono',this.value)">
+            <option value="cascadia">Cascadia Mono</option>
+            <option value="consolas">Consolas</option>
+            <option value="system">System monospace</option>
+            <option value="courier">Courier New</option>
+          </select></td>
+          <td class="note">Used for every entered value, calculated result and formula trace.</td></tr>
+        <tr><td class="lbl">Text size</td>
+          <td><div class="apRow" id="apScale">
+            <button class="chip" data-k="0.9"  onclick="apSet('scale','0.9')">Small</button>
+            <button class="chip" data-k="1"    onclick="apSet('scale','1')">Normal</button>
+            <button class="chip" data-k="1.12" onclick="apSet('scale','1.12')">Large</button>
+            <button class="chip" data-k="1.25" onclick="apSet('scale','1.25')">X-large</button>
+          </div></td>
+          <td class="note">Scales the whole interface. The A4 report is unaffected — it always prints at true size.</td></tr>
+        <tr><td class="lbl">Row spacing</td>
+          <td><div class="apRow" id="apDens">
+            <button class="chip" data-k="compact" onclick="apSet('dens','compact')">Compact</button>
+            <button class="chip" data-k="normal"  onclick="apSet('dens','normal')">Normal</button>
+            <button class="chip" data-k="roomy"   onclick="apSet('dens','roomy')">Roomy</button>
+          </div></td>
+          <td class="note">Compact fits more rows on screen; roomy is easier to read on a large monitor.</td></tr>
+        <tr><td class="lbl">Corners</td>
+          <td><div class="apRow" id="apRadius">
+            <button class="chip" data-k="sharp" onclick="apSet('radius','sharp')">Sharp</button>
+            <button class="chip" data-k="round" onclick="apSet('radius','round')">Rounded</button>
+            <button class="chip" data-k="soft"  onclick="apSet('radius','soft')">Soft</button>
+          </div></td>
+          <td class="note">Corner rounding on cards, buttons, fields and badges.</td></tr>
+        <tr><td class="lbl">Formula trace</td>
+          <td><label class="note"><input type="checkbox" id="fxToggle" checked style="width:auto;background:none"
+            onchange="apSet('fx',this.checked)"/> Show the formula under every calculated value</label></td>
+          <td class="note">Turn off for a compact, results-only view.</td></tr>
+        <tr><td class="lbl"></td><td><button class="btn" onclick="apReset()">Reset appearance to defaults</button></td>
+          <td class="note">Returns to system theme, navy accent, normal size and spacing.</td></tr>
+      </table>
     </div></div>
   </div>
 
@@ -488,6 +680,15 @@ body.preview .page{margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
       </tbody></table>
     </div></div>
 
+    <div class="card"><h2>Appearance</h2><div class="body">
+      <p class="note" style="font-size:13px"><b>Units &amp; settings → Appearance</b> holds the theme (light, dark or follow-Windows),
+        the accent colour, the interface and monospace fonts, the text size, the row spacing and the corner style. The button beside
+        <b>Save project</b> in the title bar cycles light → dark → system without leaving the page.</p>
+      <p class="note" style="font-size:13px">These choices are stored in the browser on the machine you are working at — they are
+        <b>not</b> written into the <span class="k">.t2p.json</span> project file, so opening someone else's project never changes how
+        your copy looks. The A4 report and anything you print always come out on white paper at true size, whichever theme is on screen.</p>
+    </div></div>
+
     <div class="card"><h2>Installing as a Windows app</h2><div class="body">
       <p class="note" style="font-size:13px">Open <span class="k">Type2Tool.html</span> in Microsoft Edge → <b>⋯ menu → Apps → Install this site as an app</b>. It gets its own window, a Start-menu entry and a taskbar icon, and runs fully offline with no admin rights. To update, replace the HTML file. Use the <b>☰</b> button (top-left) to collapse the side menu for more screen space.</p>
     </div></div>
@@ -580,39 +781,54 @@ function reLimits(Red){                         // Fig 3.5 — limits on ratio R
   return {up:interpLog(RE_CURVE.up,Red), lo:interpLog(RE_CURVE.lo,Red)};
 }
 /* generic SVG plot; axes may be linear or log10 */
+/* Chart palettes. The screen charts follow the current theme and accent; the report
+   always passes the light palette so the printed page stays on white paper. */
+function chartPal(dark){
+  const cs=getComputedStyle(document.documentElement);
+  const val=(k,fb)=>(cs.getPropertyValue(k)||"").trim()||fb;
+  const accent=val("--blue","#1F4E78"), accent2=val("--blue-2","#2E75B6");
+  return dark
+    ? {bg:"#16202C",grid:"#25313F",gridEdge:"#33455A",tick:"#93A4B5",zero:"#5D7085",
+       band:accent2,bandOp:"0.20",limit:"#D7E1EA",axis:"#B7C6D4",halo:"#16202C",
+       ok:"#45C07C",bad:"#F2837B",title:val("--accent-ink-d","#8FB9E0")}
+    : {bg:"#fff",grid:"#E7ECF0",gridEdge:"#C9D2DA",tick:"#5C6B7A",zero:"#9AA7B2",
+       band:accent2,bandOp:"0.08",limit:"#000",axis:"#333",halo:"#fff",
+       ok:"#1E7A46",bad:"#B3261E",title:accent};
+}
 function svgChart(o){
   const W=o.w||560,H=o.h||420, m={l:64,r:18,t:34,b:52};
+  const p=o.pal||chartPal(false);
   const px=v=>{ const t=(o.xlog?Math.log10(v):v); return m.l+(t-o.x0)/(o.x1-o.x0)*(W-m.l-m.r); };
   const py=v=>{ const t=(o.ylog?Math.log10(v):v); return H-m.b-(t-o.y0)/(o.y1-o.y0)*(H-m.t-m.b); };
-  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:#fff;border:1px solid var(--rule);border-radius:5px">`;
-  s+=`<text x="${W/2}" y="20" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12.5" font-weight="600" fill="#1F4E78">${o.title}</text>`;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:${p.bg};border:1px solid var(--rule);border-radius:var(--r-md)">`;
+  s+=`<text x="${W/2}" y="20" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12.5" font-weight="600" fill="${p.title}">${o.title}</text>`;
   // gridlines
-  o.xt.forEach(v=>{const X=px(v);s+=`<line x1="${X}" y1="${m.t}" x2="${X}" y2="${H-m.b}" stroke="${v===o.xhi?'#C9D2DA':'#E7ECF0'}" stroke-width="1"/>`;
-    s+=`<text x="${X}" y="${H-m.b+15}" text-anchor="middle" font-family="Consolas,monospace" font-size="9.5" fill="#5C6B7A">${o.xfmt(v)}</text>`;});
-  o.yt.forEach(v=>{const Y=py(v);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="#E7ECF0" stroke-width="1"/>`;
-    s+=`<text x="${m.l-7}" y="${Y+3}" text-anchor="end" font-family="Consolas,monospace" font-size="9.5" fill="#5C6B7A">${o.yfmt(v)}</text>`;});
+  o.xt.forEach(v=>{const X=px(v);s+=`<line x1="${X}" y1="${m.t}" x2="${X}" y2="${H-m.b}" stroke="${v===o.xhi?p.gridEdge:p.grid}" stroke-width="1"/>`;
+    s+=`<text x="${X}" y="${H-m.b+15}" text-anchor="middle" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.xfmt(v)}</text>`;});
+  o.yt.forEach(v=>{const Y=py(v);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${p.grid}" stroke-width="1"/>`;
+    s+=`<text x="${m.l-7}" y="${Y+3}" text-anchor="end" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.yfmt(v)}</text>`;});
   // zero line for mach
-  if(o.y0<0){const Y=py(0);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="#9AA7B2" stroke-width="1"/>`;}
+  if(o.y0<0){const Y=py(0);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${p.zero}" stroke-width="1"/>`;}
   // limit bands
   const band=(fn,key)=>{ let d=""; o.samples.forEach((xv,i)=>{ const yv=fn(xv)[key]; d+=(i?"L":"M")+px(xv).toFixed(1)+" "+py(yv).toFixed(1)+" "; }); return d; };
   // shaded acceptable region between lo and up
   let up=band(o.limits,"up"), loRev="";
   const rev=[...o.samples].reverse();
   rev.forEach((xv,i)=>{ loRev+=(i?"L":"L")+px(xv).toFixed(1)+" "+py(o.limits(xv).lo).toFixed(1)+" "; });
-  s+=`<path d="${up} ${loRev} Z" fill="#2E75B6" fill-opacity="0.08"/>`;
-  s+=`<path d="${band(o.limits,'up')}" fill="none" stroke="#000" stroke-width="2"/>`;
-  s+=`<path d="${band(o.limits,'lo')}" fill="none" stroke="#000" stroke-width="2"/>`;
+  s+=`<path d="${up} ${loRev} Z" fill="${p.band}" fill-opacity="${p.bandOp}"/>`;
+  s+=`<path d="${band(o.limits,'up')}" fill="none" stroke="${p.limit}" stroke-width="2"/>`;
+  s+=`<path d="${band(o.limits,'lo')}" fill="none" stroke="${p.limit}" stroke-width="2"/>`;
   // axis labels
-  s+=`<text x="${m.l+(W-m.l-m.r)/2}" y="${H-6}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#333">${o.xlab}</text>`;
-  s+=`<text transform="translate(15 ${m.t+(H-m.t-m.b)/2}) rotate(-90)" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#333">${o.ylab}</text>`;
+  s+=`<text x="${m.l+(W-m.l-m.r)/2}" y="${H-6}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="${p.axis}">${o.xlab}</text>`;
+  s+=`<text transform="translate(15 ${m.t+(H-m.t-m.b)/2}) rotate(-90)" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="${p.axis}">${o.ylab}</text>`;
   // the selected point
   if(isFinite(o.ptx)&&isFinite(o.pty)){
     const X=px(Math.min(Math.max(o.ptx,o.xlo),o.xhi)), Y=py(Math.min(Math.max(o.pty,o.y0<0?o.y0:o.ylo),o.y1));
     const ok=o.ptOK;
-    const col=ok?"#1E7A46":"#B3261E";
+    const col=ok?p.ok:p.bad;
     s+=`<line x1="${X}" y1="${m.t}" x2="${X}" y2="${H-m.b}" stroke="${col}" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>`;
     s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${col}" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>`;
-    s+=`<circle cx="${X}" cy="${Y}" r="6" fill="${col}" stroke="#fff" stroke-width="2"/>`;
+    s+=`<circle cx="${X}" cy="${Y}" r="6" fill="${col}" stroke="${p.halo}" stroke-width="2"/>`;
     s+=`<text x="${X+9}" y="${Y-8}" font-family="Consolas,monospace" font-size="10" font-weight="700" fill="${col}">${o.ptlab}</text>`;
   }
   s+=`</svg>`;
@@ -620,6 +836,7 @@ function svgChart(o){
 }
 function drawCharts(){
   const s=S.spec, w=S.w, o2=S.o;
+  const pal=chartPal(document.documentElement.dataset.theme==="dark");
   ["snapReW","snapReO"].forEach(id=>{const e=$(id); if(e&&!e.src) e.src=SNAP_RE;});
   ["snapMmW","snapMmO"].forEach(id=>{const e=$(id); if(e&&!e.src) e.src=SNAP_MM;});
   const useW=$("corrApplied") ? true : true;
@@ -634,7 +851,7 @@ function drawCharts(){
       xlog:true, ylog:true, x0:4, x1:9, y0:-3, y1:3, xlo:1e4, xhi:1e9, ylo:1e-3,
       xt:[1e4,1e5,1e6,1e7,1e8,1e9], yt:[1e-3,0.01,0.1,1,10,100,1000],
       xfmt:v=>v.toExponential(0).replace("e+","E"), yfmt:v=>v<0.001?"1E-3":(v<1?String(v):v.toLocaleString()),
-      samples:logspace(9e4,1e9,60), limits:reLimits,
+      samples:logspace(9e4,1e9,60), limits:reLimits, pal,
       ptx:Red, pty:ratio, ptOK:ok, ptlab:`${ratio.toFixed(3)}`
     });
   });
@@ -649,7 +866,7 @@ function drawCharts(){
       xlog:false, ylog:false, x0:0, x1:1.6, y0:-0.3, y1:0.3, xlo:0, xhi:1.6,
       xt:[0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6], yt:[-0.3,-0.2,-0.1,0,0.1,0.2,0.3],
       xfmt:v=>v.toFixed(1), yfmt:v=>v.toFixed(1),
-      samples:linspace(0,1.5,60), limits:machLimits,
+      samples:linspace(0,1.5,60), limits:machLimits, pal,
       ptx:Md, pty:dev, ptOK:ok, ptlab:`${dev>=0?"+":""}${dev.toFixed(3)}`
     });
   });
@@ -1534,7 +1751,8 @@ function buildReport(){
     </table>
     <div class="fxp">No Reynolds credit is taken: measured efficiency runs conservatively low and measured power conservatively high relative to the corrected case.</div>`);
 
-  /* 5b — allowable-departure charts */
+  /* 5b — allowable-departure charts (always the light palette — the report is paper) */
+  const rPal=chartPal(false);
   const src=sc.useW?S.w:S.o;
   const reLimR=reLimits(s.Rem), reRatR=s.Rem?src.Rem/s.Rem:0, reOKR=s.Rem>=9e4&&reRatR>=reLimR.lo&&reRatR<=reLimR.up;
   const mmLimR=machLimits(s.Mm), mmDevR=src.Mm-s.Mm, mmOKR=mmDevR>=mmLimR.lo&&mmDevR<=mmLimR.up;
@@ -1542,12 +1760,12 @@ function buildReport(){
     xlog:true,ylog:true,x0:4,x1:9,y0:-3,y1:3,xlo:1e4,xhi:1e9,ylo:1e-3,
     xt:[1e4,1e5,1e6,1e7,1e8,1e9],yt:[1e-3,0.01,0.1,1,10,100,1000],
     xfmt:v=>v.toExponential(0).replace("e+","E"),yfmt:v=>v<0.001?"1E-3":(v<1?String(v):v.toLocaleString()),
-    samples:logspace(9e4,1e9,60),limits:reLimits,ptx:s.Rem,pty:reRatR,ptOK:reOKR,ptlab:`${reRatR.toFixed(3)}`,w:520,h:390});
+    samples:logspace(9e4,1e9,60),limits:reLimits,pal:rPal,ptx:s.Rem,pty:reRatR,ptOK:reOKR,ptlab:`${reRatR.toFixed(3)}`,w:520,h:390});
   const mmSvg=svgChart({title:"Fig. 3.3 — Allowable Mach Number Range",xlab:"M_design",ylab:"M_test − M_design",
     xlog:false,ylog:false,x0:0,x1:1.6,y0:-0.3,y1:0.3,xlo:0,xhi:1.6,
     xt:[0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6],yt:[-0.3,-0.2,-0.1,0,0.1,0.2,0.3],
     xfmt:v=>v.toFixed(1),yfmt:v=>v.toFixed(1),
-    samples:linspace(0,1.5,60),limits:machLimits,ptx:s.Mm,pty:mmDevR,ptOK:mmOKR,ptlab:`${mmDevR>=0?"+":""}${mmDevR.toFixed(3)}`,w:520,h:390});
+    samples:linspace(0,1.5,60),limits:machLimits,pal:rPal,ptx:s.Mm,pty:mmDevR,ptOK:mmOKR,ptlab:`${mmDevR>=0?"+":""}${mmDevR.toFixed(3)}`,w:520,h:390});
   page("4a. Allowable departure — PTC-10 Fig. 3.3 & 3.5",`
     <h3>Machine Reynolds number — allowable range (Fig. 3.5)</h3>
     <div class="cpair"><div>${reSvg}<div class="cpl">Digitised chart — selected point</div></div>
