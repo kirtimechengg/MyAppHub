@@ -172,24 +172,6 @@ body.hidefx tr.fxr{display:none}
 .att .meta input{background:var(--field-bg);color:var(--ink);font-family:var(--ui);font-size:calc(12px*var(--scale));margin-bottom:6px}
 .att .meta .fn{font-size:calc(11px*var(--scale));color:var(--muted);font-family:var(--mono);word-break:break-all;margin-bottom:6px}
 
-/* ---------- Siemens section ---------- */
-.sie td.sep,.sie th.sep{border-left:2px solid var(--rule)}      /* Specification | Test divider */
-.sie td.dim{color:var(--muted);font-family:var(--mono);font-size:calc(11.5px*var(--scale))}
-.sie .hd{display:flex;gap:26px;flex-wrap:wrap;align-items:center;margin-bottom:10px;
-  font-size:calc(13px*var(--scale))}
-.sie .hd b{font-weight:600}
-.snapph{border:2px dashed var(--rule);border-radius:var(--r-md);padding:22px 14px;text-align:center;
-  color:var(--muted);font-size:calc(12px*var(--scale));line-height:1.6;background:var(--fx-bg)}
-.stg th{font-size:calc(11px*var(--scale))}
-.stg td{padding:calc(5px*var(--dens)) 6px;vertical-align:middle}
-.stg input{font-size:calc(12px*var(--scale));padding:4px 5px}
-.stg .act button{border:0;background:none;color:var(--muted);font-size:calc(15px*var(--scale));
-  padding:2px 5px;border-radius:var(--r-sm)}
-.stg .act button:hover{color:var(--fail);background:var(--fail-bg)}
-.rule{background:var(--fx-bg);border-left:3px solid var(--blue-2);padding:8px 11px;border-radius:var(--r-sm);
-  font-size:calc(12.5px*var(--scale));line-height:1.6;color:var(--ink);margin-bottom:12px}
-.rule b{color:var(--accent-ink)}
-
 /* ---------- appearance panel ---------- */
 .apRow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .swatch{width:26px;height:26px;border-radius:50%;border:2px solid var(--rule);cursor:pointer;padding:0;flex:none}
@@ -372,9 +354,6 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <button data-v="v-gas"><span class="ico">⚗</span>Test gas selection</button>
     <button data-v="v-with"><span class="ico">✓</span>Verify — with Re<sub>m</sub> corr.</button>
     <button data-v="v-without"><span class="ico">≈</span>Verify — without corr.</button>
-    <div class="grp">Siemens</div>
-    <button data-v="v-sie-cmp"><span class="ico">⇄</span>Actual vs Test</button>
-    <button data-v="v-sie-calc"><span class="ico">⛓</span>Stage calculation</button>
     <div class="grp">Mechanical</div>
     <button data-v="v-ck"><span class="ico">☑</span>MRT / AGES checklist</button>
     <div class="grp">Output</div>
@@ -534,7 +513,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
   <div class="view" id="v-with">
     <h1>Verification — with Machine Reynolds Number correction</h1>
     <p class="sub">Use when the contract lets the manufacturer correct test data to the specified Re<sub>m</sub>. Test values are editable in place.</p>
-    <div class="card"><h2>Similitude deviation checks <span class="r">PTC-10 Table 3.2 / 3-2.1-2</span></h2><div class="body">
+    <div class="card"><h2>Similitude deviation checks <span class="r">PTC-10 Table 3.2.1-2</span></h2><div class="body">
       <table><colgroup><col style="width:26%"><col style="width:135px"><col style="width:135px"><col style="width:88px"><col style="width:92px"><col></colgroup>
         <thead><tr><th>Parameter</th><th>Test</th><th>Specified</th><th>Ratio</th><th>Allowable</th><th>Result</th></tr></thead>
         <tbody id="tW1"></tbody></table>
@@ -584,140 +563,6 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
         <div><div class="cflab">Digitised — selected point</div><div id="chartMmO"></div></div>
         <div><div class="cflab">Original PTC-10 snap</div><img class="snap" id="snapMmO" alt="PTC-10 Fig. 3.3"/></div>
       </div><div class="note" id="noteMmO" style="margin-top:8px"></div></div></div>
-  </div>
-
-  <!-- ============ SIEMENS — Actual vs Test ============ -->
-  <div class="view" id="v-sie-cmp">
-    <h1>Siemens — Actual vs Test</h1>
-    <p class="sub">The comparison sheet as issued by Siemens, re-checked against this tool's own PTC-10 curves.</p>
-
-    <div class="rule">
-      <b>Siemens house rules.</b> <b>1)</b> Reynolds number correction is <b>not</b> performed — this section
-      reads the as-measured (no-correction) results throughout.
-      <b>2)</b> Gas data is calculated with the Benedict-Webb-Rubin-Starling equation of state for real gases,
-      unless the specified and test gas properties fall within the limits of ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022).
-    </div>
-
-    <div class="card"><h2>Sheet header</h2><div class="body">
-      <table>
-        <colgroup><col style="width:36%"><col style="width:300px"><col></colgroup>
-        <tr><td class="lbl">Process stage</td>
-          <td><input type="text" id="sieStageNo" oninput="SIE.stageNo=this.value;report()"/></td>
-          <td class="note">As printed on the Siemens sheet.</td></tr>
-        <tr><td class="lbl">Operation point</td>
-          <td><input type="text" id="sieOpPoint" oninput="SIE.opPoint=this.value;report()"/></td>
-          <td class="note">e.g. "Case 1 — Technical Summer Rated Case".</td></tr>
-      </table>
-    </div></div>
-
-    <div class="card"><h2>Comparison <span class="r">Specification vs Test, as issued</span></h2><div class="body">
-      <table class="sie">
-        <colgroup><col style="width:30%"><col style="width:110px"><col style="width:150px"><col style="width:150px"><col></colgroup>
-        <thead><tr><th>Description</th><th>Dimension</th><th>Specification</th><th class="sep">Test</th><th>Note</th></tr></thead>
-        <tbody id="sieCmpBody"></tbody>
-      </table>
-      <div class="note" style="margin-top:10px">Footnotes on the Siemens sheet (1) inlet conditions at the
-        flow-measuring device, (2) weight flow at the specified conditions, (3) Reynolds number basis — record
-        them in the comment field of the report if they apply.</div>
-    </div></div>
-
-    <div class="card"><h2>Similitude limits <span class="r">Siemens value vs this tool's recomputation</span></h2><div class="body">
-      <table class="sie">
-        <colgroup><col style="width:30%"><col style="width:180px"><col style="width:150px"><col style="width:180px"><col style="width:90px"><col></colgroup>
-        <thead><tr><th>Description</th><th>Limits — as issued</th><th class="sep">Test</th>
-          <th>Limits — recomputed here</th><th>Agrees</th><th>Result</th></tr></thead>
-        <tbody id="sieLimBody"></tbody>
-      </table>
-      <div class="note" style="margin-top:10px">Mach and Reynolds limits are shown here as <b>absolute bands</b>
-        on the test value, which is how Siemens present them. They are derived from the same digitised
-        PTC-10 Fig. 3.3 and Fig. 3.5 curves used elsewhere in this tool — Ma band = M<sub>design</sub> + allowable
-        departure; Re band = Re<sub>design</sub> × allowable ratio.</div>
-    </div></div>
-
-    <div class="card"><h2>Gas property method <span class="r">PTC-10 Table 3.2 / 3-2.1-2 gate</span></h2><div class="body">
-      <table>
-        <colgroup><col style="width:36%"><col style="width:300px"><col></colgroup>
-        <tr><td class="lbl">Specified gas — method</td>
-          <td><select class="mode" id="sieEosSp" onchange="sieSet('eosSp',this.value)">
-            <option value="BWRS">Benedict-Webb-Rubin-Starling</option>
-            <option value="Ideal">Ideal gas</option>
-            <option value="NIST">NIST REFPROP</option>
-            <option value="Other">Other — state in comment</option>
-          </select></td>
-          <td class="note">Default per Siemens practice is BWRS.</td></tr>
-        <tr><td class="lbl">Test gas — method</td>
-          <td><select class="mode" id="sieEosT" onchange="sieSet('eosT',this.value)">
-            <option value="BWRS">Benedict-Webb-Rubin-Starling</option>
-            <option value="Ideal">Ideal gas</option>
-            <option value="NIST">NIST REFPROP</option>
-            <option value="Other">Other — state in comment</option>
-          </select></td>
-          <td class="note">Drives the "Equation of state" row on the Test gas selection view.</td></tr>
-        <tr><td class="lbl">Table 3.2 / 3-2.1-2 gate</td><td><span class="out" id="sieGate"></span></td>
-          <td class="note" id="sieGateNote"></td></tr>
-      </table>
-      <div class="warnbox" style="margin-top:12px">This tool does <b>not</b> evaluate BWRS. Enter MW, k and Z
-        from the Siemens BWRS output on the Specified conditions and Test gas views; the method is recorded here
-        and reproduced on the report so the basis of the gas data is traceable.</div>
-      <div style="margin-top:12px"><div class="cflab">ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022)</div>
-        <div id="snapT321"></div></div>
-    </div></div>
-
-    <div class="card"><h2>Siemens section result</h2><div class="body">
-      <div id="sieVerdict" class="big"></div>
-      <label class="note" style="display:block;margin-top:12px">
-        <input type="checkbox" id="sieInclVerdict" style="width:auto;background:none"
-          onchange="sieSet('inclInVerdict',this.checked)"/>
-        Include these Siemens checks in the overall ACCEPTED / NOT ACCEPTED determination
-      </label>
-      <div class="note" style="margin-top:6px">Off by default — the main scorecard is unchanged unless you
-        switch this on.</div>
-    </div></div>
-  </div>
-
-  <!-- ============ SIEMENS — stage calculation ============ -->
-  <div class="view" id="v-sie-calc">
-    <h1>Siemens — stage calculation</h1>
-    <p class="sub">The Siemens n-stage chain: leakage and pressure loss are carried between stages, and gas power sums to P<sub>i</sub>.</p>
-
-    <div class="card"><h2>Machine inlet <span class="r">stage 1 suction</span></h2><div class="body">
-      <table><tbody id="sieInBody"></tbody></table>
-    </div></div>
-
-    <div class="card"><h2>Stages <span class="r" id="sieStageCount"></span></h2>
-      <div class="body">
-        <div class="bar">
-          <button class="btn pri" onclick="addStage()">+ Add stage</button>
-          <button class="btn" onclick="resetStages()">Reset to one stage</button>
-        </div>
-        <table class="stg">
-          <colgroup><col style="width:42px"><col><col><col><col><col><col><col><col><col style="width:40px"></colgroup>
-          <thead><tr><th>#</th><th>κ<sub>n</sub></th><th>R<sub>1.n</sub></th><th>Z<sub>1.n</sub></th>
-            <th>T<sub>1.n</sub></th><th>Y<sub>Pol.n</sub></th><th>η<sub>Pol.n</sub></th>
-            <th>Δṁ<sub>n</sub></th><th>Δp<sub>n</sub></th><th></th></tr></thead>
-          <tbody id="sieStgBody"></tbody>
-        </table>
-        <div class="note" style="margin-top:8px">Units — κ (—), R kJ/(kg·K), Z (—), T₁ °C, Y<sub>Pol</sub> kJ/kg,
-          η<sub>Pol</sub> (—), Δṁ kg/s, Δp bar. Δṁ<sub>n</sub> and Δp<sub>n</sub> are the leakage and pressure loss
-          <i>downstream</i> of each stage; Δṁ<sub>0</sub> and Δp<sub>0</sub> ahead of the first stage are on the
-          Machine inlet card.</div>
-      </div></div>
-
-    <div class="card"><h2>Stage-by-stage results</h2><div class="body">
-      <table class="stg">
-        <colgroup><col style="width:42px"><col><col><col><col><col><col></colgroup>
-        <thead><tr><th>#</th><th>ṁ<sub>1.n</sub></th><th>p<sub>1.n</sub></th><th>ρ<sub>1.n</sub></th>
-          <th>n<sub>n</sub>/(n<sub>n</sub>−1)</th><th>p<sub>2.n</sub></th><th>P<sub>i.n</sub></th></tr></thead>
-        <tbody id="sieResBody"></tbody>
-      </table>
-    </div></div>
-
-    <div class="card"><h2>Machine totals</h2><div class="body">
-      <table><tbody id="sieTotBody"></tbody></table>
-    </div></div>
-
-    <div class="card"><h2>Equations <span class="r">as supplied by Siemens</span></h2>
-      <div class="body eqlist" id="sieEqList"></div></div>
   </div>
 
   <div class="view" id="v-ck">
@@ -775,10 +620,6 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
       <input class="btn" type="text" id="witness" placeholder="Witnessed by" style="width:170px;background:#fff"/>
       <input class="btn" type="text" id="tdate" placeholder="Test date" style="width:120px;background:#fff"/>
       <button class="btn pri" onclick="previewReport()">Open full A4 report</button>
-      <label class="note" style="display:flex;align-items:center;gap:5px">
-        <input type="checkbox" id="sieInReport" checked style="width:auto;background:none"/>
-        Include Siemens section
-      </label>
     </div>
     <div class="card"><h2>Scorecard</h2><div class="body">
       <table><colgroup><col style="width:44%"><col style="width:110px"><col></colgroup>
@@ -792,38 +633,15 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <h1>Formula reference</h1>
     <p class="sub">Every equation the tool uses. Nothing is hidden — these are the same relations shown live in each trace.</p>
     <div class="card"><h2>Governing equations</h2><div class="body eqlist" id="eqList"></div></div>
-    <div class="card"><h2>PTC-10 Table 3.2 <span class="r">1997 numbering · 3-2.1-2 in the 2022 edition</span></h2><div class="body">
-      <p class="note" style="margin:0 0 10px">Permissible deviation from specified operating parameters,
-        Type 1 <b>and</b> Type 2 tests. Limits are the test value as a percent of the design value.</p>
-      <table><colgroup><col style="width:40%"><col style="width:90px"><col style="width:130px"><col style="width:130px"><col></colgroup>
-        <thead><tr><th>Parameter</th><th>Symbol</th><th>Min</th><th>Max</th><th>Evaluated here</th></tr></thead><tbody>
-        <tr><td>Specific volume ratio</td><td class="unit">v<sub>i</sub>/v<sub>d</sub></td>
-          <td class="out">95</td><td class="out">105</td><td class="note">yes</td></tr>
-        <tr><td>Flow coefficient</td><td class="unit">φ</td>
-          <td class="out">96</td><td class="out">104</td><td class="note">yes</td></tr>
-        <tr><td>Machine Mach number — centrifugal compressors</td><td class="unit">M<sub>m</sub></td>
-          <td class="out" colspan="2">see Fig. 3.3</td><td class="note">yes — digitised</td></tr>
-        <tr><td>Machine Mach number — axial compressors</td><td class="unit">M<sub>m</sub></td>
-          <td class="out dim" colspan="2">see Fig. 3.4</td><td class="note">no — centrifugal tool</td></tr>
-        <tr><td>Machine Reynolds number — centrifugal compressors <sup>(1)</sup></td><td class="unit">Re<sub>m</sub></td>
-          <td class="out" colspan="2">see Fig. 3.5</td><td class="note">yes — digitised</td></tr>
-        <tr><td>Machine Reynolds number — axial compressors, design Re<sub>m</sub> below 100,000</td><td class="unit">—</td>
-          <td class="out dim">90</td><td class="out dim">105</td><td class="note">no — centrifugal tool</td></tr>
-        <tr><td>Machine Reynolds number — axial compressors, design Re<sub>m</sub> above 100,000 <sup>(1)</sup></td><td class="unit">—</td>
-          <td class="out dim">10</td><td class="out dim">200</td><td class="note">no — centrifugal tool</td></tr>
-      </tbody></table>
-      <div class="warnbox" style="margin-top:12px"><b>Note (1)</b> — Minimum allowable <b>test</b> Machine
-        Reynolds number is 90,000. The floor applies to the measured value, not the specified one.</div>
-      <div class="note" style="margin-top:10px">The axial rows are reproduced for completeness only. This tool
-        evaluates centrifugal compressors — Fig. 3.4 is not digitised and the axial Reynolds bands are not applied.</div>
-    </div></div>
-
-    <div class="card"><h2>Other acceptance limits <span class="r">not from Table 3.2</span></h2><div class="body">
+    <div class="card"><h2>Acceptance limits</h2><div class="body">
       <table><colgroup><col style="width:34%"><col style="width:150px"><col></colgroup>
         <thead><tr><th>Check</th><th>Limit</th><th>Source</th></tr></thead><tbody>
+        <tr><td>Specific volume ratio</td><td class="out">95 – 105 %</td><td class="note">PTC-10 Table 3.2.1-2</td></tr>
+        <tr><td>Flow coefficient φ</td><td class="out">96 – 104 %</td><td class="note">PTC-10 Table 3.2.1-2</td></tr>
+        <tr><td>Machine Mach number</td><td class="out">per Fig. 3.3</td><td class="note">Chart check — manual</td></tr>
+        <tr><td>Machine Reynolds number</td><td class="out">≥ 90,000</td><td class="note">Type 2 minimum</td></tr>
         <tr><td>Absorbed power vs. guarantee</td><td class="out">± 4 %</td><td class="note">API 617 7th Ed.</td></tr>
         <tr><td>Efficiency</td><td class="out">informational</td><td class="note">Not guaranteed per API 617</td></tr>
-        <tr><td>Required test speed</td><td class="out">≤ MCS</td><td class="note">Maximum continuous speed</td></tr>
       </tbody></table>
     </div></div>
   </div>
@@ -879,7 +697,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
       <ul class="note" style="font-size:13px;line-height:1.7">
         <li>The gas-property presets are representative screening values at low test pressure. For a contractual calculation, confirm MW, k and Z₁ from a proper equation of state (e.g. NIST REFPROP) for your exact gas, pressure and temperature — especially for CO₂, R-134a and mixtures.</li>
         <li>The Fig. 3.3 / 3.5 curves are digitised reproductions for working use, shown beside the original snaps for cross-checking. They are not a substitute for the purchased ASME PTC-10 code text.</li>
-        <li>Per PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022) Note (1), the <b>test</b> Machine Reynolds number must be at least 90,000; the tool fails the check when it isn't. If the <i>design</i> Reynolds number is below 90,000 the Fig. 3.5 band is extrapolated beyond the digitised curve, and the tool says so as a caution without failing the check.</li>
+        <li>Machine Mach and Reynolds checks assume the design Reynolds number is at or above the 90,000 Type-2 minimum; the tool flags it when it isn't.</li>
         <li>This tool supports engineering judgement — it does not replace the governing standards or the reviewing engineer's sign-off.</li>
       </ul>
     </div></div>
@@ -912,53 +730,6 @@ const S={
      phiC:0.1625,fPhi:1.0,muIn:0.90,fMuIn:1.004,head:94.156,pwr:1640.54},
   o:{vr:2.645,phi:1,phiSp:1,Mm:0.679,Rem:1010000,head:93.558,eta:0.755,pwr:1685.28}
 };
-
-/* ================= SIEMENS section — additive, never feeds the generic path =================
-   Siemens issue an "Actual vs Test" sheet per process stage, backed by their own n-stage
-   chain. Two house rules apply: no Reynolds correction, and gas data from the
-   Benedict-Webb-Rubin-Starling EOS unless PTC-10 Table 3.2 / 3-2.1-2 limits are met.
-   This block works in fixed units — bar(a), K, kJ/(kg·K), kJ/kg, kg/s, kW, m³/h — quoted on
-   every row, so it stays independent of the global unit system above. */
-const SIE_ROWS=[
-  ["gas", "Gas",                "--",      true],
-  ["mw",  "Molecular weight",   "kg/kmol"],
-  ["v1",  "Volume flow",        "m³/h"],
-  ["p1",  "Inlet pressure",     "bar(a)"],
-  ["t1",  "Inlet temperature",  "°C"],
-  ["p2",  "Outlet pressure",    "bar(a)"],
-  ["t2",  "Outlet temperature", "°C"],
-  ["n",   "Speed",              "rpm"],
-  ["pwr", "Gas Power required", "kW"],
-  ["w",   "Weight flow",        "kg/h"]
-];
-/* Seeded from the sample Siemens sheet (50%N₂/50%R134a, MW 65.01 → R = 8.3145/65.01):
-   these values reproduce its test column exactly — p₂ = 1.81 bar(a) and P_i = 879 kW. */
-const SIE_STAGE=()=>({kappa:1.20,R:0.12790,Z:0.990,T1:25.0,Ypol:39.574,etaPol:0.8170,dm:0,dp:0});
-const SIE={
-  stageNo:"1", opPoint:"Case 1 — Technical Summer Rated Case",
-  inclInVerdict:false, eosSp:"BWRS", eosT:"BWRS", note:"",
-  cmp:{ gas:{s:"Job Gas",   t:"50%N2 50%R134A"},
-        mw: {s:43.51,       t:65.01},
-        v1: {s:43121,       t:35232, fn:"1) test at flow-meter inlet conditions"},
-        p1: {s:1.03,        t:0.70},
-        t1: {s:60.2,        t:25.0,  fn:"1) test at flow-meter inlet conditions"},
-        p2: {s:2.51,        t:1.81},
-        t2: {s:101.0,       t:78.8},
-        n:  {s:6782,        t:5500},
-        pwr:{s:1446.1,      t:879},
-        w:  {s:70453,       t:0,     fn:"2) at the specified conditions"} },
-  lim:{ vr :{lo:0.95,  up:1.05,  t:1.00},
-        phi:{lo:0.96,  up:1.04,  t:1.00},
-        ma :{lo:0.79,  up:0.92,  t:0.86},
-        re :{lo:2.2e5, up:2.2e8, t:1.2e6} },
-  inlet:{V1:35232, p1:0.70, T1:25.0, R1:0.12790, Z1:0.990, dm0:0, dp0:0, Pme:0,
-         R2:0.12790, Z2:0.990, T2:78.8},
-  stages:[SIE_STAGE()]
-};
-/* Optional facsimile of Table 3.2. The table is rendered as live HTML in the Formula
-   reference view, which prints and themes better; this is only for a literal snap.
-   exactly like SNAP_RE / SNAP_MM below. */
-const SNAP_T321="";
 const U=()=>({P:$("uP").value,T:$("uT").value,Q:$("uQ").value,
   W:S.sys==="M"?"kg/h":"lb/min",PW:S.sys==="M"?"kW":"hp",H:S.sys==="M"?"kJ/kg":"ft·lbf/lb",
   MW:S.sys==="M"?"kg/kmol":"lb/lbmol",N:"rpm",D:"—"});
@@ -1008,17 +779,6 @@ function interpLog(tab,Red){
 }
 function reLimits(Red){                         // Fig 3.5 — limits on ratio Ret/Red
   return {up:interpLog(RE_CURVE.up,Red), lo:interpLog(RE_CURVE.lo,Red)};
-}
-/* PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022), Note (1):
-     "Minimum allowable TEST Machine Reynolds number is 90,000."
-   The floor is on the measured value, not the specified one. Separately, RE_CURVE is
-   digitised from 9e4 upward, so a DESIGN Rem below that yields an extrapolated band —
-   surfaced as a caution, never as a failure. */
-const REM_MIN=9e4;
-function remCheck(Red,ReT){
-  const lim=reLimits(Red), rat=Red?ReT/Red:0;
-  const floorOK=ReT>=REM_MIN, bandOK=rat>=lim.lo&&rat<=lim.up;
-  return {lim,rat,floorOK,bandOK,ok:floorOK&&bandOK,extrap:Red>0&&Red<REM_MIN};
 }
 /* generic SVG plot; axes may be linear or log10 */
 /* Chart palettes. The screen charts follow the current theme and accent; the report
@@ -1278,7 +1038,7 @@ function buildOnce(){
   cmpRow(c,"phi","Flow coefficient, φ = Q₁/N","D","96–104 %");
   cmpRow(c,"vr2","Volume ratio, v₁/v₂","D","95–105 %");
   cmpRow(c,"mm","Machine Mach number","D","Fig. 3.3",{tIn:["t2","Mm"]});
-  cmpRow(c,"re","Machine Reynolds number","D","Fig. 3.5 · test ≥ 90,000",{tIn:["t2","Rem"]});
+  cmpRow(c,"re","Machine Reynolds number","D","Fig. 3.5 · ≥ 90,000",{tIn:["t2","Rem"]});
   cmpRow(c,"p2","Discharge pressure","P",null);
   cmpRow(c,"t2d","Discharge temperature","T",null);
   cmpRow(c,"pw","Absorbed power","PW",null,{tIn:["t2","pwr"]});
@@ -1297,7 +1057,7 @@ function buildOnce(){
   devRow(w1,"w","vr","wvr","Specific volume ratio, v₁/v₂","95–105 %");
   devRow(w1,"w","phi","wphi","Flow coefficient, φ","96–104 %","phiSp");
   devRow(w1,"w","Mm","wmm","Machine Mach no.","Fig. 3.3");
-  devRow(w1,"w","Rem","wrem","Machine Reynolds no.","test ≥ 90,000");
+  devRow(w1,"w","Rem","wrem","Machine Reynolds no.","≥ 90,000");
 
   const w2=$("tW2");
   [["Polytropic efficiency, ηp","eta","fEta","ceta"],
@@ -1344,7 +1104,7 @@ function buildOnce(){
   devRow(o1,"o","vr","ovr","Specific volume ratio, v₁/v₂","95–105 %");
   devRow(o1,"o","phi","ophi","Flow coefficient, φ","96–104 %","phiSp");
   devRow(o1,"o","Mm","omm","Machine Mach no.","Fig. 3.3");
-  devRow(o1,"o","Rem","orem","Machine Reynolds no.","test ≥ 90,000");
+  devRow(o1,"o","Rem","orem","Machine Reynolds no.","≥ 90,000");
 
   const o2=$("tO2");
   [["Polytropic head","head","hO","contract"],["Absorbed power","pwr","pO","± 4 %"],
@@ -1518,7 +1278,7 @@ function calc(){
   cw("vr2",f(vr,4),f(vrT,4),`${f(vrPct,1)} %`,badge(vrOK2));
   const mmLimC=machLimits(s.Mm), mmDevC=t2.Mm-s.Mm, mmOKC=mmDevC>=mmLimC.lo&&mmDevC<=mmLimC.up;
   cw("mm",f(s.Mm,3),null,`${dMm>0?"+":""}${f(dMm,3)}`,badge(mmOKC));
-  const reC=remCheck(s.Rem,t2.Rem), reLimC=reC.lim, reRatC=reC.rat, reOK=reC.ok;
+  const reLimC=reLimits(s.Rem), reRatC=s.Rem?t2.Rem/s.Rem:0, reOK=s.Rem>=9e4&&reRatC>=reLimC.lo&&reRatC<=reLimC.up;
   cw("re",f(s.Rem,0),null,`${f(remPct,1)} %`,badge(reOK));
   cw("p2",f(s.P2,2),f(P2t,2),`${f(s.P2?P2t/s.P2*100:0,1)} %`,INFO);
   cw("t2d",f(s.T2,1),f(T2t,1),`${T2t>s.T2?"+":""}${f(T2t-s.T2,1)}°`,INFO);
@@ -1537,10 +1297,10 @@ function calc(){
   set("sp_wmm",f(s.Mm,3)); set("rt_wmm",`${f(w.Mm/s.Mm*100,1)} %`);
   set("rs_wmm",badge(mmOKW));
   set("fx_wmm",`M_test − M_design = <span class="n">${f(w.Mm,3)}</span> − <span class="n">${f(s.Mm,3)}</span> = <b>${mmDevW>=0?"+":""}${f(mmDevW,3)}</b> · allowable per Fig. 3.3 [<span class="n">${f(mmLimW.lo,3)}</span> … <span class="n">${f(mmLimW.up,3)}</span>] → <b>${mmOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
-  const reW=remCheck(s.Rem,w.Rem), reLimW=reW.lim, reRatW=reW.rat, reOKW=reW.ok;
+  const reLimW=reLimits(s.Rem), reRatW=s.Rem?w.Rem/s.Rem:0, reOKW=s.Rem>=9e4&&reRatW>=reLimW.lo&&reRatW<=reLimW.up;
   R.wRemOK=reOKW;
   set("sp_wrem",f(s.Rem,0)); set("rt_wrem",`${f(reRatW,3)}`); set("rs_wrem",badge(reOKW));
-  set("fx_wrem",`ratio Reₜ/Re_des = <span class="n">${f(w.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatW,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimW.lo,3)}</span> … <span class="n">${f(reLimW.up,2)}</span>], Re_test ≥ 90,000 [Note (1)] → <b>${reOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
+  set("fx_wrem",`ratio Reₜ/Re_des = <span class="n">${f(w.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatW,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimW.lo,3)}</span> … <span class="n">${f(reLimW.up,2)}</span>], Re_des ≥ 90,000 → <b>${reOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
 
   const cEta=w.eta*w.fEta,cMu=w.mu*w.fMu,cPhi=w.phiC*w.fPhi,cMuIn=w.muIn*w.fMuIn;
   R.cEta=cEta; R.cMu=cMu; R.cPhi=cPhi; R.cMuIn=cMuIn;
@@ -1574,10 +1334,10 @@ function calc(){
   set("sp_omm",f(s.Mm,3)); set("rt_omm",`${f(o.Mm/s.Mm*100,1)} %`);
   set("rs_omm",badge(mmOKO));
   set("fx_omm",`M_test − M_design = <span class="n">${f(o.Mm,3)}</span> − <span class="n">${f(s.Mm,3)}</span> = <b>${mmDevO>=0?"+":""}${f(mmDevO,3)}</b> · allowable per Fig. 3.3 [<span class="n">${f(mmLimO.lo,3)}</span> … <span class="n">${f(mmLimO.up,3)}</span>] → <b>${mmOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
-  const reO=remCheck(s.Rem,o.Rem), reLimO=reO.lim, reRatO=reO.rat, reOKO=reO.ok;
+  const reLimO=reLimits(s.Rem), reRatO=s.Rem?o.Rem/s.Rem:0, reOKO=s.Rem>=9e4&&reRatO>=reLimO.lo&&reRatO<=reLimO.up;
   R.oRemOK=reOKO;
   set("sp_orem",f(s.Rem,0)); set("rt_orem",`${f(reRatO,3)}`); set("rs_orem",badge(reOKO));
-  set("fx_orem",`ratio Reₜ/Re_des = <span class="n">${f(o.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatO,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimO.lo,3)}</span> … <span class="n">${f(reLimO.up,2)}</span>], Re_test ≥ 90,000 [Note (1)] → <b>${reOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
+  set("fx_orem",`ratio Reₜ/Re_des = <span class="n">${f(o.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatO,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimO.lo,3)}</span> … <span class="n">${f(reLimO.up,2)}</span>], Re_des ≥ 90,000 → <b>${reOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
 
   const ohDev=(o.head-s.Head)/s.Head*100, opDev=Pabs?(o.pwr-Pabs)/Pabs*100:0, opOK=Math.abs(opDev)<=4;
   R.hDev_O=ohDev; R.pOK_O=opOK; R.pDev_O=opDev;
@@ -1594,8 +1354,8 @@ function calc(){
 
   // PTC-10 charts + captions
   drawCharts();
-  const capRe=(id,ReT,ok)=>{ const c=remCheck(s.Rem,ReT);
-    set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test Re<sub>M</sub> <b>${f(ReT,0)}</b> · test/design ratio <b>${f(c.rat,3)}</b> · allowable <b>${f(c.lim.lo,3)}–${f(c.lim.up,2)}</b> · ${c.floorOK?"":"<span style='color:var(--fail)'>test below the 90,000 minimum [Table 3.2 Note (1)] · </span>"}${c.extrap?"<span style='color:var(--warn)'>design below 90,000 — Fig. 3.5 band extrapolated · </span>":""}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
+  const capRe=(id,ReT,ok)=>{ const lim=reLimits(s.Rem), rat=s.Rem?ReT/s.Rem:0;
+    set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test/design ratio <b>${f(rat,3)}</b> · allowable <b>${f(lim.lo,3)}–${f(lim.up,2)}</b> · ${s.Rem>=9e4?"":"<span style='color:var(--fail)'>design below 90,000 minimum · </span>"}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
   const capMm=(id,MmT,ok)=>{ const lim=machLimits(s.Mm), dev=MmT-s.Mm;
     set(id,`Design M<sub>m</sub> <b>${f(s.Mm,3)}</b> · departure M<sub>test</sub>−M<sub>design</sub> <b>${dev>=0?"+":""}${f(dev,3)}</b> · allowable <b>${f(lim.lo,3)} to ${f(lim.up,3)}</b> · <b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>.`); };
   capRe("noteReW",w.Rem,R.wRemOK); capRe("noteReO",o.Rem,R.oRemOK);
@@ -1611,7 +1371,7 @@ function scorecard(){
   const vrPct=R.vr?src.vr/R.vr*100:0, vrOK=vrPct>=95&&vrPct<=105;
   const phiPct=src.phiSp?src.phi/src.phiSp*100:0, phiOK=phiPct>=96&&phiPct<=104;
   const mmLim=machLimits(s.Mm), mmDev=src.Mm-s.Mm, mmOK=mmDev>=mmLim.lo&&mmDev<=mmLim.up;
-  const reChk=remCheck(s.Rem,src.Rem), reLim=reChk.lim, reRat=reChk.rat, remOK=reChk.ok;
+  const reLim=reLimits(s.Rem), reRat=s.Rem?src.Rem/s.Rem:0, remOK=s.Rem>=9e4&&reRat>=reLim.lo&&reRat<=reLim.up;
   const mcsOK=R.Nt<=S.gas.MCS;
   const pOK=useW?R.pOK_W:R.pOK_O, pDev=useW?R.pDev_W:R.pDev_O;
   const ckFail=CK.filter(c=>c.st==="N").length, ckDone=CK.filter(c=>c.st).length;
@@ -1624,10 +1384,6 @@ function scorecard(){
     ["Absorbed power within ± 4 % of guarantee",pOK,`${pDev>0?"+":""}${f(pDev,2)} %`],
     ["MRT / AGES checklist — no failed items",ckFail===0,`${ckDone} of ${CK.length} completed, ${ckFail} failed`]
   ];
-  /* Siemens checks stay out of the determination unless explicitly opted in, so the
-     generic result is bit-for-bit what it was before the Siemens section existed. */
-  if(typeof SIE!=="undefined" && SIE.inclInVerdict)
-    sieScore().rows.forEach(r=>rows.push(["Siemens — "+r[0],r[1],r[2]]));
   return {useW,rows,all:rows.every(r=>r[1])};
 }
 function report(){
@@ -1937,7 +1693,7 @@ function buildReport(){
     ["Flow coefficient, φ = Q₁/N","—",f(R.phiSp,5),f(R.phiT,5),`${f(R.phiPct,1)} %`,"96–104 %",RES(R.designChecks.phiOK)],
     ["Volume ratio, v₁/v₂","—",f(R.vr,4),f(R.vrT,4),`${f(R.vrPct,1)} %`,"95–105 %",RES(R.designChecks.vrOK)],
     ["Machine Mach number","—",f(s.Mm,3),f(t2.Mm,3),`${R.dMm>0?"+":""}${f(R.dMm,3)}`,"Fig. 3.3",'<span class="chk">CHART CHECK</span>'],
-    ["Machine Reynolds number","—",f(s.Rem,0),f(t2.Rem,0),`${f(R.remPct,1)} %`,"Fig. 3.5 · test ≥ 90,000",RES(R.designChecks.reOK)],
+    ["Machine Reynolds number","—",f(s.Rem,0),f(t2.Rem,0),`${f(R.remPct,1)} %`,"Fig. 3.5 · ≥ 90,000",RES(R.designChecks.reOK)],
     ["Discharge pressure",u.P,f(s.P2,2),f(R.P2t,2),`${f(s.P2?R.P2t/s.P2*100:0,1)} %`,"—","design"],
     ["Discharge temperature",u.T,f(s.T2,1),f(R.T2t,1),`${R.T2t-s.T2>0?"+":""}${f(R.T2t-s.T2,1)}°`,"—","design"],
     ["Absorbed power",u.PW,f(R.Pabs,1),t2.pwr>0?f(t2.pwr,1):"—",t2.pwr>0?`${f(t2.pwr/R.Pabs*100,1)} %`:"—","—","shop driver"]
@@ -1966,7 +1722,7 @@ function buildReport(){
       <tr><td>Specific volume ratio</td><td class="k">${f(w.vr,3)}</td><td class="k">${f(R.vr,3)}</td><td class="k">${f(w.vr/R.vr*100,1)} %</td><td>95–105 %</td><td>${RES(R.wvrOK)}</td></tr>
       <tr><td>Flow coefficient, φ</td><td class="k">${f(w.phi,3)}</td><td class="k">${f(w.phiSp,3)}</td><td class="k">${f(R.wPhiPct,1)} %</td><td>96–104 %</td><td>${RES(R.wPhiOK)}</td></tr>
       <tr><td>Machine Mach number</td><td class="k">${f(w.Mm,3)}</td><td class="k">${f(s.Mm,3)}</td><td class="k">${f(w.Mm/s.Mm*100,1)} %</td><td>Fig. 3.3</td><td><span class="chk">CHART</span></td></tr>
-      <tr><td>Machine Reynolds number</td><td class="k">${f(w.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(w.Rem/s.Rem*100,1)} %</td><td>test ≥ 90,000</td><td>${RES(R.wRemOK)}</td></tr>
+      <tr><td>Machine Reynolds number</td><td class="k">${f(w.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(w.Rem/s.Rem*100,1)} %</td><td>≥ 90,000</td><td>${RES(R.wRemOK)}</td></tr>
     </table>
     <h4>Reynolds correction factors (vendor calculation per PTC-10 §5)</h4>
     <table><tr><th style="width:34%">Coefficient</th><th>Measured</th><th>Rem factor</th><th>Corrected</th></tr>
@@ -1988,7 +1744,7 @@ function buildReport(){
     <table><tr><th style="width:26%">Parameter</th><th>Test</th><th>Specified</th><th>Ratio / dev.</th><th>Allowable</th><th>Result</th></tr>
       <tr><td>Specific volume ratio</td><td class="k">${f(o.vr,3)}</td><td class="k">${f(R.vr,3)}</td><td class="k">${f(o.vr/R.vr*100,1)} %</td><td>95–105 %</td><td>${RES(R.ovrOK)}</td></tr>
       <tr><td>Flow coefficient, φ</td><td class="k">${f(o.phi,3)}</td><td class="k">${f(o.phiSp,3)}</td><td class="k">${f(R.oPhiPct,1)} %</td><td>96–104 %</td><td>${RES(R.oPhiOK)}</td></tr>
-      <tr><td>Machine Reynolds number</td><td class="k">${f(o.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(o.Rem/s.Rem*100,1)} %</td><td>test ≥ 90,000</td><td>${RES(R.oRemOK)}</td></tr>
+      <tr><td>Machine Reynolds number</td><td class="k">${f(o.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(o.Rem/s.Rem*100,1)} %</td><td>≥ 90,000</td><td>${RES(R.oRemOK)}</td></tr>
       <tr><td>Polytropic head (as measured)</td><td class="k">${f(o.head,3)}</td><td class="k">${f(s.Head,3)}</td><td class="k">${R.hDev_O>0?"+":""}${f(R.hDev_O,2)} %</td><td>contract</td><td><span class="chk">CONTRACT</span></td></tr>
       <tr><td>Absorbed power (as measured)</td><td class="k">${f(o.pwr,2)}</td><td class="k">${f(R.Pabs,2)}</td><td class="k">${R.pDev_O>0?"+":""}${f(R.pDev_O,2)} %</td><td>± 4 %</td><td>${RES(R.pOK_O)}</td></tr>
       <tr><td>Polytropic efficiency (as measured)</td><td class="k">${f(o.eta,4)}</td><td class="k">${f(R.eff,4)}</td><td class="k">${f((o.eta-R.eff)/R.eff*100,2)} %</td><td>informational</td><td>not guaranteed</td></tr>
@@ -1998,7 +1754,7 @@ function buildReport(){
   /* 5b — allowable-departure charts (always the light palette — the report is paper) */
   const rPal=chartPal(false);
   const src=sc.useW?S.w:S.o;
-  const reR=remCheck(s.Rem,src.Rem), reLimR=reR.lim, reRatR=reR.rat, reOKR=reR.ok;
+  const reLimR=reLimits(s.Rem), reRatR=s.Rem?src.Rem/s.Rem:0, reOKR=s.Rem>=9e4&&reRatR>=reLimR.lo&&reRatR<=reLimR.up;
   const mmLimR=machLimits(s.Mm), mmDevR=src.Mm-s.Mm, mmOKR=mmDevR>=mmLimR.lo&&mmDevR<=mmLimR.up;
   const reSvg=svgChart({title:"Fig. 3.5 — Allowable Reynolds Number Range",xlab:"ReM_design",ylab:"ReM_test / ReM_design",
     xlog:true,ylog:true,x0:4,x1:9,y0:-3,y1:3,xlo:1e4,xhi:1e9,ylo:1e-3,
@@ -2018,8 +1774,7 @@ function buildReport(){
       <tr><td class="k">${f(s.Rem,0)}</td><td class="k">${f(src.Rem,0)}</td><td class="k">${f(reRatR,4)}</td>
         <td class="k">${f(reLimR.lo,3)} – ${f(reLimR.up,2)}</td><td>${RES(reOKR)}</td></tr></table>
     <div class="fxp">Reynolds correction on head and efficiency is applied in accordance with ASME PTC-10 (ICAAMC) directives.
-      ${reR.floorOK?"":"Test Machine Reynolds number is below the 90,000 minimum required by Table 3.2 Note (1)."}
-      ${reR.extrap?"Design Machine Reynolds number is below 90,000, so the Fig. 3.5 band above is extrapolated beyond the digitised curve — read it with caution.":""}</div>
+      ${s.Rem>=9e4?"":"Design Reynolds number is below the 90,000 Type-2 minimum."}</div>
     <h3>Machine Mach number — allowable range (Fig. 3.3)</h3>
     <div class="cpair"><div>${mmSvg}<div class="cpl">Digitised chart — selected point</div></div>
       <div><img class="rsnap" src="${SNAP_MM}"/><div class="cpl">Original ASME PTC-10 snap</div></div></div>
@@ -2046,86 +1801,6 @@ function buildReport(){
       Efficiency is reported for information and is not a guaranteed quantity under API 617. The Machine Mach number check
       requires manual verification against PTC-10 Fig. 3.3, which is not reproduced in this tool.
     </div>`);
-
-  /* 5c — Siemens section (omitted entirely when the report toggle is off, so a non-Siemens
-     job produces exactly the report this tool produced before the section existed) */
-  if($("sieInReport") && $("sieInReport").checked){
-  const sieRec=sieLimits(), sieSc=sieScore(), sr=sieCalc();
-  const sieLimRow=(label,k)=>{
-    const L=SIE.lim[k], Rc=sieRec[k], ok=L.t>=Rc.lo&&L.t<=Rc.up;
-    const near=(a,b)=> b? Math.abs(a-b)/Math.abs(b)<=0.02 : Math.abs(a-b)<1e-9;
-    const agr=near(L.lo,Rc.lo)&&near(L.up,Rc.up);
-    return `<tr><td>${label}</td><td class="k">${sieFmt(L.lo,k)} to ${sieFmt(L.up,k)}</td>
-      <td class="k">${sieFmt(L.t,k)}</td><td class="k">${sieFmt(Rc.lo,k)} to ${sieFmt(Rc.up,k)}</td>
-      <td>${agr?"agrees":'<span class="chk">CHECK</span>'}</td><td>${RES(ok)}</td></tr>`;
-  };
-  page("6. Siemens — Actual vs Test",`
-    <h3>6.1 Comparison sheet as issued</h3>
-    <table><tr><td class="k" style="width:26%">Process stage</td><td>${esc(SIE.stageNo)}</td>
-      <td class="k" style="width:22%">Operation point</td><td>${esc(SIE.opPoint)}</td></tr></table>
-    <table><tr><th style="width:28%">Description</th><th style="width:13%">Dimension</th>
-      <th style="width:20%">Specification</th><th style="width:20%">Test</th><th>Note</th></tr>
-      ${SIE_ROWS.map(([key,label,dim,isText])=>{const c=SIE.cmp[key];
-        return `<tr><td>${label}</td><td>${dim}</td><td class="k">${isText?esc(c.s):f(c.s,2)}</td>
-          <td class="k">${isText?esc(c.t):f(c.t,2)}</td><td>${esc(c.fn||"")}</td></tr>`;}).join("")}
-      <tr><td>Speed ratio</td><td>%</td><td colspan="2" class="k" style="text-align:center">${f(SIE.cmp.n.s?SIE.cmp.n.t/SIE.cmp.n.s*100:0,1)}</td><td>recomputed</td></tr>
-    </table>
-    <div class="fxp">Siemens house rule 1 — Reynolds number correction is not performed; the figures above are
-      as-measured. House rule 2 — gas data from the Benedict-Webb-Rubin-Starling equation of state
-      (specified gas: ${esc(SIE.eosSp)}; test gas: ${esc(SIE.eosT)}) unless the gas properties fall within the
-      limits of ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022).</div>
-    <h3>6.2 Similitude limits — issued vs recomputed</h3>
-    <table><tr><th style="width:28%">Description</th><th>Limits as issued</th><th>Test</th>
-      <th>Recomputed here</th><th>Agrees</th><th>Result</th></tr>
-      ${sieLimRow("(v₁/v₂) test / (v₁/v₂) spec","vr")}
-      ${sieLimRow("φ test / φ spec","phi")}
-      ${sieLimRow("Ma test","ma")}
-      ${sieLimRow("Re test","re")}
-    </table>
-    <div class="fxp">Mach and Reynolds limits are shown as absolute bands on the test value, derived from the
-      same digitised PTC-10 Fig. 3.3 and Fig. 3.5 curves used in section 4a:
-      Ma band = M<sub>design</sub> + allowable departure; Re band = Re<sub>design</sub> × allowable ratio.</div>`);
-
-  page("6a. Siemens — stage calculation",`
-    <h3>6.3 Stage chain</h3>
-    <table><tr><th>#</th><th>κ</th><th>R</th><th>Z</th><th>T₁</th><th>Y_Pol</th><th>η_Pol</th>
-      <th>ṁ₁.n</th><th>p₁.n</th><th>p₂.n</th><th>P_i.n</th></tr>
-      ${sr.rows.map(x=>{const g=SIE.stages[x.i];
-        return `<tr><td class="k">${x.i+1}</td><td class="k">${f(g.kappa,3)}</td><td class="k">${f(g.R,4)}</td>
-          <td class="k">${f(g.Z,3)}</td><td class="k">${f(g.T1,1)}</td><td class="k">${f(g.Ypol,2)}</td>
-          <td class="k">${f(g.etaPol,3)}</td><td class="k">${f(x.mIn,4)}</td><td class="k">${f(x.pIn,4)}</td>
-          <td class="k">${f(x.p2n,4)}</td><td class="k">${f(x.Pin,2)}</td></tr>`;}).join("")}
-    </table>
-    <div class="fxp">Units for this section: p bar(a), T °C, R kJ/(kg·K), Y kJ/kg, ṁ kg/s, V̇ m³/h, P kW.</div>
-    <h3>6.4 Machine totals</h3>
-    <table><tr><th style="width:46%">Quantity</th><th style="width:22%">Value</th><th>Unit</th></tr>
-      <tr><td>Inlet density, ρ₁</td><td class="k">${f(sr.rho1,4)}</td><td>kg/m³</td></tr>
-      <tr><td>Inlet mass flow, ṁ₁</td><td class="k">${f(sr.m1,4)}</td><td>kg/s</td></tr>
-      <tr><td>Discharge mass flow, ṁ₂</td><td class="k">${f(sr.mOut,4)}</td><td>kg/s</td></tr>
-      <tr><td>Discharge pressure, p₂</td><td class="k">${f(sr.pOut,4)}</td><td>bar(a)</td></tr>
-      <tr><td>Discharge volume flow, V̇₂</td><td class="k">${f(sr.V2,1)}</td><td>m³/h</td></tr>
-      <tr><td>Isothermal head, Y_T</td><td class="k">${f(sr.YT,4)}</td><td>kJ/kg</td></tr>
-      <tr><td>Internal gas power, P_i</td><td class="k">${f(sr.Pi,2)}</td><td>kW</td></tr>
-      <tr><td>Shaft power, P_ku</td><td class="k">${f(sr.Pku,2)}</td><td>kW</td></tr>
-      <tr><td>Internal efficiency, η_i</td><td class="k">${f(sr.eta_i,4)}</td><td>—</td></tr>
-      <tr><td>Shaft efficiency, η_ku</td><td class="k">${f(sr.eta_ku,4)}</td><td>—</td></tr>
-    </table>
-    <div class="fxp">V̇₂ is computed as ṁ₂/ρ₂ using the discharge density. The Siemens equation sheet prints
-      V̇₂ = ṁ₂/ρ₁ with the inlet density, which reads as a transcription slip; on the inlet density the result
-      would be ${f(sr.V2asPrinted,1)} m³/h.</div>
-    <h3>6.5 Siemens section result</h3>
-    <table><tr><th style="width:52%">Check</th><th style="width:14%">Result</th><th>Value</th></tr>
-      ${sieSc.rows.map(r=>`<tr><td>${r[0]}</td><td>${RES(r[1])}</td><td class="k">${r[2]}</td></tr>`).join("")}
-    </table>
-    <div class="fxp">${SIE.inclInVerdict
-      ? "These checks are included in the overall acceptance determination."
-      : "These checks are reported for information and are <b>not</b> included in the overall acceptance determination."}
-      Gas property method — specified gas: ${esc(SIE.eosSp)}, test gas: ${esc(SIE.eosT)}. The ASME PTC-10 2022
-      Table 3.2 / 3-2.1-2 gate is recorded but not binding: that table constrains similitude parameters
-      (specific volume ratio, flow coefficient, Mach and Reynolds numbers), not gas properties, so the clause
-      tying it to the choice of equation of state is unconfirmed.</div>`);
-  }
-
 
   /* 7 — checklist (paginated) */
   const per=17;
@@ -2197,305 +1872,11 @@ window.addEventListener("beforeprint",()=>{
 });
 
 /* ---------------- project save / open ---------------- */
-/* ================= SIEMENS — calculation, rendering, checks ================= */
-let SR={};                                  // Siemens results, mirrors R for the generic path
-
-/* n-stage chain, transcribed from the Siemens equation sheet.
-   Working units: p bar(a), T °C→K, R kJ/(kg·K), Y kJ/kg, ṁ kg/s, V̇ m³/h, P kW.
-   ρ = p·100/(R·Z·T) converts bar to kPa so the kJ-based R stays consistent. */
-function sieCalc(){
-  const I=SIE.inlet, T0=273.15;
-  const rho=(p,R,Z,Tc)=>{ const d=R*Z*(Tc+T0); return d>0 ? p*100/d : 0; };
-
-  const rho1 = rho(I.p1, I.R1, I.Z1, I.T1);
-  const m1   = I.V1/3600*rho1;                       // ṁ₁ = V̇₁·ρ₁   [kg/s]
-
-  let mIn = m1 - I.dm0;                              // ṁ₁.₁ = ṁ₁ − Δṁ₀
-  let pIn = I.p1 - I.dp0;                            // p₁.₁ = p₁ − Δp₀
-  const rows=[];
-  let Pi=0, pOut=pIn, mOut=mIn;
-
-  SIE.stages.forEach((g,i)=>{
-    const rhoIn = rho(pIn, g.R, g.Z, g.T1);
-    const nr    = (g.kappa-1)!==0 ? (g.kappa/(g.kappa-1))*g.etaPol : 0;   // nₙ/(nₙ−1)
-    const RZT   = g.R*g.Z*(g.T1+T0);
-    const p2n   = (nr>0 && RZT>0) ? pIn*Math.pow(1 + g.Ypol/(nr*RZT), nr) : pIn;
-    const Pin   = g.etaPol>0 ? mIn*g.Ypol/g.etaPol : 0;                   // P_i.n [kW]
-    Pi += Pin;
-    rows.push({i, mIn, pIn, rhoIn, nr, p2n, Pin});
-    mOut = mIn - g.dm;                               // ṁ₂ = ṁ₁.n − Δṁ n
-    pOut = p2n - g.dp;                               // p₂ = p₂.n − Δp n
-    if(i < SIE.stages.length-1){ mIn = mOut; pIn = pOut; }
-  });
-
-  /* NOTE: the Siemens sheet prints V̇₂ = ṁ₂/ρ₁ with the INLET density, directly under a
-     repeat of ρ₁ = p₁/(R₁·Z₁·T₁). Discharge volume flow must use discharge density, so ρ₂
-     is used here and the discrepancy is surfaced on the results card rather than hidden. */
-  const rho2 = rho(pOut, I.R2, I.Z2, I.T2);
-  const V2   = rho2>0 ? mOut/rho2*3600 : 0;
-  const V2asPrinted = rho1>0 ? mOut/rho1*3600 : 0;
-
-  const YT   = (pOut>0 && I.p1>0) ? I.R1*I.Z1*(I.T1+T0)*Math.log(pOut/I.p1) : 0;
-  const Pku  = Pi + I.Pme;
-  const eta_i  = Pi >0 ? mOut*YT/Pi  : 0;
-  const eta_ku = Pku>0 ? mOut*YT/Pku : 0;
-
-  SR={rho1,m1,rows,Pi,Pku,mOut,pOut,rho2,V2,V2asPrinted,YT,eta_i,eta_ku};
-  return SR;
-}
-
-/* Limit bands, recomputed from the same digitised curves the rest of the tool uses.
-   Siemens present Mach and Reynolds as ABSOLUTE bands on the test value; the tool's
-   machLimits/reLimits return a departure and a ratio, so convert. */
-function sieLimits(){
-  const s=S.spec;
-  const mL=machLimits(s.Mm), rL=reLimits(s.Rem);
-  /* Note (1) is an absolute floor on the test value, independent of the Fig. 3.5 ratio band,
-     so the effective lower bound is whichever of the two binds. */
-  const reBand=s.Rem*rL.lo, floored=reBand<REM_MIN;
-  return {
-    vr :{lo:0.95, up:1.05, src:"Table 3.2 · v_i/v_d"},
-    phi:{lo:0.96, up:1.04, src:"Table 3.2 · φ"},
-    ma :{lo:s.Mm+mL.lo, up:s.Mm+mL.up, src:`Fig. 3.3 · M_design ${f(s.Mm,3)}`},
-    re :{lo:Math.max(reBand,REM_MIN), up:s.Rem*rL.up,
-         src:`Fig. 3.5 · Re_design ${f(s.Rem,0)}${floored?" · lower bound set by Note (1) floor of 90,000":""}`}
-  };
-}
-const sieFmt=(v,k)=> k==="re" ? (isFinite(v)?v.toExponential(1).replace("e+","E+"):"—") : f(v,k==="ma"?3:3);
-
-function sieSet(k,v){ SIE[k]=v; drawSie(); report(); }
-
-/* ---------- comparison sheet ---------- */
-function drawSieCmp(){
-  const tb=$("sieCmpBody"); tb.innerHTML="";
-  SIE_ROWS.forEach(([key,label,dim,isText])=>{
-    const c=SIE.cmp[key];
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${label}</td><td class="dim">${dim}</td><td></td><td class="sep"></td><td></td>`;
-    ["s","t"].forEach((side,j)=>{
-      const el=document.createElement("input"); el.type="text"; el.value=c[side];
-      if(!isText) el.inputMode="decimal";
-      el.addEventListener("input",()=>{ c[side]= isText? el.value : num(el.value); report(); drawSieDerived(); });
-      tr.children[2+j].appendChild(el);
-    });
-    /* free-text slot for the footnote markers Siemens print against some rows — 1), 2), 3) */
-    const nf=document.createElement("input"); nf.type="text"; nf.value=c.fn||"";
-    nf.placeholder="footnote / remark";
-    nf.addEventListener("input",()=>{ c.fn=nf.value; report(); });
-    tr.children[4].appendChild(nf);
-    tb.appendChild(tr);
-  });
-  /* speed ratio — Siemens print one spanning value; recompute it as an independent check */
-  const tr=document.createElement("tr");
-  tr.innerHTML=`<td>Speed ratio</td><td class="dim">%</td>
-    <td colspan="2" class="sep" style="text-align:center"><span class="out" id="sieSpdRatio"></span></td>
-    <td class="note">Recomputed: N<sub>test</sub> / N<sub>spec</sub> × 100.</td>`;
-  tb.appendChild(tr);
-  drawSieDerived();
-}
-function drawSieDerived(){
-  const c=SIE.cmp, r = c.n.s ? c.n.t/c.n.s*100 : 0;
-  const e=$("sieSpdRatio"); if(e) e.textContent=f(r,1);
-}
-
-/* ---------- limits table ---------- */
-function drawSieLim(){
-  const tb=$("sieLimBody"); tb.innerHTML="";
-  const rec=sieLimits();
-  const labels={vr:"(v₁/v₂) test / (v₁/v₂) spec", phi:"φ test / φ spec", ma:"Ma test", re:"Re test"};
-  Object.keys(labels).forEach(k=>{
-    const L=SIE.lim[k], Rc=rec[k];
-    const within = L.t>=Rc.lo && L.t<=Rc.up;
-    /* "agrees" = the issued band matches the recomputed one to within 2 % on each edge */
-    const near=(a,b)=> b? Math.abs(a-b)/Math.abs(b) <= 0.02 : Math.abs(a-b)<1e-9;
-    const agrees = near(L.lo,Rc.lo) && near(L.up,Rc.up);
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${labels[k]}</td>
-      <td class="issued"></td>
-      <td class="sep"></td>
-      <td class="out dim">${sieFmt(Rc.lo,k)} to ${sieFmt(Rc.up,k)}<div class="note" style="font-size:11px">${Rc.src}</div></td>
-      <td>${agrees?'<span class="badge b-pass">YES</span>':'<span class="badge b-chk">CHECK</span>'}</td>
-      <td>${within?'<span class="badge b-pass">PASS</span>':'<span class="badge b-fail">FAIL</span>'}</td>`;
-    const wrap=document.createElement("div"); wrap.style.cssText="display:flex;gap:5px;align-items:center";
-    ["lo","up"].forEach(side=>{
-      const el=document.createElement("input"); el.type="text"; el.inputMode="decimal"; el.value=L[side];
-      el.addEventListener("input",()=>{ L[side]=num(el.value); drawSieLim(); report(); });
-      wrap.appendChild(el);
-      if(side==="lo"){ const s=document.createElement("span"); s.className="unit"; s.textContent="to"; wrap.appendChild(s); }
-    });
-    tr.children[1].appendChild(wrap);
-    const tv=document.createElement("input"); tv.type="text"; tv.inputMode="decimal"; tv.value=L.t;
-    tv.addEventListener("input",()=>{ L.t=num(tv.value); drawSieLim(); report(); });
-    tr.children[2].appendChild(tv);
-    tb.appendChild(tr);
-  });
-}
-
-/* ---------- stage table (checklist pattern: rebuild, never reuse INPUTS) ---------- */
-const SIE_IN_FIELDS=[
-  ["V1","Inlet volume flow, V̇₁","m³/h"],["p1","Inlet pressure, p₁","bar(a)"],
-  ["T1","Inlet temperature, T₁","°C"],["R1","Gas constant, R₁","kJ/(kg·K)"],
-  ["Z1","Compressibility, Z₁","—"],["dm0","Leakage before stage 1, Δṁ₀","kg/s"],
-  ["dp0","Pressure loss before stage 1, Δp₀","bar"],["Pme","Mechanical losses, P_me","kW"],
-  ["R2","Discharge gas constant, R₂","kJ/(kg·K)"],["Z2","Discharge compressibility, Z₂","—"],
-  ["T2","Discharge temperature, T₂","°C"]
-];
-function drawSieInlet(){
-  const tb=$("sieInBody"); tb.innerHTML="";
-  SIE_IN_FIELDS.forEach(([key,label,unit])=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td class="lbl">${label}</td><td style="width:170px"></td><td class="unit">${unit}</td>`;
-    const el=document.createElement("input"); el.type="text"; el.inputMode="decimal"; el.value=SIE.inlet[key];
-    el.addEventListener("input",()=>{ SIE.inlet[key]=num(el.value); drawSieResults(); report(); });
-    tr.children[1].appendChild(el);
-    tb.appendChild(tr);
-  });
-}
-const STG_FIELDS=["kappa","R","Z","T1","Ypol","etaPol","dm","dp"];
-function drawSieStages(){
-  const tb=$("sieStgBody"); tb.innerHTML="";
-  SIE.stages.forEach((g,i)=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td class="out" style="color:var(--muted)">${i+1}</td>`+
-      STG_FIELDS.map(()=>"<td></td>").join("")+
-      `<td class="act"><button title="Delete stage">✕</button></td>`;
-    STG_FIELDS.forEach((key,j)=>{
-      const el=document.createElement("input"); el.type="text"; el.inputMode="decimal"; el.value=g[key];
-      el.addEventListener("input",()=>{ g[key]=num(el.value); drawSieResults(); report(); });
-      tr.children[1+j].appendChild(el);
-    });
-    tr.querySelector(".act button").onclick=()=>{
-      if(SIE.stages.length<=1){ alert("At least one stage is required."); return; }
-      SIE.stages.splice(i,1); drawSieStages(); drawSieResults(); report();
-    };
-    tb.appendChild(tr);
-  });
-  $("sieStageCount").textContent=`${SIE.stages.length} stage${SIE.stages.length===1?"":"s"}`;
-}
-function addStage(){
-  if(SIE.stages.length>=10){ alert("Maximum 10 stages."); return; }
-  SIE.stages.push(SIE_STAGE()); drawSieStages(); drawSieResults(); report();
-}
-function resetStages(){
-  if(confirm("Replace the stage list with a single default stage?")){
-    SIE.stages=[SIE_STAGE()]; drawSieStages(); drawSieResults(); report();
-  }
-}
-
-/* ---------- stage results + totals ---------- */
-function drawSieResults(){
-  const r=sieCalc();
-  const tb=$("sieResBody"); tb.innerHTML="";
-  r.rows.forEach(x=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td class="out" style="color:var(--muted)">${x.i+1}</td>
-      <td class="out">${f(x.mIn,4)}</td><td class="out">${f(x.pIn,4)}</td>
-      <td class="out">${f(x.rhoIn,4)}</td><td class="out">${f(x.nr,4)}</td>
-      <td class="out">${f(x.p2n,4)}</td><td class="out">${f(x.Pin,2)}</td>`;
-    tb.appendChild(tr);
-  });
-  const gap=Math.abs(r.V2-r.V2asPrinted);
-  const tot=[
-    ["ρ₁ — inlet density","kg/m³",f(r.rho1,4),"ρ₁ = p₁·100 / (R₁·Z₁·T₁)"],
-    ["ṁ₁ — inlet mass flow","kg/s",f(r.m1,4),"ṁ₁ = V̇₁·ρ₁"],
-    ["ṁ₂ — discharge mass flow","kg/s",f(r.mOut,4),"ṁ₂ = ṁ₁.n − Δṁ n"],
-    ["p₂ — discharge pressure","bar(a)",f(r.pOut,4),"p₂ = p₂.n − Δp n"],
-    ["ρ₂ — discharge density","kg/m³",f(r.rho2,4),"ρ₂ = p₂·100 / (R₂·Z₂·T₂)"],
-    ["V̇₂ — discharge volume flow","m³/h",f(r.V2,1),
-      `V̇₂ = ṁ₂/ρ₂ &nbsp; <b style="color:var(--warn)">note:</b> the Siemens sheet prints V̇₂ = ṁ₂/ρ₁ using the inlet density, which reads as a transcription slip. With ρ₁ it would be <b>${f(r.V2asPrinted,1)}</b> m³/h (difference ${f(gap,1)}).`],
-    ["Y_T — isothermal head","kJ/kg",f(r.YT,4),"Y_T = R₁·Z₁·T₁·ln(p₂/p₁)"],
-    ["P_i — internal gas power","kW",f(r.Pi,2),"P_i = P_i1 + P_i2 + … + P_in"],
-    ["P_ku — shaft power","kW",f(r.Pku,2),"P_ku = P_i + P_me"],
-    ["η_i — internal efficiency","—",f(r.eta_i,4),"η_i = ṁ₂·Y_T / P_i"],
-    ["η_ku — shaft efficiency","—",f(r.eta_ku,4),"η_ku = ṁ₂·Y_T / P_ku"]
-  ];
-  const tt=$("sieTotBody"); tt.innerHTML=tot.map(t=>
-    `<tr><td class="lbl">${t[0]}</td><td style="width:150px"><span class="out">${t[2]}</span></td>
-       <td class="unit" style="width:90px">${t[1]}</td></tr>
-     <tr class="fxr"><td colspan="3"><div class="fx">${t[3]}</div></td></tr>`).join("");
-}
-
-/* ---------- section pass/fail ---------- */
-function sieScore(){
-  const rec=sieLimits();
-  const rows=[
-    ["Specific volume ratio within issued band","vr"],
-    ["Flow coefficient φ within issued band","phi"],
-    ["Machine Mach no. within Fig. 3.3 band","ma"],
-    ["Machine Reynolds no. within Fig. 3.5 band","re"]
-  ].map(([label,k])=>{
-    const L=SIE.lim[k], Rc=rec[k];
-    return [label, L.t>=Rc.lo && L.t<=Rc.up, `${sieFmt(L.t,k)} in ${sieFmt(Rc.lo,k)}…${sieFmt(Rc.up,k)}`];
-  });
-  return {rows, all:rows.every(r=>r[1])};
-}
-
-/* Merge a saved Siemens block in place. Every branch is guarded so a v2 project file, or a
-   v3 file written by an older build, still opens with defaults filled in. */
-function sieLoad(p){
-  if(!p || typeof p!=="object") return;
-  ["stageNo","opPoint","eosSp","eosT","note"].forEach(k=>{ if(p[k]!=null) SIE[k]=p[k]; });
-  SIE.inclInVerdict=!!p.inclInVerdict;
-  if(p.cmp)   Object.keys(SIE.cmp).forEach(k=>{ if(p.cmp[k]) Object.assign(SIE.cmp[k],p.cmp[k]); });
-  if(p.lim)   Object.keys(SIE.lim).forEach(k=>{ if(p.lim[k]) Object.assign(SIE.lim[k],p.lim[k]); });
-  if(p.inlet) Object.assign(SIE.inlet,p.inlet);
-  if(Array.isArray(p.stages) && p.stages.length)
-    SIE.stages=p.stages.slice(0,10).map(g=>Object.assign(SIE_STAGE(),g));
-}
-
-function drawSie(){
-  $("sieStageNo").value=SIE.stageNo; $("sieOpPoint").value=SIE.opPoint;
-  $("sieEosSp").value=SIE.eosSp; $("sieEosT").value=SIE.eosT;
-  $("sieInclVerdict").checked=!!SIE.inclInVerdict;
-  drawSieCmp(); drawSieLim(); drawSieInlet(); drawSieStages(); drawSieResults();
-
-  /* Table 3.2 gate — deliberately non-binding, see the note text for why */
-  const gate=$("sieGate"), note=$("sieGateNote");
-  const same=SIE.eosSp===SIE.eosT;
-  gate.innerHTML = same
-    ? `<span class="badge b-pass">${esc(SIE.eosSp)} — both gases</span>`
-    : `<span class="badge b-chk">${esc(SIE.eosSp)} / ${esc(SIE.eosT)}</span>`;
-  note.innerHTML = `Table 3.2 / 3-2.1-2 constrains <b>similitude parameters</b> — specific volume ratio,
-    flow coefficient, Mach and Reynolds numbers — not gas properties. Those four are checked on the limits
-    card above. <b>Non-binding:</b> the Siemens clause tying that table to the choice of equation of state
-    is unconfirmed, so the method recorded here is reported but not enforced.`;
-
-  const ph=$("snapT321");
-  ph.innerHTML = SNAP_T321
-    ? `<img class="snap" src="${SNAP_T321}" alt="PTC-10 Table 3.2"/>`
-    : `<div class="snapph">Table 3.2 is reproduced as a live table under <b>Formula reference</b>.<br/>
-         Drop a facsimile in as a base64 data URI on the <span class="k">SNAP_T321</span> constant
-         if you want the scanned page here as well.</div>`;
-
-  const sc=sieScore(), v=$("sieVerdict");
-  v.className="big "+(sc.all?"ok":"no");
-  v.textContent=sc.all?"SIEMENS CHECKS PASSED":"SIEMENS CHECKS — REVIEW REQUIRED";
-
-  $("sieEqList").innerHTML=[
-    "<b>ρ₁</b> = p₁ / (R₁·Z₁·T₁)",
-    "<b>ṁ₁</b> = V̇₁·ρ₁",
-    "<b>ṁ₁.n</b> = ṁ₁.n₋₁ − Δṁ n₋₁",
-    "<b>p₁.n</b> = p₂.n₋₁ − Δp n₋₁",
-    "<b>ρ₁.n</b> = p₁.n / (R₁.n·Z₁.n·T₁.n)",
-    "<b>nₙ/(nₙ−1)</b> = (κₙ/(κₙ−1))·η_Pol.n",
-    "<b>P_i.n</b> = ṁ₁.n·Y_Pol.n / η_Pol.n",
-    "<b>p₂.n</b> = p₁.n·(1 + Y_Pol.n / ((nₙ/(nₙ−1))·R₁.n·Z₁.n·T₁.n)) ^ (nₙ/(nₙ−1))",
-    "<b>ṁ₂</b> = ṁ₁.n − Δṁ n",
-    "<b>p₂</b> = p₂.n − Δp n",
-    "<b>V̇₂</b> = ṁ₂ / ρ₂ <span class='n'>(sheet prints ρ₁ — see the results card)</span>",
-    "<b>Y_T</b> = R₁·Z₁·T₁·ln(p₂/p₁)",
-    "<b>P_i</b> = P_i1 + P_i2 + … + P_in",
-    "<b>P_ku</b> = P_i + P_me",
-    "<b>η_i</b> = ṁ₂·Y_T / P_i",
-    "<b>η_ku</b> = ṁ₂·Y_T / P_ku"
-  ].map(e=>`<div>${e}</div>`).join("");
-}
-
 function saveProject(){
-  const p={v:3,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
+  const p={v:2,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
     witness:$("witness").value,date:$("tdate").value,sys:S.sys,
     units:{P:$("uP").value,T:$("uT").value,Q:$("uQ").value},
-    corr:$("corrApplied").value,state:S,checklist:CK,attachments:ATT,siemens:SIE};
+    corr:$("corrApplied").value,state:S,checklist:CK,attachments:ATT};
   dl(($("tagNo").value||"project").replace(/[^\w-]/g,"_")+".t2p.json",JSON.stringify(p,null,2),"application/json");
 }
 function loadProject(el){
@@ -2514,8 +1895,7 @@ function loadProject(el){
       if(Array.isArray(p.checklist)) CK=p.checklist;          // status + comments restored
       ATT=Array.isArray(p.attachments)?p.attachments:[];
       $("qMode").value=S.spec.qMode||"Q2"; $("pMode").value=S.spec.pMode||"ABS";
-      if(p.siemens) sieLoad(p.siemens);                        // absent in v2 files — keep defaults
-      applyModes(); refreshInputs(); drawCk(); drawAtt(); drawSie(); calc();
+      applyModes(); refreshInputs(); drawCk(); drawAtt(); calc();
     }catch(err){alert("Could not open that file: "+err.message);}
     el.value="";
   };
@@ -2555,7 +1935,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   b.classList.add("on"); $(b.dataset.v).classList.add("on");
 });
 
-buildOnce(); drawCk(); drawAtt(); drawSie(); calc();
+buildOnce(); drawCk(); drawAtt(); calc();
 </script>
 </body>
 </html>
