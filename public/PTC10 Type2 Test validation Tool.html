@@ -534,7 +534,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
   <div class="view" id="v-with">
     <h1>Verification — with Machine Reynolds Number correction</h1>
     <p class="sub">Use when the contract lets the manufacturer correct test data to the specified Re<sub>m</sub>. Test values are editable in place.</p>
-    <div class="card"><h2>Similitude deviation checks <span class="r">PTC-10 Table 3.2.1-2</span></h2><div class="body">
+    <div class="card"><h2>Similitude deviation checks <span class="r">PTC-10 Table 3.2 / 3-2.1-2</span></h2><div class="body">
       <table><colgroup><col style="width:26%"><col style="width:135px"><col style="width:135px"><col style="width:88px"><col style="width:92px"><col></colgroup>
         <thead><tr><th>Parameter</th><th>Test</th><th>Specified</th><th>Ratio</th><th>Allowable</th><th>Result</th></tr></thead>
         <tbody id="tW1"></tbody></table>
@@ -595,7 +595,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
       <b>Siemens house rules.</b> <b>1)</b> Reynolds number correction is <b>not</b> performed — this section
       reads the as-measured (no-correction) results throughout.
       <b>2)</b> Gas data is calculated with the Benedict-Webb-Rubin-Starling equation of state for real gases,
-      unless the specified and test gas properties fall within the limits of ASME PTC-10 2022 Table 3-2.1-2.
+      unless the specified and test gas properties fall within the limits of ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022).
     </div>
 
     <div class="card"><h2>Sheet header</h2><div class="body">
@@ -634,7 +634,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
         departure; Re band = Re<sub>design</sub> × allowable ratio.</div>
     </div></div>
 
-    <div class="card"><h2>Gas property method <span class="r">PTC-10 2022 Table 3-2.1-2 gate</span></h2><div class="body">
+    <div class="card"><h2>Gas property method <span class="r">PTC-10 Table 3.2 / 3-2.1-2 gate</span></h2><div class="body">
       <table>
         <colgroup><col style="width:36%"><col style="width:300px"><col></colgroup>
         <tr><td class="lbl">Specified gas — method</td>
@@ -653,13 +653,13 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
             <option value="Other">Other — state in comment</option>
           </select></td>
           <td class="note">Drives the "Equation of state" row on the Test gas selection view.</td></tr>
-        <tr><td class="lbl">Table 3-2.1-2 gate</td><td><span class="out" id="sieGate"></span></td>
+        <tr><td class="lbl">Table 3.2 / 3-2.1-2 gate</td><td><span class="out" id="sieGate"></span></td>
           <td class="note" id="sieGateNote"></td></tr>
       </table>
       <div class="warnbox" style="margin-top:12px">This tool does <b>not</b> evaluate BWRS. Enter MW, k and Z
         from the Siemens BWRS output on the Specified conditions and Test gas views; the method is recorded here
         and reproduced on the report so the basis of the gas data is traceable.</div>
-      <div style="margin-top:12px"><div class="cflab">ASME PTC-10 2022 — Table 3-2.1-2</div>
+      <div style="margin-top:12px"><div class="cflab">ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022)</div>
         <div id="snapT321"></div></div>
     </div></div>
 
@@ -792,15 +792,38 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <h1>Formula reference</h1>
     <p class="sub">Every equation the tool uses. Nothing is hidden — these are the same relations shown live in each trace.</p>
     <div class="card"><h2>Governing equations</h2><div class="body eqlist" id="eqList"></div></div>
-    <div class="card"><h2>Acceptance limits</h2><div class="body">
+    <div class="card"><h2>PTC-10 Table 3.2 <span class="r">1997 numbering · 3-2.1-2 in the 2022 edition</span></h2><div class="body">
+      <p class="note" style="margin:0 0 10px">Permissible deviation from specified operating parameters,
+        Type 1 <b>and</b> Type 2 tests. Limits are the test value as a percent of the design value.</p>
+      <table><colgroup><col style="width:40%"><col style="width:90px"><col style="width:130px"><col style="width:130px"><col></colgroup>
+        <thead><tr><th>Parameter</th><th>Symbol</th><th>Min</th><th>Max</th><th>Evaluated here</th></tr></thead><tbody>
+        <tr><td>Specific volume ratio</td><td class="unit">v<sub>i</sub>/v<sub>d</sub></td>
+          <td class="out">95</td><td class="out">105</td><td class="note">yes</td></tr>
+        <tr><td>Flow coefficient</td><td class="unit">φ</td>
+          <td class="out">96</td><td class="out">104</td><td class="note">yes</td></tr>
+        <tr><td>Machine Mach number — centrifugal compressors</td><td class="unit">M<sub>m</sub></td>
+          <td class="out" colspan="2">see Fig. 3.3</td><td class="note">yes — digitised</td></tr>
+        <tr><td>Machine Mach number — axial compressors</td><td class="unit">M<sub>m</sub></td>
+          <td class="out dim" colspan="2">see Fig. 3.4</td><td class="note">no — centrifugal tool</td></tr>
+        <tr><td>Machine Reynolds number — centrifugal compressors <sup>(1)</sup></td><td class="unit">Re<sub>m</sub></td>
+          <td class="out" colspan="2">see Fig. 3.5</td><td class="note">yes — digitised</td></tr>
+        <tr><td>Machine Reynolds number — axial compressors, design Re<sub>m</sub> below 100,000</td><td class="unit">—</td>
+          <td class="out dim">90</td><td class="out dim">105</td><td class="note">no — centrifugal tool</td></tr>
+        <tr><td>Machine Reynolds number — axial compressors, design Re<sub>m</sub> above 100,000 <sup>(1)</sup></td><td class="unit">—</td>
+          <td class="out dim">10</td><td class="out dim">200</td><td class="note">no — centrifugal tool</td></tr>
+      </tbody></table>
+      <div class="warnbox" style="margin-top:12px"><b>Note (1)</b> — Minimum allowable <b>test</b> Machine
+        Reynolds number is 90,000. The floor applies to the measured value, not the specified one.</div>
+      <div class="note" style="margin-top:10px">The axial rows are reproduced for completeness only. This tool
+        evaluates centrifugal compressors — Fig. 3.4 is not digitised and the axial Reynolds bands are not applied.</div>
+    </div></div>
+
+    <div class="card"><h2>Other acceptance limits <span class="r">not from Table 3.2</span></h2><div class="body">
       <table><colgroup><col style="width:34%"><col style="width:150px"><col></colgroup>
         <thead><tr><th>Check</th><th>Limit</th><th>Source</th></tr></thead><tbody>
-        <tr><td>Specific volume ratio</td><td class="out">95 – 105 %</td><td class="note">PTC-10 Table 3.2.1-2</td></tr>
-        <tr><td>Flow coefficient φ</td><td class="out">96 – 104 %</td><td class="note">PTC-10 Table 3.2.1-2</td></tr>
-        <tr><td>Machine Mach number</td><td class="out">per Fig. 3.3</td><td class="note">Chart check — manual</td></tr>
-        <tr><td>Machine Reynolds number</td><td class="out">≥ 90,000</td><td class="note">Type 2 minimum</td></tr>
         <tr><td>Absorbed power vs. guarantee</td><td class="out">± 4 %</td><td class="note">API 617 7th Ed.</td></tr>
         <tr><td>Efficiency</td><td class="out">informational</td><td class="note">Not guaranteed per API 617</td></tr>
+        <tr><td>Required test speed</td><td class="out">≤ MCS</td><td class="note">Maximum continuous speed</td></tr>
       </tbody></table>
     </div></div>
   </div>
@@ -856,7 +879,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
       <ul class="note" style="font-size:13px;line-height:1.7">
         <li>The gas-property presets are representative screening values at low test pressure. For a contractual calculation, confirm MW, k and Z₁ from a proper equation of state (e.g. NIST REFPROP) for your exact gas, pressure and temperature — especially for CO₂, R-134a and mixtures.</li>
         <li>The Fig. 3.3 / 3.5 curves are digitised reproductions for working use, shown beside the original snaps for cross-checking. They are not a substitute for the purchased ASME PTC-10 code text.</li>
-        <li>Machine Mach and Reynolds checks assume the design Reynolds number is at or above the 90,000 Type-2 minimum; the tool flags it when it isn't.</li>
+        <li>Per PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022) Note (1), the <b>test</b> Machine Reynolds number must be at least 90,000; the tool fails the check when it isn't. If the <i>design</i> Reynolds number is below 90,000 the Fig. 3.5 band is extrapolated beyond the digitised curve, and the tool says so as a caution without failing the check.</li>
         <li>This tool supports engineering judgement — it does not replace the governing standards or the reviewing engineer's sign-off.</li>
       </ul>
     </div></div>
@@ -893,7 +916,7 @@ const S={
 /* ================= SIEMENS section — additive, never feeds the generic path =================
    Siemens issue an "Actual vs Test" sheet per process stage, backed by their own n-stage
    chain. Two house rules apply: no Reynolds correction, and gas data from the
-   Benedict-Webb-Rubin-Starling EOS unless PTC-10 2022 Table 3-2.1-2 limits are met.
+   Benedict-Webb-Rubin-Starling EOS unless PTC-10 Table 3.2 / 3-2.1-2 limits are met.
    This block works in fixed units — bar(a), K, kJ/(kg·K), kJ/kg, kg/s, kW, m³/h — quoted on
    every row, so it stays independent of the global unit system above. */
 const SIE_ROWS=[
@@ -932,7 +955,8 @@ const SIE={
          R2:0.12790, Z2:0.990, T2:78.8},
   stages:[SIE_STAGE()]
 };
-/* Placeholder — replace with a base64 data URI when the Table 3-2.1-2 snap is supplied,
+/* Optional facsimile of Table 3.2. The table is rendered as live HTML in the Formula
+   reference view, which prints and themes better; this is only for a literal snap.
    exactly like SNAP_RE / SNAP_MM below. */
 const SNAP_T321="";
 const U=()=>({P:$("uP").value,T:$("uT").value,Q:$("uQ").value,
@@ -984,6 +1008,17 @@ function interpLog(tab,Red){
 }
 function reLimits(Red){                         // Fig 3.5 — limits on ratio Ret/Red
   return {up:interpLog(RE_CURVE.up,Red), lo:interpLog(RE_CURVE.lo,Red)};
+}
+/* PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022), Note (1):
+     "Minimum allowable TEST Machine Reynolds number is 90,000."
+   The floor is on the measured value, not the specified one. Separately, RE_CURVE is
+   digitised from 9e4 upward, so a DESIGN Rem below that yields an extrapolated band —
+   surfaced as a caution, never as a failure. */
+const REM_MIN=9e4;
+function remCheck(Red,ReT){
+  const lim=reLimits(Red), rat=Red?ReT/Red:0;
+  const floorOK=ReT>=REM_MIN, bandOK=rat>=lim.lo&&rat<=lim.up;
+  return {lim,rat,floorOK,bandOK,ok:floorOK&&bandOK,extrap:Red>0&&Red<REM_MIN};
 }
 /* generic SVG plot; axes may be linear or log10 */
 /* Chart palettes. The screen charts follow the current theme and accent; the report
@@ -1243,7 +1278,7 @@ function buildOnce(){
   cmpRow(c,"phi","Flow coefficient, φ = Q₁/N","D","96–104 %");
   cmpRow(c,"vr2","Volume ratio, v₁/v₂","D","95–105 %");
   cmpRow(c,"mm","Machine Mach number","D","Fig. 3.3",{tIn:["t2","Mm"]});
-  cmpRow(c,"re","Machine Reynolds number","D","Fig. 3.5 · ≥ 90,000",{tIn:["t2","Rem"]});
+  cmpRow(c,"re","Machine Reynolds number","D","Fig. 3.5 · test ≥ 90,000",{tIn:["t2","Rem"]});
   cmpRow(c,"p2","Discharge pressure","P",null);
   cmpRow(c,"t2d","Discharge temperature","T",null);
   cmpRow(c,"pw","Absorbed power","PW",null,{tIn:["t2","pwr"]});
@@ -1262,7 +1297,7 @@ function buildOnce(){
   devRow(w1,"w","vr","wvr","Specific volume ratio, v₁/v₂","95–105 %");
   devRow(w1,"w","phi","wphi","Flow coefficient, φ","96–104 %","phiSp");
   devRow(w1,"w","Mm","wmm","Machine Mach no.","Fig. 3.3");
-  devRow(w1,"w","Rem","wrem","Machine Reynolds no.","≥ 90,000");
+  devRow(w1,"w","Rem","wrem","Machine Reynolds no.","test ≥ 90,000");
 
   const w2=$("tW2");
   [["Polytropic efficiency, ηp","eta","fEta","ceta"],
@@ -1309,7 +1344,7 @@ function buildOnce(){
   devRow(o1,"o","vr","ovr","Specific volume ratio, v₁/v₂","95–105 %");
   devRow(o1,"o","phi","ophi","Flow coefficient, φ","96–104 %","phiSp");
   devRow(o1,"o","Mm","omm","Machine Mach no.","Fig. 3.3");
-  devRow(o1,"o","Rem","orem","Machine Reynolds no.","≥ 90,000");
+  devRow(o1,"o","Rem","orem","Machine Reynolds no.","test ≥ 90,000");
 
   const o2=$("tO2");
   [["Polytropic head","head","hO","contract"],["Absorbed power","pwr","pO","± 4 %"],
@@ -1483,7 +1518,7 @@ function calc(){
   cw("vr2",f(vr,4),f(vrT,4),`${f(vrPct,1)} %`,badge(vrOK2));
   const mmLimC=machLimits(s.Mm), mmDevC=t2.Mm-s.Mm, mmOKC=mmDevC>=mmLimC.lo&&mmDevC<=mmLimC.up;
   cw("mm",f(s.Mm,3),null,`${dMm>0?"+":""}${f(dMm,3)}`,badge(mmOKC));
-  const reLimC=reLimits(s.Rem), reRatC=s.Rem?t2.Rem/s.Rem:0, reOK=s.Rem>=9e4&&reRatC>=reLimC.lo&&reRatC<=reLimC.up;
+  const reC=remCheck(s.Rem,t2.Rem), reLimC=reC.lim, reRatC=reC.rat, reOK=reC.ok;
   cw("re",f(s.Rem,0),null,`${f(remPct,1)} %`,badge(reOK));
   cw("p2",f(s.P2,2),f(P2t,2),`${f(s.P2?P2t/s.P2*100:0,1)} %`,INFO);
   cw("t2d",f(s.T2,1),f(T2t,1),`${T2t>s.T2?"+":""}${f(T2t-s.T2,1)}°`,INFO);
@@ -1502,10 +1537,10 @@ function calc(){
   set("sp_wmm",f(s.Mm,3)); set("rt_wmm",`${f(w.Mm/s.Mm*100,1)} %`);
   set("rs_wmm",badge(mmOKW));
   set("fx_wmm",`M_test − M_design = <span class="n">${f(w.Mm,3)}</span> − <span class="n">${f(s.Mm,3)}</span> = <b>${mmDevW>=0?"+":""}${f(mmDevW,3)}</b> · allowable per Fig. 3.3 [<span class="n">${f(mmLimW.lo,3)}</span> … <span class="n">${f(mmLimW.up,3)}</span>] → <b>${mmOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
-  const reLimW=reLimits(s.Rem), reRatW=s.Rem?w.Rem/s.Rem:0, reOKW=s.Rem>=9e4&&reRatW>=reLimW.lo&&reRatW<=reLimW.up;
+  const reW=remCheck(s.Rem,w.Rem), reLimW=reW.lim, reRatW=reW.rat, reOKW=reW.ok;
   R.wRemOK=reOKW;
   set("sp_wrem",f(s.Rem,0)); set("rt_wrem",`${f(reRatW,3)}`); set("rs_wrem",badge(reOKW));
-  set("fx_wrem",`ratio Reₜ/Re_des = <span class="n">${f(w.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatW,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimW.lo,3)}</span> … <span class="n">${f(reLimW.up,2)}</span>], Re_des ≥ 90,000 → <b>${reOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
+  set("fx_wrem",`ratio Reₜ/Re_des = <span class="n">${f(w.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatW,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimW.lo,3)}</span> … <span class="n">${f(reLimW.up,2)}</span>], Re_test ≥ 90,000 [Note (1)] → <b>${reOKW?"IN RANGE":"OUT OF RANGE"}</b>`);
 
   const cEta=w.eta*w.fEta,cMu=w.mu*w.fMu,cPhi=w.phiC*w.fPhi,cMuIn=w.muIn*w.fMuIn;
   R.cEta=cEta; R.cMu=cMu; R.cPhi=cPhi; R.cMuIn=cMuIn;
@@ -1539,10 +1574,10 @@ function calc(){
   set("sp_omm",f(s.Mm,3)); set("rt_omm",`${f(o.Mm/s.Mm*100,1)} %`);
   set("rs_omm",badge(mmOKO));
   set("fx_omm",`M_test − M_design = <span class="n">${f(o.Mm,3)}</span> − <span class="n">${f(s.Mm,3)}</span> = <b>${mmDevO>=0?"+":""}${f(mmDevO,3)}</b> · allowable per Fig. 3.3 [<span class="n">${f(mmLimO.lo,3)}</span> … <span class="n">${f(mmLimO.up,3)}</span>] → <b>${mmOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
-  const reLimO=reLimits(s.Rem), reRatO=s.Rem?o.Rem/s.Rem:0, reOKO=s.Rem>=9e4&&reRatO>=reLimO.lo&&reRatO<=reLimO.up;
+  const reO=remCheck(s.Rem,o.Rem), reLimO=reO.lim, reRatO=reO.rat, reOKO=reO.ok;
   R.oRemOK=reOKO;
   set("sp_orem",f(s.Rem,0)); set("rt_orem",`${f(reRatO,3)}`); set("rs_orem",badge(reOKO));
-  set("fx_orem",`ratio Reₜ/Re_des = <span class="n">${f(o.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatO,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimO.lo,3)}</span> … <span class="n">${f(reLimO.up,2)}</span>], Re_des ≥ 90,000 → <b>${reOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
+  set("fx_orem",`ratio Reₜ/Re_des = <span class="n">${f(o.Rem,0)}</span> / <span class="n">${f(s.Rem,0)}</span> = <b>${f(reRatO,4)}</b> · allowable per Fig. 3.5 [<span class="n">${f(reLimO.lo,3)}</span> … <span class="n">${f(reLimO.up,2)}</span>], Re_test ≥ 90,000 [Note (1)] → <b>${reOKO?"IN RANGE":"OUT OF RANGE"}</b>`);
 
   const ohDev=(o.head-s.Head)/s.Head*100, opDev=Pabs?(o.pwr-Pabs)/Pabs*100:0, opOK=Math.abs(opDev)<=4;
   R.hDev_O=ohDev; R.pOK_O=opOK; R.pDev_O=opDev;
@@ -1559,8 +1594,8 @@ function calc(){
 
   // PTC-10 charts + captions
   drawCharts();
-  const capRe=(id,ReT,ok)=>{ const lim=reLimits(s.Rem), rat=s.Rem?ReT/s.Rem:0;
-    set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test/design ratio <b>${f(rat,3)}</b> · allowable <b>${f(lim.lo,3)}–${f(lim.up,2)}</b> · ${s.Rem>=9e4?"":"<span style='color:var(--fail)'>design below 90,000 minimum · </span>"}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
+  const capRe=(id,ReT,ok)=>{ const c=remCheck(s.Rem,ReT);
+    set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test Re<sub>M</sub> <b>${f(ReT,0)}</b> · test/design ratio <b>${f(c.rat,3)}</b> · allowable <b>${f(c.lim.lo,3)}–${f(c.lim.up,2)}</b> · ${c.floorOK?"":"<span style='color:var(--fail)'>test below the 90,000 minimum [Table 3.2 Note (1)] · </span>"}${c.extrap?"<span style='color:var(--warn)'>design below 90,000 — Fig. 3.5 band extrapolated · </span>":""}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
   const capMm=(id,MmT,ok)=>{ const lim=machLimits(s.Mm), dev=MmT-s.Mm;
     set(id,`Design M<sub>m</sub> <b>${f(s.Mm,3)}</b> · departure M<sub>test</sub>−M<sub>design</sub> <b>${dev>=0?"+":""}${f(dev,3)}</b> · allowable <b>${f(lim.lo,3)} to ${f(lim.up,3)}</b> · <b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>.`); };
   capRe("noteReW",w.Rem,R.wRemOK); capRe("noteReO",o.Rem,R.oRemOK);
@@ -1576,7 +1611,7 @@ function scorecard(){
   const vrPct=R.vr?src.vr/R.vr*100:0, vrOK=vrPct>=95&&vrPct<=105;
   const phiPct=src.phiSp?src.phi/src.phiSp*100:0, phiOK=phiPct>=96&&phiPct<=104;
   const mmLim=machLimits(s.Mm), mmDev=src.Mm-s.Mm, mmOK=mmDev>=mmLim.lo&&mmDev<=mmLim.up;
-  const reLim=reLimits(s.Rem), reRat=s.Rem?src.Rem/s.Rem:0, remOK=s.Rem>=9e4&&reRat>=reLim.lo&&reRat<=reLim.up;
+  const reChk=remCheck(s.Rem,src.Rem), reLim=reChk.lim, reRat=reChk.rat, remOK=reChk.ok;
   const mcsOK=R.Nt<=S.gas.MCS;
   const pOK=useW?R.pOK_W:R.pOK_O, pDev=useW?R.pDev_W:R.pDev_O;
   const ckFail=CK.filter(c=>c.st==="N").length, ckDone=CK.filter(c=>c.st).length;
@@ -1902,7 +1937,7 @@ function buildReport(){
     ["Flow coefficient, φ = Q₁/N","—",f(R.phiSp,5),f(R.phiT,5),`${f(R.phiPct,1)} %`,"96–104 %",RES(R.designChecks.phiOK)],
     ["Volume ratio, v₁/v₂","—",f(R.vr,4),f(R.vrT,4),`${f(R.vrPct,1)} %`,"95–105 %",RES(R.designChecks.vrOK)],
     ["Machine Mach number","—",f(s.Mm,3),f(t2.Mm,3),`${R.dMm>0?"+":""}${f(R.dMm,3)}`,"Fig. 3.3",'<span class="chk">CHART CHECK</span>'],
-    ["Machine Reynolds number","—",f(s.Rem,0),f(t2.Rem,0),`${f(R.remPct,1)} %`,"Fig. 3.5 · ≥ 90,000",RES(R.designChecks.reOK)],
+    ["Machine Reynolds number","—",f(s.Rem,0),f(t2.Rem,0),`${f(R.remPct,1)} %`,"Fig. 3.5 · test ≥ 90,000",RES(R.designChecks.reOK)],
     ["Discharge pressure",u.P,f(s.P2,2),f(R.P2t,2),`${f(s.P2?R.P2t/s.P2*100:0,1)} %`,"—","design"],
     ["Discharge temperature",u.T,f(s.T2,1),f(R.T2t,1),`${R.T2t-s.T2>0?"+":""}${f(R.T2t-s.T2,1)}°`,"—","design"],
     ["Absorbed power",u.PW,f(R.Pabs,1),t2.pwr>0?f(t2.pwr,1):"—",t2.pwr>0?`${f(t2.pwr/R.Pabs*100,1)} %`:"—","—","shop driver"]
@@ -1931,7 +1966,7 @@ function buildReport(){
       <tr><td>Specific volume ratio</td><td class="k">${f(w.vr,3)}</td><td class="k">${f(R.vr,3)}</td><td class="k">${f(w.vr/R.vr*100,1)} %</td><td>95–105 %</td><td>${RES(R.wvrOK)}</td></tr>
       <tr><td>Flow coefficient, φ</td><td class="k">${f(w.phi,3)}</td><td class="k">${f(w.phiSp,3)}</td><td class="k">${f(R.wPhiPct,1)} %</td><td>96–104 %</td><td>${RES(R.wPhiOK)}</td></tr>
       <tr><td>Machine Mach number</td><td class="k">${f(w.Mm,3)}</td><td class="k">${f(s.Mm,3)}</td><td class="k">${f(w.Mm/s.Mm*100,1)} %</td><td>Fig. 3.3</td><td><span class="chk">CHART</span></td></tr>
-      <tr><td>Machine Reynolds number</td><td class="k">${f(w.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(w.Rem/s.Rem*100,1)} %</td><td>≥ 90,000</td><td>${RES(R.wRemOK)}</td></tr>
+      <tr><td>Machine Reynolds number</td><td class="k">${f(w.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(w.Rem/s.Rem*100,1)} %</td><td>test ≥ 90,000</td><td>${RES(R.wRemOK)}</td></tr>
     </table>
     <h4>Reynolds correction factors (vendor calculation per PTC-10 §5)</h4>
     <table><tr><th style="width:34%">Coefficient</th><th>Measured</th><th>Rem factor</th><th>Corrected</th></tr>
@@ -1953,7 +1988,7 @@ function buildReport(){
     <table><tr><th style="width:26%">Parameter</th><th>Test</th><th>Specified</th><th>Ratio / dev.</th><th>Allowable</th><th>Result</th></tr>
       <tr><td>Specific volume ratio</td><td class="k">${f(o.vr,3)}</td><td class="k">${f(R.vr,3)}</td><td class="k">${f(o.vr/R.vr*100,1)} %</td><td>95–105 %</td><td>${RES(R.ovrOK)}</td></tr>
       <tr><td>Flow coefficient, φ</td><td class="k">${f(o.phi,3)}</td><td class="k">${f(o.phiSp,3)}</td><td class="k">${f(R.oPhiPct,1)} %</td><td>96–104 %</td><td>${RES(R.oPhiOK)}</td></tr>
-      <tr><td>Machine Reynolds number</td><td class="k">${f(o.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(o.Rem/s.Rem*100,1)} %</td><td>≥ 90,000</td><td>${RES(R.oRemOK)}</td></tr>
+      <tr><td>Machine Reynolds number</td><td class="k">${f(o.Rem,0)}</td><td class="k">${f(s.Rem,0)}</td><td class="k">${f(o.Rem/s.Rem*100,1)} %</td><td>test ≥ 90,000</td><td>${RES(R.oRemOK)}</td></tr>
       <tr><td>Polytropic head (as measured)</td><td class="k">${f(o.head,3)}</td><td class="k">${f(s.Head,3)}</td><td class="k">${R.hDev_O>0?"+":""}${f(R.hDev_O,2)} %</td><td>contract</td><td><span class="chk">CONTRACT</span></td></tr>
       <tr><td>Absorbed power (as measured)</td><td class="k">${f(o.pwr,2)}</td><td class="k">${f(R.Pabs,2)}</td><td class="k">${R.pDev_O>0?"+":""}${f(R.pDev_O,2)} %</td><td>± 4 %</td><td>${RES(R.pOK_O)}</td></tr>
       <tr><td>Polytropic efficiency (as measured)</td><td class="k">${f(o.eta,4)}</td><td class="k">${f(R.eff,4)}</td><td class="k">${f((o.eta-R.eff)/R.eff*100,2)} %</td><td>informational</td><td>not guaranteed</td></tr>
@@ -1963,7 +1998,7 @@ function buildReport(){
   /* 5b — allowable-departure charts (always the light palette — the report is paper) */
   const rPal=chartPal(false);
   const src=sc.useW?S.w:S.o;
-  const reLimR=reLimits(s.Rem), reRatR=s.Rem?src.Rem/s.Rem:0, reOKR=s.Rem>=9e4&&reRatR>=reLimR.lo&&reRatR<=reLimR.up;
+  const reR=remCheck(s.Rem,src.Rem), reLimR=reR.lim, reRatR=reR.rat, reOKR=reR.ok;
   const mmLimR=machLimits(s.Mm), mmDevR=src.Mm-s.Mm, mmOKR=mmDevR>=mmLimR.lo&&mmDevR<=mmLimR.up;
   const reSvg=svgChart({title:"Fig. 3.5 — Allowable Reynolds Number Range",xlab:"ReM_design",ylab:"ReM_test / ReM_design",
     xlog:true,ylog:true,x0:4,x1:9,y0:-3,y1:3,xlo:1e4,xhi:1e9,ylo:1e-3,
@@ -1983,7 +2018,8 @@ function buildReport(){
       <tr><td class="k">${f(s.Rem,0)}</td><td class="k">${f(src.Rem,0)}</td><td class="k">${f(reRatR,4)}</td>
         <td class="k">${f(reLimR.lo,3)} – ${f(reLimR.up,2)}</td><td>${RES(reOKR)}</td></tr></table>
     <div class="fxp">Reynolds correction on head and efficiency is applied in accordance with ASME PTC-10 (ICAAMC) directives.
-      ${s.Rem>=9e4?"":"Design Reynolds number is below the 90,000 Type-2 minimum."}</div>
+      ${reR.floorOK?"":"Test Machine Reynolds number is below the 90,000 minimum required by Table 3.2 Note (1)."}
+      ${reR.extrap?"Design Machine Reynolds number is below 90,000, so the Fig. 3.5 band above is extrapolated beyond the digitised curve — read it with caution.":""}</div>
     <h3>Machine Mach number — allowable range (Fig. 3.3)</h3>
     <div class="cpair"><div>${mmSvg}<div class="cpl">Digitised chart — selected point</div></div>
       <div><img class="rsnap" src="${SNAP_MM}"/><div class="cpl">Original ASME PTC-10 snap</div></div></div>
@@ -2037,7 +2073,7 @@ function buildReport(){
     <div class="fxp">Siemens house rule 1 — Reynolds number correction is not performed; the figures above are
       as-measured. House rule 2 — gas data from the Benedict-Webb-Rubin-Starling equation of state
       (specified gas: ${esc(SIE.eosSp)}; test gas: ${esc(SIE.eosT)}) unless the gas properties fall within the
-      limits of ASME PTC-10 2022 Table 3-2.1-2.</div>
+      limits of ASME PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022).</div>
     <h3>6.2 Similitude limits — issued vs recomputed</h3>
     <table><tr><th style="width:28%">Description</th><th>Limits as issued</th><th>Test</th>
       <th>Recomputed here</th><th>Agrees</th><th>Result</th></tr>
@@ -2085,7 +2121,9 @@ function buildReport(){
       ? "These checks are included in the overall acceptance determination."
       : "These checks are reported for information and are <b>not</b> included in the overall acceptance determination."}
       Gas property method — specified gas: ${esc(SIE.eosSp)}, test gas: ${esc(SIE.eosT)}. The ASME PTC-10 2022
-      Table 3-2.1-2 gate is recorded but not yet binding, pending confirmation of the table limits.</div>`);
+      Table 3.2 / 3-2.1-2 gate is recorded but not binding: that table constrains similitude parameters
+      (specific volume ratio, flow coefficient, Mach and Reynolds numbers), not gas properties, so the clause
+      tying it to the choice of equation of state is unconfirmed.</div>`);
   }
 
 
@@ -2212,11 +2250,15 @@ function sieCalc(){
 function sieLimits(){
   const s=S.spec;
   const mL=machLimits(s.Mm), rL=reLimits(s.Rem);
+  /* Note (1) is an absolute floor on the test value, independent of the Fig. 3.5 ratio band,
+     so the effective lower bound is whichever of the two binds. */
+  const reBand=s.Rem*rL.lo, floored=reBand<REM_MIN;
   return {
-    vr :{lo:0.95, up:1.05, src:"PTC-10 Table 3.2.1-2"},
-    phi:{lo:0.96, up:1.04, src:"PTC-10 Table 3.2.1-2"},
+    vr :{lo:0.95, up:1.05, src:"Table 3.2 · v_i/v_d"},
+    phi:{lo:0.96, up:1.04, src:"Table 3.2 · φ"},
     ma :{lo:s.Mm+mL.lo, up:s.Mm+mL.up, src:`Fig. 3.3 · M_design ${f(s.Mm,3)}`},
-    re :{lo:s.Rem*rL.lo, up:s.Rem*rL.up, src:`Fig. 3.5 · Re_design ${f(s.Rem,0)}`}
+    re :{lo:Math.max(reBand,REM_MIN), up:s.Rem*rL.up,
+         src:`Fig. 3.5 · Re_design ${f(s.Rem,0)}${floored?" · lower bound set by Note (1) floor of 90,000":""}`}
   };
 }
 const sieFmt=(v,k)=> k==="re" ? (isFinite(v)?v.toExponential(1).replace("e+","E+"):"—") : f(v,k==="ma"?3:3);
@@ -2407,22 +2449,23 @@ function drawSie(){
   $("sieInclVerdict").checked=!!SIE.inclInVerdict;
   drawSieCmp(); drawSieLim(); drawSieInlet(); drawSieStages(); drawSieResults();
 
-  /* Table 3-2.1-2 gate — the rule text is pending the snap the user is supplying */
+  /* Table 3.2 gate — deliberately non-binding, see the note text for why */
   const gate=$("sieGate"), note=$("sieGateNote");
   const same=SIE.eosSp===SIE.eosT;
   gate.innerHTML = same
     ? `<span class="badge b-pass">${esc(SIE.eosSp)} — both gases</span>`
     : `<span class="badge b-chk">${esc(SIE.eosSp)} / ${esc(SIE.eosT)}</span>`;
-  note.innerHTML = `Specified and test gas properties must be compared against ASME PTC-10 2022
-    Table 3-2.1-2. <b>Rule pending</b> — the consequence of falling inside those limits is to be
-    confirmed against the table snap before this gate is made binding.`;
+  note.innerHTML = `Table 3.2 / 3-2.1-2 constrains <b>similitude parameters</b> — specific volume ratio,
+    flow coefficient, Mach and Reynolds numbers — not gas properties. Those four are checked on the limits
+    card above. <b>Non-binding:</b> the Siemens clause tying that table to the choice of equation of state
+    is unconfirmed, so the method recorded here is reported but not enforced.`;
 
   const ph=$("snapT321");
   ph.innerHTML = SNAP_T321
-    ? `<img class="snap" src="${SNAP_T321}" alt="PTC-10 2022 Table 3-2.1-2"/>`
-    : `<div class="snapph">Table 3-2.1-2 snap not yet loaded.<br/>
-         Drop the image in as a base64 data URI on the <span class="k">SNAP_T321</span> constant
-         and it will render here.</div>`;
+    ? `<img class="snap" src="${SNAP_T321}" alt="PTC-10 Table 3.2"/>`
+    : `<div class="snapph">Table 3.2 is reproduced as a live table under <b>Formula reference</b>.<br/>
+         Drop a facsimile in as a base64 data URI on the <span class="k">SNAP_T321</span> constant
+         if you want the scanned page here as well.</div>`;
 
   const sc=sieScore(), v=$("sieVerdict");
   v.className="big "+(sc.all?"ok":"no");
