@@ -73,6 +73,8 @@ select.set{border-color:var(--accent);color:var(--accent)}
   padding:6px 10px 3px;border-bottom:1px solid var(--line)}
 .sugg .item{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:11px}
 .sugg .item:hover,.sugg .item.cur{background:var(--panel2);color:var(--accent)}
+.sugg .item.sel{background:var(--blockOn);color:var(--accent)}
+.sugg .item.sel .meta{color:inherit}
 .sugg .item .meta{color:var(--ink3);font-size:10px}
 .sugg .syntax{padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--ink3);border-top:1px solid var(--line);line-height:1.7}
 .sugg .syntax code{color:var(--accent2)}
@@ -374,7 +376,7 @@ const norm=s=>String(s??"").toLowerCase().replace(/[^a-z0-9]/g,"");
 let WB=null,HEADERS=[],DATA=[],MAP={},RAW=[],ROWS=[],FACETS=[],FILT={},SHOW=[],
     BASEHEAD=[],BASEDATA=[],JB={head:[],data:[],map:{tag:-1,jb:-1},matched:0,orphan:0},JBON=true,
     ALM={head:[],data:[],map:{tag:-1},matched:0,orphan:0,trips:0,alarms:0},
-    VIEW="map",FOCUS=null,SELPAIR=null,TYPES=[],COLOR={},SORT={c:null,dir:1},SUGI=-1,SUGL=[];
+    VIEW="map",FOCUS=null,SELPAIR=null,TYPES=[],COLOR={},SORT={c:null,dir:1},SUGI=-1,SUGL=[],SUGCTX=null;
 const ROLES=[["tag","TagNo"],["service","Instrument service"],["io","S.Type (I/O)"],["from","SIGNAL FROM"],
   ["to","SIGNAL TO"],["sig","SIGNAL TYPE"],["sub","SubSystem"]];
 const PAL={
@@ -781,8 +783,18 @@ function parseQuery(q){
 }
 function matches(r,terms){
   const all=r.cells.join(" \u0001 ").toLowerCase();
-  return terms.every(t=>{const hay=t.col>=0?String(r.cells[t.col]||"").toLowerCase():all;
-    return t.neg?!hay.includes(t.val):hay.includes(t.val);});
+  const byCol=new Map();
+  for(const t of terms){
+    if(t.col<0){if(t.neg?all.includes(t.val):!all.includes(t.val))return false;continue;}
+    if(!byCol.has(t.col))byCol.set(t.col,{pos:[],neg:[]});
+    (t.neg?byCol.get(t.col).neg:byCol.get(t.col).pos).push(t.val);
+  }
+  for(const [col,g] of byCol){
+    const hay=String(r.cells[col]||"").toLowerCase();
+    if(g.pos.length&&!g.pos.some(v=>hay.includes(v)))return false;   // several values picked on one field = match any of them
+    if(g.neg.some(v=>hay.includes(v)))return false;                  // several excludes on one field = match none of them
+  }
+  return true;
 }
 function hi(text,terms,col){
   const s=String(text??"");if(!terms.length)return esc(s);
@@ -791,18 +803,23 @@ function hi(text,terms,col){
   const rx=new RegExp("("+pos.map(v=>v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","gi");
   return esc(s).replace(rx,"<mark>$1</mark>");
 }
-function buildSuggest(){
+function buildSuggest(sticky){
   if(!RAW.length)return;
   const el=$("#fQ"),q=el.value,caret=el.selectionStart??q.length,before=q.slice(0,caret);
   const frag=(before.split(/\s+/).pop()||""),box=$("#sugg");SUGL=[];let html="";
-  const fm=frag.match(/^-?([a-z0-9]+):(.*)$/i);
-  if(fm&&fieldIndex(fm[1])>=0){
-    const c=fieldIndex(fm[1]),part=fm[2].toLowerCase();
-    const list=[...distinct(c).entries()].filter(([v])=>v.toLowerCase().includes(part))
+  const fm=frag.match(/^(-?)([a-z0-9]+):(.*)$/i);
+  let col=-1,part="",neg=false,name="";
+  if(fm&&fieldIndex(fm[2])>=0){col=fieldIndex(fm[2]);part=fm[3].toLowerCase();neg=fm[1]==="-";name=fm[2].toLowerCase();SUGCTX={col,neg,name};}
+  else if(!frag&&sticky&&SUGCTX){col=SUGCTX.col;neg=SUGCTX.neg;name=SUGCTX.name;}
+  else{SUGCTX=null;}
+  if(col>=0){
+    const selected=new Set(parseQuery(q).filter(t=>t.col===col&&t.neg===neg).map(t=>t.val));
+    const list=[...distinct(col).entries()].filter(([v])=>v.toLowerCase().includes(part))
       .sort((a,b)=>b[1]-a[1]).slice(0,10);
-    if(list.length){html+=`<div class="grpname">${esc(HEADERS[c])} values</div>`;
-      list.forEach(([v,n])=>{SUGL.push(fm[1].toLowerCase()+":"+(/\s/.test(v)?`"${v}"`:v));
-        html+=`<div class="item" data-i="${SUGL.length-1}"><span>${esc(v)}</span><span class="meta">${n}</span></div>`;});}
+    if(list.length){html+=`<div class="grpname">${esc(HEADERS[col])} values — click several to match any of them</div>`;
+      list.forEach(([v,n])=>{SUGL.push((neg?"-":"")+name+":"+(/\s/.test(v)?`"${v}"`:v));
+        const on=selected.has(v.toLowerCase());
+        html+=`<div class="item${on?" sel":""}" data-i="${SUGL.length-1}"><span>${on?"✓ ":""}${esc(v)}</span><span class="meta">${n}</span></div>`;});}
   }else if(frag.replace(/^-/,"").length>=1){
     const bare=frag.replace(/^-/,"").toLowerCase(),hits=[];
     HEADERS.forEach((h,c)=>{[...distinct(c).entries()].filter(([v])=>v.toLowerCase().includes(bare))
@@ -814,16 +831,32 @@ function buildSuggest(){
   }
   const ex=HEADERS.slice(0,4).map(h=>`<code>${esc(norm(h).slice(0,10))}:…</code>`).join(" ");
   html+=`<div class="syntax">Field filters use your own column names: ${ex}<br>
-    Combine with spaces (all must match) · exclude with <code>-</code> · phrase with <code>"…"</code></div>`;
+    Combine with spaces (all must match) · exclude with <code>-</code> · phrase with <code>"…"</code> · click several values in one field's list to select multiple</div>`;
   box.innerHTML=html;box.classList.add("on");SUGI=-1;
   box.querySelectorAll(".item").forEach(it=>it.onmousedown=e=>{e.preventDefault();applySuggest(+it.dataset.i);});
 }
-function applySuggest(i){const el=$("#fQ"),q=el.value,caret=el.selectionStart??q.length,before=q.slice(0,caret);
+function applySuggest(i){
+  const el=$("#fQ"),term=SUGL[i],fm=term.match(/^(-?)([a-z0-9]+):(.*)$/i);
+  if(fm){
+    const neg=fm[1]==="-",val=fm[3].replace(/^"|"$/g,"").toLowerCase(),col=fieldIndex(fm[2]);
+    if(parseQuery(el.value).some(t=>t.col===col&&t.neg===neg&&t.val===val)){
+      const esc_=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      const rx=new RegExp("(^|\\s)"+esc_(term)+"(?=\\s|$)","i");
+      el.value=(" "+el.value).replace(rx,"").trim();
+      if(el.value)el.value+=" ";
+      el.focus();el.setSelectionRange(el.value.length,el.value.length);
+      buildSuggest(true);render();return;
+    }
+  }
+  const q=el.value,caret=el.selectionStart??q.length,before=q.slice(0,caret);
   const frag=(before.split(/\s+/).pop()||"");
-  el.value=before.slice(0,before.length-frag.length)+SUGL[i]+" "+q.slice(caret);
-  el.focus();$("#sugg").classList.remove("on");render();}
+  el.value=before.slice(0,before.length-frag.length)+term+" "+q.slice(caret);
+  const newCaret=before.length-frag.length+term.length+1;
+  el.focus();el.setSelectionRange(newCaret,newCaret);
+  buildSuggest(true);render();
+}
 $("#fQ").addEventListener("input",()=>{buildSuggest();render();});
-$("#fQ").addEventListener("focus",buildSuggest);
+$("#fQ").addEventListener("focus",()=>buildSuggest());
 $("#fQ").addEventListener("blur",()=>setTimeout(()=>$("#sugg").classList.remove("on"),120));
 $("#fQ").addEventListener("keydown",e=>{const items=$("#sugg").querySelectorAll(".item");
   if(e.key==="Escape"){if($("#sugg").classList.contains("on"))$("#sugg").classList.remove("on");
