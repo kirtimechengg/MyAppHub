@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="amber" data-font="technical" data-density="normal">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interface Signal Mapper — Centrifugal Compressor I/O List</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--fs:13px;--row:26px;--pad:7px;--radius:2px}
+[data-theme="dark"]{--bg:#0E1216;--grid:#151B21;--sheet:#0B0F13;--panel:#151B21;--panel2:#1B232B;
+  --line:#28323C;--line2:#3A4854;--ink:#E6EDF3;--ink2:#93A4B3;--ink3:#5E7286;
+  --block:#1B232B;--blockOn:#1D2E38;--hl:#F0B42955;--shadow:0 12px 32px #0009}
+[data-theme="light"]{--bg:#F6F7F9;--grid:#EDEFF3;--sheet:#FFFFFF;--panel:#FFFFFF;--panel2:#F1F3F7;
+  --line:#E2E6EC;--line2:#C9D0DA;--ink:#1B2430;--ink2:#5A6675;--ink3:#8A94A3;
+  --block:#F3F5F9;--blockOn:#E4F1F5;--hl:#FFD98A;--shadow:0 10px 26px #1b243014}
+[data-accent="amber"]{--accent:#F0B429;--accent2:#3EC5CE;--accentInk:#101418}
+[data-theme="light"][data-accent="amber"]{--accent:#B8790B;--accent2:#0E7C8A;--accentInk:#FFF}
+[data-accent="blueprint"]{--accent:#5B9CFF;--accent2:#A78BFA;--accentInk:#0B1220}
+[data-theme="light"][data-accent="blueprint"]{--accent:#1D5FD1;--accent2:#6D42D9;--accentInk:#FFF}
+[data-accent="ember"]{--accent:#FF7A50;--accent2:#2DD4BF;--accentInk:#180D08}
+[data-theme="light"][data-accent="ember"]{--accent:#C2410C;--accent2:#0F766E;--accentInk:#FFF}
+[data-accent="graphite"]{--accent:#B9C4D0;--accent2:#7DD3A8;--accentInk:#12171D}
+[data-theme="light"][data-accent="graphite"]{--accent:#334155;--accent2:#0F7B4F;--accentInk:#FFF}
+[data-font="technical"]{--ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+[data-font="grotesk"]{--ui:"Helvetica Neue",Helvetica,Arial,sans-serif;--mono:"Roboto Mono",ui-monospace,Consolas,monospace}
+[data-font="humanist"]{--ui:"Avenir Next","Segoe UI",Optima,Candara,system-ui,sans-serif;--mono:"IBM Plex Mono",Menlo,Consolas,monospace}
+[data-font="serif"]{--ui:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--mono:"Courier New",ui-monospace,Consolas,monospace}
+[data-density="compact"]{--fs:12px;--row:22px;--pad:5px}
+[data-density="large"]{--fs:14.5px;--row:30px;--pad:9px}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:var(--fs);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;background-position:-1px -1px;transition:background-color .18s,color .18s}
+button,select,input{font:inherit;color:inherit}
+#topbar{display:flex;gap:8px;align-items:center;margin:10px 10px 0;padding:7px 10px;
+  border:1px solid var(--line2);background:var(--panel)}
+header{display:flex;align-items:stretch;border:1px solid var(--line2);border-top:none;background:var(--panel);margin:0 10px}
+.tb{padding:var(--pad) 14px;border-right:1px solid var(--line2);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.tb .k{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase}
+.tb .v{font-family:var(--mono);font-size:13px}.tb.main .v{font-size:15px}.tb.main .v b{color:var(--accent);font-weight:700}
+header .grow{flex:1}.tb.act{border-right:none;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid var(--line2);padding:6px 11px;cursor:pointer;border-radius:var(--radius);
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.solid{background:var(--accent);color:var(--accentInk);border-color:var(--accent);font-weight:700}
+.btn.solid:hover{filter:brightness(1.1)}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 10px;padding:8px 10px;
+  border:1px solid var(--line2);border-top:none;background:var(--panel)}
+.fld{display:flex;align-items:center;gap:6px}
+.fld label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--ink3);text-transform:uppercase;white-space:nowrap}
+select,input{background:var(--panel2);border:1px solid var(--line);padding:5px 8px;font-family:var(--mono);
+  font-size:11px;min-width:104px;max-width:190px;border-radius:var(--radius)}
+select.set{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;border:1px solid var(--line2);border-radius:var(--radius);overflow:hidden}
+.tab{padding:6px 14px;cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink2);background:var(--panel2)}
+.tab+.tab{border-left:1px solid var(--line2)}
+.tab.on{background:var(--accent);color:var(--accentInk);font-weight:700}
+.stat{font-family:var(--mono);font-size:11px;color:var(--ink2)}.stat b{color:var(--accent2)}
+#facets{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.search{position:relative;flex:1;min-width:240px}
+.search input{width:100%;max-width:none;padding:6px 74px 6px 26px}
+.search .ico{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none}
+.search .cnt{position:absolute;right:30px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.search .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--ink3);background:none;border:none;padding:2px 4px}
+.search .clr:hover{color:var(--accent)}
+.sugg{position:absolute;z-index:20;top:calc(100% + 4px);left:0;right:0;background:var(--panel);border:1px solid var(--line2);
+  box-shadow:var(--shadow);display:none;max-height:290px;overflow:auto}
+.sugg.on{display:block}
+.sugg .grpname{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);
+  padding:6px 10px 3px;border-bottom:1px solid var(--line)}
+.sugg .item{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:11px}
+.sugg .item:hover,.sugg .item.cur{background:var(--panel2);color:var(--accent)}
+.sugg .item .meta{color:var(--ink3);font-size:10px}
+.sugg .syntax{padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--ink3);border-top:1px solid var(--line);line-height:1.7}
+.sugg .syntax code{color:var(--accent2)}
+mark{background:var(--hl);color:inherit;padding:0 1px;border-radius:2px}
+.pop{position:absolute;right:10px;top:64px;z-index:30;width:300px;background:var(--panel);border:1px solid var(--line2);
+  box-shadow:var(--shadow);padding:12px;display:none;max-height:76vh;overflow:auto}
+.pop.on{display:block}
+.pop h3{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);font-weight:500}
+.pop .grp{margin-bottom:12px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{border:1px solid var(--line2);background:var(--panel2);padding:5px 9px;cursor:pointer;font-family:var(--mono);
+  font-size:10.5px;border-radius:var(--radius);display:flex;align-items:center;gap:6px}
+.opt:hover{border-color:var(--accent)}
+.opt[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sw{width:11px;height:11px;border-radius:50%;display:inline-block}
+.maprow{display:grid;grid-template-columns:96px 1fr;gap:6px;align-items:center;margin-bottom:5px}
+.maprow span{font-family:var(--mono);font-size:10px;color:var(--ink2)}
+.maprow select{width:100%;max-width:none;min-width:0}
+.chk{display:flex;align-items:center;gap:7px;padding:3px 2px;font-family:var(--mono);font-size:11px;cursor:pointer}
+.chk input{min-width:0;width:13px;height:13px;accent-color:var(--accent)}
+.chk .n{color:var(--ink3);font-size:10px;margin-left:auto}
+main{display:grid;grid-template-columns:236px 1fr;gap:10px;padding:10px;flex:1;min-height:0}
+body.tcol>header,body.tcol>.bar{display:none}
+/* schedule pane collapse */
+.right.tclosed{grid-template-rows:1fr 33px}
+#tblPane.closed .scroll{display:none}
+.modal{position:fixed;inset:0;z-index:70;background:#0008;display:none;align-items:center;justify-content:center}
+.modal.on{display:flex}
+.card{background:var(--panel);border:1px solid var(--line2);box-shadow:var(--shadow);padding:16px;width:390px;max-width:92vw}
+.card h3{margin:0 0 10px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);font-weight:500}
+.card .row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.card .note{font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.7;margin:2px 0 12px}
+.card .foot{display:flex;gap:8px;justify-content:flex-end}
+.mtab{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin-bottom:10px}
+.mtab th{position:static;background:var(--panel2);cursor:default}
+.mtab td{white-space:normal}
+.mtab .sugg-btn{border:1px solid var(--line2);background:var(--panel2);padding:2px 7px;cursor:pointer;
+  font-family:var(--mono);font-size:10px;border-radius:var(--radius)}
+.mtab .sugg-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mgrp{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);
+  margin:12px 0 5px;border-bottom:1px solid var(--line);padding-bottom:3px}
+/* analytics */
+.qc{padding:14px 16px;font-family:var(--ui)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+.kpi{border:1px solid var(--line2);background:var(--panel2);padding:9px 11px}
+.kpi .k{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.kpi .v{font-family:var(--mono);font-size:19px;margin-top:3px}
+.kpi .s{font-family:var(--mono);font-size:9.5px;color:var(--ink3)}
+.bar2{height:4px;background:var(--line);margin-top:6px}.bar2 i{display:block;height:100%}
+.qcgrp{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);
+  margin:16px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.find{border:1px solid var(--line2);background:var(--panel2);margin-bottom:6px}
+.find>.h{display:flex;gap:10px;align-items:center;padding:7px 10px;cursor:pointer}
+.find>.h:hover{background:var(--blockOn)}
+.find .sev{font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:2px 6px;border:1px solid currentColor;white-space:nowrap}
+.find .ttl{flex:1;font-size:12.5px}
+.find .cnt{font-family:var(--mono);font-size:12px;color:var(--accent)}
+.find .body{display:none;padding:0 10px 10px 10px;font-family:var(--mono);font-size:10.5px;color:var(--ink2);line-height:1.7}
+.find.open .body{display:block}
+.find .hint{padding:0;color:var(--ink3);font-size:10px;margin-bottom:5px}
+.find .tags{display:flex;flex-wrap:wrap;gap:4px}
+.find .tg{border:1px solid var(--line2);padding:1px 5px;cursor:pointer;font-size:10px}
+.find .tg:hover{border-color:var(--accent);color:var(--accent)}
+.ok{color:#3FB950}
+.typegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:5px}
+.typechk{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:5px 8px;cursor:pointer;
+  font-family:var(--mono);font-size:11px}
+.typechk:hover{border-color:var(--accent)}
+.typechk.on{border-color:var(--accent);color:var(--accent);background:var(--panel2)}
+.typechk input{width:13px;height:13px;accent-color:var(--accent);min-width:0}
+.typechk .c{margin-left:auto;color:var(--ink3);font-size:10px}
+.typechk .ex{color:var(--ink3);font-size:9.5px}
+.typechk{cursor:default}
+.seg{display:flex;gap:2px}
+.rbtn{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 5px;cursor:pointer;
+  border:1px solid var(--line2);background:var(--panel);color:var(--ink3);border-radius:2px}
+.rbtn:hover{border-color:var(--accent);color:var(--accent)}
+.rbtn.on{font-weight:700}
+.rbtn.on.S{border-color:var(--accent2);color:var(--accent2)}
+.rbtn.on.L{border-color:var(--ink2);color:var(--ink);background:var(--panel2)}
+.rbtn.on.E{border-color:var(--accent);color:var(--accent)}
+.tier{display:inline-block;padding:1px 6px;border:1px solid var(--line2);font-size:10px;margin-right:5px}
+.pane{border:1px solid var(--line2);background:var(--panel);min-height:0;display:flex;flex-direction:column}
+.pane>h2{margin:0;padding:7px 10px;border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:9px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.scroll{overflow:auto;min-height:0;flex:1}
+.right{display:grid;grid-template-rows:1fr 250px;gap:10px;min-height:0}
+.ibtn{background:none;border:1px solid var(--line2);color:var(--ink3);cursor:pointer;padding:0 6px;
+  border-radius:var(--radius);font-size:11px;line-height:16px;font-family:var(--mono)}
+.ibtn:hover{border-color:var(--accent);color:var(--accent)}
+.pane>h2 .tools{display:flex;gap:6px;align-items:center;white-space:nowrap}
+/* maximise */
+.pane.max{position:fixed;inset:8px;z-index:60;box-shadow:var(--shadow)}
+.pane.max .sheet{display:flex;align-items:flex-start;justify-content:center;padding:6px}
+.pane.max .sheet svg{width:auto;height:auto;max-width:100%;max-height:100%}
+.pane.max.zoom .sheet svg{width:100%;max-width:none;max-height:none;height:auto}
+.pane.max .hint{width:100%}
+/* collapsible systems panel */
+.col1{min-height:0;display:flex}
+.col1 .pane{flex:1;min-width:0}
+.strip{display:none}
+main.collapsed{grid-template-columns:30px 1fr}
+main.collapsed .col1 .pane{display:none}
+main.collapsed .strip{display:flex;flex-direction:column;align-items:center;gap:12px;width:30px;
+  border:1px solid var(--line2);background:var(--panel);padding:6px 0}
+.strip .vt{writing-mode:vertical-rl;font-family:var(--mono);font-size:9px;letter-spacing:.22em;
+  color:var(--ink3);text-transform:uppercase}
+.strip .n{writing-mode:vertical-rl;font-family:var(--mono);font-size:10px;color:var(--accent)}
+.sys{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
+.sys:hover{background:var(--panel2)}
+.sys.on{background:var(--blockOn);box-shadow:inset 3px 0 0 var(--accent2)}
+.sys .nm{font-family:var(--mono);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sys .ct{font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.sys .io{display:flex;gap:2px;height:11px;width:54px}.sys .io i{display:block;height:100%}
+.sheet{background:var(--sheet);flex:1;overflow:auto;min-height:0}svg{display:block}
+.hint{padding:24px;color:var(--ink3);font-family:var(--mono);font-size:12px;line-height:1.8}
+.hint code{color:var(--accent2)}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11px}
+th{position:sticky;top:0;background:var(--panel2);color:var(--ink3);text-align:left;padding:6px 8px;font-weight:500;
+  letter-spacing:.1em;font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--line2);white-space:nowrap;cursor:pointer}
+th:hover{color:var(--accent)}
+td{padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap;height:var(--row)}
+tr:hover td{background:var(--panel2)}tr.sel td{background:var(--blockOn)}td.tag{color:var(--accent)}
+.pill{display:inline-block;padding:1px 6px;border:1px solid var(--line2);font-size:10px;border-radius:var(--radius)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;padding:6px 10px;border-top:1px solid var(--line2);
+  font-family:var(--mono);font-size:10px;color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:5px}.legend i{width:14px;height:3px;display:block}
+.drop{position:fixed;inset:0;background:var(--bg);opacity:.96;display:none;align-items:center;justify-content:center;
+  font-family:var(--mono);letter-spacing:.2em;color:var(--accent);border:3px dashed var(--accent);z-index:50}
+.drop.on{display:flex}
+.err{color:#E5534B;padding:10px;font-family:var(--mono);font-size:11px;line-height:1.7}
+@media(max-width:900px){main{grid-template-columns:1fr;height:auto}.right{grid-template-rows:520px 300px}header{flex-wrap:wrap}.tb.act{width:100%;border-top:1px solid var(--line2)}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <button class="ibtn" id="btnTop" title="Show / hide the panel (T)">▲</button>
+  <div class="tabs"><div class="tab on" data-view="map">Interface map</div>
+    <div class="tab" data-view="wiring">System wiring</div>
+    <div class="tab" data-view="alarm">Alarm &amp; trip</div>
+    <div class="tab" data-view="skid">Subsystems</div>
+    <div class="tab" data-view="qc">Analytics</div></div>
+  <div class="search"><span class="ico">⌕</span>
+    <input id="fQ" autocomplete="off" spellcheck="false" placeholder="Search every column — tag, service, from, to, JB, cable…">
+    <span class="cnt" id="qCnt"></span><button class="clr" id="qClr" title="Clear (Esc)">✕</button>
+    <div class="sugg" id="sugg"></div></div>
+  <button class="btn" id="btnClear">Reset</button>
+  <div class="stat" id="stat"></div>
+  <div class="stat" id="dataStat" style="cursor:pointer"></div>
+</div>
+
+<header>
+  <div class="tb main"><div class="k">Drawing</div><div class="v"><b>INTERFACE SIGNAL MAPPER</b> — I/O List</div></div>
+  <div class="tb"><div class="k">Project</div><div class="v" id="tbFile">— no file loaded —</div></div>
+  <div class="tb"><div class="k">Signals</div><div class="v" id="tbCount">0</div></div>
+  <div class="tb"><div class="k">Systems</div><div class="v" id="tbSys">0</div></div>
+  <div class="tb"><div class="k">JB links</div><div class="v" id="tbJB">— none —</div></div>
+  <div class="tb"><div class="k">Alarms / trips</div><div class="v" id="tbALM">— none —</div></div>
+  <div class="grow"></div>
+  <div class="tb act">
+    <button class="btn solid" id="btnUpload">Upload I/O list</button>
+    <button class="btn" id="btnUploadJB">Upload JB list</button>
+    <button class="btn" id="btnUploadALM">Upload alarm list</button>
+    <button class="btn" id="btnFolder" title="Link the folder holding your Excel files">⛁ Link folder</button>
+    <button class="btn" id="btnTmplMenu" aria-expanded="false">Templates</button>
+    <button class="btn" id="btnSample">Load sample</button>
+    <button class="btn" id="btnCsv">Export view</button>
+    <button class="btn" id="btnCols" aria-expanded="false">Columns</button>
+    <button class="btn" id="btnTheme">☀ Light</button>
+    <button class="btn" id="btnDisplay" aria-expanded="false">Display</button>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.xls,.csv" multiple hidden>
+    <input type="file" id="fileJB" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+    <input type="file" id="fileALM" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+  </div>
+</header>
+
+<div class="pop" id="pop">
+  <div class="grp"><h3>Theme</h3><div class="opts" data-set="theme">
+    <button class="opt" data-v="dark">Dark</button><button class="opt" data-v="light">Light</button></div></div>
+  <div class="grp"><h3>Colour</h3><div class="opts" data-set="accent">
+    <button class="opt" data-v="amber"><i class="sw" style="background:#F0B429"></i>Instrument</button>
+    <button class="opt" data-v="blueprint"><i class="sw" style="background:#5B9CFF"></i>Blueprint</button>
+    <button class="opt" data-v="ember"><i class="sw" style="background:#FF7A50"></i>Ember</button>
+    <button class="opt" data-v="graphite"><i class="sw" style="background:#94A3B8"></i>Graphite</button></div></div>
+  <div class="grp"><h3>Typeface</h3><div class="opts" data-set="font">
+    <button class="opt" data-v="technical">Technical</button><button class="opt" data-v="grotesk">Grotesk</button>
+    <button class="opt" data-v="humanist">Humanist</button><button class="opt" data-v="serif">Serif</button></div></div>
+  <div class="grp"><h3>Saved data</h3>
+    <div class="note" id="dataNote" style="font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.6;margin-bottom:6px"></div>
+    <div class="opts"><button class="opt" id="btnRelink">Re-scan folder</button>
+      <button class="opt" id="btnForget">Forget saved data</button></div></div>
+  <div class="grp" style="margin-bottom:0"><h3>Density</h3><div class="opts" data-set="density">
+    <button class="opt" data-v="compact">Compact</button><button class="opt" data-v="normal">Normal</button>
+    <button class="opt" data-v="large">Large</button></div></div>
+</div>
+
+<div class="pop" id="popTmpl" style="width:230px">
+  <div class="grp" style="margin-bottom:0"><h3>Blank / pre-filled templates</h3>
+    <div class="opts" style="flex-direction:column;align-items:stretch">
+      <button class="opt" id="btnTmpl">I/O list template</button>
+      <button class="opt" id="btnTmplJB">Junction box template</button>
+      <button class="opt" id="btnTmplALM">Alarm &amp; trip template</button></div></div>
+</div>
+
+<div class="pop" id="popCols">
+  <div class="grp"><h3>Column roles — detected from your file</h3><div id="mapUI"></div></div>
+  <div class="grp"><h3>Tag matching</h3>
+    <div class="maprow"><span>Strictness</span>
+      <select id="matchLvl">
+        <option value="0">Exact only</option>
+        <option value="1">Normalised (case, spaces, separators, zeros)</option>
+        <option value="2" selected>Relaxed (also unit prefix / channel suffix)</option>
+      </select></div>
+    <div class="opts"><button class="opt" id="btnMatch">Open match report</button>
+      <button class="opt" id="btnTypes">Instrument types / local devices</button></div>
+    <div id="matchMini" style="font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.6;margin-top:6px"></div></div>
+  <div class="grp"><h3>Filter picklists <span id="fcHint" style="text-transform:none;letter-spacing:0"></span></h3>
+    <div id="facetUI"></div></div>
+  <div class="grp" style="margin-bottom:0"><h3>Schedule columns</h3><div id="showUI"></div></div>
+</div>
+
+<div class="bar">
+  <div class="fld"><label>Sheet</label><select id="fSheet"></select></div>
+  <div class="fld" id="jbTog" style="display:none">
+    <label style="cursor:pointer"><input type="checkbox" id="jbRoute" checked style="min-width:0;width:13px;height:13px;accent-color:var(--accent);vertical-align:-2px"> Route via JB</label></div>
+  <div id="facets"></div>
+</div>
+
+<main class="collapsed">
+  <div class="col1">
+    <aside class="pane"><h2><span>Systems</span>
+      <span class="tools"><span id="sysN"></span><button class="ibtn" id="btnSide" title="Collapse (S)">«</button></span></h2>
+      <div class="scroll" id="sysList"></div><div class="legend" id="legend"></div></aside>
+    <div class="strip"><button class="ibtn" id="btnSideOpen" title="Expand systems (S)">»</button>
+      <span class="n" id="sysNv"></span><span class="vt">Systems</span></div>
+  </div>
+  <div class="right tclosed" id="rightCol">
+    <div class="pane" id="drawPane"><h2><span id="drawTitle">Interface map — signal flow between systems</span>
+      <span class="tools"><select id="skidBy" style="display:none;font-size:10px;padding:2px 4px;min-width:0"></select><span id="drawSub"></span><button class="ibtn" id="btnSP" style="display:none" title="Show alarm &amp; trip setpoints on the wiring (A)">⚠ Setpoints</button><button class="ibtn" id="btnPdf" title="Export drawing to PDF (P)">⎙ PDF</button><button class="ibtn" id="btnFit" title="Fit whole drawing / fill width">Fill width</button><button class="ibtn" id="btnMax" title="Full screen (F / Esc)">⤢ Full screen</button></span></h2>
+      <div class="sheet" id="sheet"><div class="hint">Load an I/O list to generate the interface drawing.<br><br>
+        Minimum columns: <code>SIGNAL FROM</code> and <code>SIGNAL TO</code>. Every other column in your file becomes a filter picklist automatically.</div></div></div>
+    <div class="pane closed" id="tblPane"><h2 id="tblHead" style="cursor:pointer">
+      <span id="tblTitle">Signal schedule</span>
+      <span class="tools"><span id="tblCount"></span><button class="ibtn" id="btnTbl" title="Show / hide schedule (D)">▲</button></span></h2>
+      <div class="scroll" id="tblWrap"></div></div>
+  </div>
+</main>
+
+<div class="modal" id="typeModal"><div class="card" style="width:720px;max-height:82vh;overflow:auto">
+  <h3>Instrument types found in TAGNO — tick the ones with no system interface</h3>
+  <div class="note" style="font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.7;margin-bottom:8px">
+    <b>SYS</b> — interfaces with a system, checked normally.
+    <b>LOC</b> — local device with no interface at all (gauges, indicators, orifices); a blank end reads LOCAL.
+    <b>ELEM</b> — primary element wired to its own transmitter (VE→VT, TE→TT, FE→FT, KE→KT, ZE→ZT); a blank end
+    reads TRANSMITTER and the partner tag is matched by loop number into the <b>TAG · paired with</b> column.
+    LOC and ELEM are excluded from the open-end and missing-junction-box findings.</div>
+  <div class="row" style="margin-bottom:10px">
+    <button class="btn" id="typeStd">Tick standard local set</button>
+    <button class="btn" id="typeNone">Untick all</button>
+    <span class="stat" id="typeCount"></span></div>
+  <div id="typeBody"></div>
+  <div class="foot" style="margin-top:12px"><button class="btn solid" id="typeClose">Done</button></div>
+</div></div>
+
+<div class="modal" id="matchModal"><div class="card" style="width:760px;max-height:82vh;overflow:auto">
+  <h3>Tag match report — TAGNO across the three worksheets</h3>
+  <div id="matchBody"></div>
+  <div class="foot" style="margin-top:12px"><button class="btn" id="matchClose">Close</button></div>
+</div></div>
+
+<div class="modal" id="pdfModal"><div class="card">
+  <h3>Export drawing to PDF</h3>
+  <div class="row"><span style="font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink3);text-transform:uppercase">Sheet</span>
+    <select id="pdfSize"><option>A1</option><option>A2</option><option selected>A3</option><option>A4</option></select>
+    <select id="pdfOrient"><option value="landscape" selected>Landscape</option><option value="portrait">Portrait</option></select>
+    <select id="pdfFit"><option value="width" selected>Fit width (multi-page)</option><option value="page">Fit whole drawing on 1 page</option></select></div>
+  <div class="note" id="pdfNote"></div>
+  <div class="foot"><button class="btn" id="pdfSvg">Download SVG</button>
+    <button class="btn" id="pdfCancel">Cancel</button>
+    <button class="btn solid" id="pdfGo">Print / Save as PDF</button></div>
+</div></div>
+<iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;left:-9999px" title="print"></iframe>
+
+<div class="drop" id="drop">DROP I/O LIST HERE</div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const SVGNS="http://www.w3.org/2000/svg";
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* SVG attribute-safe font stack: CSS stacks contain double quotes, which would break the attribute */
+const monoFont=()=>cv("--mono").replace(/"/g,"'");
+const norm=s=>String(s??"").toLowerCase().replace(/[^a-z0-9]/g,"");
+
+/* state */
+let WB=null,HEADERS=[],DATA=[],MAP={},RAW=[],ROWS=[],FACETS=[],FILT={},SHOW=[],
+    BASEHEAD=[],BASEDATA=[],JB={head:[],data:[],map:{tag:-1,jb:-1},matched:0,orphan:0},JBON=true,
+    ALM={head:[],data:[],map:{tag:-1},matched:0,orphan:0,trips:0,alarms:0},
+    VIEW="map",FOCUS=null,SELPAIR=null,TYPES=[],COLOR={},SORT={c:null,dir:1},SUGI=-1,SUGL=[];
+const ROLES=[["tag","TagNo"],["service","Instrument service"],["io","S.Type (I/O)"],["from","SIGNAL FROM"],
+  ["to","SIGNAL TO"],["sig","SIGNAL TYPE"],["sub","SubSystem"]];
+const PAL={
+ amber:{dark:["#F0B429","#3EC5CE","#7EE787","#FF7B72","#C29BFF","#79C0FF","#FFA657","#6EE7B7"],
+        light:["#B8790B","#0E7C8A","#2E7D32","#C62828","#6D42D9","#1D5FD1","#B75C00","#00695C"]},
+ blueprint:{dark:["#5B9CFF","#A78BFA","#38BDF8","#F472B6","#34D399","#FBBF24","#FB7185","#22D3EE"],
+        light:["#1D5FD1","#6D42D9","#0369A1","#BE185D","#047857","#B45309","#BE123C","#0E7490"]},
+ ember:{dark:["#FF7A50","#2DD4BF","#FACC15","#60A5FA","#F472B6","#A3E635","#FB923C","#38BDF8"],
+        light:["#C2410C","#0F766E","#A16207","#1D4ED8","#BE185D","#4D7C0F","#C2410C","#0369A1"]},
+ graphite:{dark:["#B9C4D0","#7DD3A8","#7DB0E8","#E8B98A","#D6A9E8","#8FD6D0","#E8A0A0","#C7D98A"],
+        light:["#334155","#0F7B4F","#1E5AA8","#8A5A16","#6B3FA0","#0F6E6E","#A03030","#4D6B12"]}};
+const paletteNow=()=>PAL[document.documentElement.dataset.accent][document.documentElement.dataset.theme];
+
+/* sample */
+const SAMPLE_H=["TagNo","Instrument Service","S.Type (I/O type)","SIGNAL FROM","SIGNAL TO","SIGNAL TYPE","SubSystem"];
+const SAMPLE=[
+["28-FT-5402","COMPRESSOR SUCTION","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-FT-5407","COMPRESSOR SUCTION","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-FY-5410A","ANTISURGE VALVE","Sol 24Vdc","ESD","FIELD","Maintained","PROCESS GAS"],
+["28-FY-5410B","ANTISURGE VALVE","4-20 mA","ASC","FIELD","Direct-Source","PROCESS GAS"],
+["28-FZSC-5410","ANTISURGE VALVE","Contact","FIELD","DCS","Maintained","PROCESS GAS"],
+["28-FZSO-5410","ANTISURGE VALVE","Contact","FIELD","DCS","Maintained","PROCESS GAS"],
+["28-FZT-5410","ANTISURGE VALVE","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-PT-5401","COMPRESSOR SUCTION PRESS","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-PT-5411","COMPRESSOR DISCH PRESS","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-TT-5415","DISCHARGE TEMPERATURE","RTD","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+["28-ST-5420","COMPRESSOR SPEED","Pulse","FIELD","CCC","Direct-Sink","MACHINE MONITORING"],
+["28-VT-5421A","RADIAL VIBRATION DE","4-20 mA","FIELD","MMS","Direct-Sink","MACHINE MONITORING"],
+["28-VT-5421B","RADIAL VIBRATION NDE","4-20 mA","FIELD","MMS","Direct-Sink","MACHINE MONITORING"],
+["28-XA-5430","VIBRATION TRIP","Contact","MMS","ESD","Maintained","MACHINE MONITORING"],
+["28-XA-5431","AXIAL DISP TRIP","Contact","MMS","ESD","Maintained","MACHINE MONITORING"],
+["28-HS-5440","EMERGENCY STOP","Contact","LCP","ESD","Momentary","PACKAGE"],
+["28-XL-5441","UNIT READY TO START","Contact","ASC","DCS","Maintained","PACKAGE"],
+["28-XC-5442","START PERMISSIVE","Contact","ESD","ASC","Maintained","PACKAGE"],
+["28-XC-5443","SPEED SETPOINT","4-20 mA","DCS","CCC","Direct-Source","PACKAGE"],
+["28-XC-5444","SPEED DEMAND TO VFD","4-20 mA","CCC","VFD","Direct-Source","PACKAGE"],
+["28-XI-5445","VFD RUNNING","Contact","VFD","CCC","Maintained","PACKAGE"],
+["28-XA-5446","VFD COMMON FAULT","Contact","VFD","DCS","Maintained","PACKAGE"],
+["28-LSL-5450","LUBE OIL LEVEL LOW","Contact","FIELD","LCP","Maintained","LUBE OIL"],
+["28-PT-5451","LUBE OIL HEADER PRESS","4-20 mA","FIELD","LCP","Direct-Sink","LUBE OIL"],
+["28-PSLL-5452","LUBE OIL PRESS LOW LOW","Contact","FIELD","ESD","Maintained","LUBE OIL"],
+["28-HS-5453","AUX OIL PUMP START","Contact","LCP","MCC","Momentary","LUBE OIL"],
+["28-XI-5454","AUX OIL PUMP RUNNING","Contact","MCC","LCP","Maintained","LUBE OIL"],
+["28-XA-5460","ESD TRIP TO COMPRESSOR","Sol 24Vdc","ESD","FIELD","Maintained","PACKAGE"],
+["28-XA-5461","PACKAGE TRIP TO PLANT","Contact","ESD","PLANT ESD","Maintained","PACKAGE"],
+["28-XA-5462","GAS DETECTION HIGH","Contact","SAFETY RELAY","ESD","Maintained","F&G"],
+["28-XA-5463","FIRE CONFIRMED","Contact","SAFETY RELAY","ESD","Maintained","F&G"],
+["28-XI-5470","ASC HEALTHY / WATCHDOG","Contact","ASC","DCS","Maintained","PACKAGE"],
+["28-XC-5471","LOAD SHARING LINK","Serial","CCC","ASC","Direct-Source","PACKAGE"],
+["28-XI-5472","SEAL GAS DP LOW","Contact","FIELD","ASC","Maintained","SEAL GAS"],
+["28-PDT-5473","SEAL GAS DIFF PRESS","4-20 mA","FIELD","ASC","Direct-Sink","SEAL GAS"]];
+
+/* ---------- header detection ---------- */
+const HINTS={tag:["tagno","tag","tagnumber","instrumenttag"],
+ service:["instrumentservice","service","description","instrumentdescription"],
+ io:["stypeiotype","stype","iotype","signalcategory"],
+ from:["signalfrom","from","source"],to:["signalto","to","destination","dest"],
+ sig:["signaltype","sigtype","contacttype"],sub:["subsystem","system","package","unit"]};
+function autoMap(headers){
+  const n=headers.map(norm),m={},used=new Set();
+  for(const f in HINTS){let i=-1;
+    for(const k of HINTS[f]){i=n.findIndex((x,j)=>x===k&&!used.has(j));if(i>=0)break;}
+    if(i<0)for(const k of HINTS[f]){i=n.findIndex((x,j)=>x&&x.includes(k)&&!used.has(j));if(i>=0)break;}
+    m[f]=i; if(i>=0)used.add(i);}
+  return m;
+}
+function findHeaderRow(aoa){
+  /* score each candidate row: a title/banner row has few cells and no known column names */
+  let best=-1,bs=0;
+  for(let i=0;i<Math.min(25,aoa.length);i++){
+    const row=(aoa[i]||[]).map(norm).filter(Boolean);
+    if(row.length<2)continue;
+    const has=(...ks)=>ks.some(k=>row.some(x=>x===k||x.includes(k)));
+    let sc=Math.min(row.length,12)*0.25;
+    if(has("signalfrom"))sc+=5; if(has("signalto"))sc+=5;
+    if(has("tagno")||row.includes("tag"))sc+=4;
+    if(has("junctionbox","jbno","jbnumber"))sc+=5;
+    if(has("hhvalue","llvalue","highhigh","lowlow")||row.includes("hh")||row.includes("ll"))sc+=5;
+    if(has("instrumentservice","service"))sc+=1.5;
+    if(has("units","calmin","calmax","subsystem","cableno","signaltype"))sc+=1.5;
+    if(sc>bs){bs=sc;best=i;}
+  }
+  return bs>=2.5?best:-1;
+}
+function ingest(aoa){
+  const hi=findHeaderRow(aoa);
+  if(hi<0) throw new Error("No header row found on this sheet.");
+  let head=(aoa[hi]||[]).map(h=>String(h??"").trim());
+  while(head.length&&!head[head.length-1]) head.pop();
+  head=head.map((h,i)=>h||"Column "+(i+1));
+  const data=[];
+  for(let i=hi+1;i<aoa.length;i++){const r=aoa[i]||[];
+    const cells=head.map((_,j)=>String(r[j]??"").trim());
+    if(cells.some(v=>v!=="")) data.push(cells);}
+  return {head,data};
+}
+/* ---------- junction box list (joined on TagNo) ---------- */
+const JBHINTS={tag:["tagno","tag","instrumenttag","tagnumber"],
+  jb:["junctionboxnumber","junctionboxno","junctionbox","jbnumber","jbno","jb","jbtag"]};
+function autoMapJB(head){const n=head.map(norm),m={tag:-1,jb:-1},used=new Set();
+  for(const f in JBHINTS){let i=-1;
+    for(const k of JBHINTS[f]){i=n.findIndex((x,j)=>x===k&&!used.has(j));if(i>=0)break;}
+    if(i<0)for(const k of JBHINTS[f]){i=n.findIndex((x,j)=>x&&x.includes(k)&&!used.has(j));if(i>=0)break;}
+    m[f]=i;if(i>=0)used.add(i);}
+  return m;}
+/* ---------- instrument type from the tag ----------
+   28-FT-5402 → FT · 28-FZSC-5410 → FZSC · PG-101 → PG · 28PG101 → PG
+   Types on the exception list are local devices with no system interface
+   (elements, wells, local gauges, restriction/flow orifices), so a blank
+   SIGNAL FROM / SIGNAL TO on them is correct, not a gap.                    */
+/* local = no interface at all;  element = primary element wired to its own transmitter */
+const LOCAL_STD=["RO","FO","PI","PG","TI","TG","LI","LG","FI","FG","SG","VG","AG","XG","MG","PDG","TDG","TW","PDI"];
+const ELEM_STD=["VE","TE","FE","KE","ZE","AE","PE","LE","SE","ME"];
+let EXCEPT=new Set(),ELEM=new Set(),TYPESEEDED=false;
+const elemPartner=t=>t.replace(/E$/,"T");            // VE→VT  TE→TT  FE→FT  KE→KT  ZE→ZT
+const tagLoop=t=>{const m=String(t??"").toUpperCase().match(/(\d{2,6})[A-Z]?\s*$/);return m?m[1]:"";};
+function tagType(t){
+  const s=String(t??"").normalize("NFKC").toUpperCase().trim();
+  if(!s)return "";
+  const parts=s.split(/[^A-Z0-9]+/).filter(Boolean);
+  for(let i=parts.length-1;i>=0;i--)if(/^[A-Z]{1,6}$/.test(parts[i]))return parts[i];
+  const m=s.match(/([A-Z]{1,6})\d{1,6}[A-Z]?$/);
+  return m?m[1]:"";
+}
+
+/* ---------- alarm & trip column detection ---------- */
+const num=v=>{const x=parseFloat(String(v??"").replace(/[, ]/g,""));return isFinite(x)?x:null;};
+const ALMHINTS={  /* order matters: the longer/more specific names claim their column first */
+  tag:["tagno","tag","instrumenttag","tagnumber"],
+  typedesc:["typedesc","typedescription","instrumenttype","typedescr"],
+  type:["type","iotype","stype"],
+  service:["service","instrumentservice","description"],
+  units:["units","unit","uom","eu","engunits"],
+  oprange:["oprange","operatingrange","normalrange"],
+  calmin:["calmin","calibratedmin","calminimum","calrangemin","lrv"],
+  calmax:["calmax","calibratedmax","calmaximum","calrangemax","urv"],
+  min:["min","minimum","rangemin","scalemin"],
+  max:["max","maximum","rangemax","scalemax"],
+  hh:["hhvalue","hhsetpoint","hhsp","hhalarm","hhtrip","highhigh","hh"],
+  ll:["llvalue","llsetpoint","llsp","llalarm","lltrip","lowlow","ll"],
+  h:["hvalue","hsetpoint","hsp","halarm","hialarm","high","hi","h"],
+  l:["lvalue","lsetpoint","lsp","lalarm","loalarm","low","lo","l"]};
+function autoMapALM(head){
+  const n=head.map(norm),m={},used=new Set();
+  for(const f in ALMHINTS){
+    let i=-1;
+    for(const k of ALMHINTS[f]){i=n.findIndex((x,j)=>x===k&&!used.has(j));if(i>=0)break;}          // exact
+    if(i<0)for(const k of ALMHINTS[f]){i=n.findIndex((x,j)=>x&&x.replace(/value$|setpoint$|sp$/,"")===k&&!used.has(j));if(i>=0)break;}
+    if(i<0)for(const k of ALMHINTS[f]){i=n.findIndex((x,j)=>x&&k.length>1&&x.includes(k)&&!used.has(j));if(i>=0)break;}
+    m[f]=i;if(i>=0)used.add(i);}
+  return m;
+}
+const almUsable=m=>m.tag>=0&&(m.hh>=0||m.h>=0||m.l>=0||m.ll>=0);
+
+/* ---------- tag matching engine ----------
+   Tags are written inconsistently across the I/O list, cable schedule and alarm list:
+   "28-TT 5231" vs "28-TT-5231", and channel tags as "28-WE 5672A/B", "28WE5672AB",
+   "28-WE-5672A" + "…B" on separate rows, or a single parent "28-WE-5672".
+   tagParse() reduces a tag to a canonical string (separators dropped) plus a base and a
+   set of channel letters, and lookup() matches in tiers so no tier can produce a wrong hit. */
+const keyTag=v=>String(v??"").toUpperCase().replace(/[^A-Z0-9]+/g,"");
+function tagParse(t){
+  const canon=keyTag(t);
+  if(!canon)return {canon:"",base:"",letters:[]};
+  const m=canon.match(/^(.*\d)([A-Z]+)$/);           // trailing letters after the last digit
+  if(m&&m[2].length<=3)return {canon,base:m[1],letters:m[2].split("")};
+  return {canon,base:canon,letters:[]};              // 4+ trailing letters = part of the tag, not channels
+}
+let MATCHLVL=2,ALIAS={},MATCHLOG={jb:null,alm:null};
+const T_CANON=keyTag;
+const T_ZERO=t=>keyTag(t).replace(/(^|[A-Z])0+(\d)/g,"$1$2");          // 28-FT-05402 = 28-FT-5402
+const T_PFX =t=>{const c=T_ZERO(t),m=c.match(/^\d+([A-Z].+)$/);return m?m[1]:c;};  // FT-5402 = 28-FT-5402
+function buildTagIndex(rows,col){
+  const exact=new Map(),byBase=new Map(),byLetter=new Map(),byZero=new Map(),byPfx=new Map();
+  const push=(m,k,r)=>{if(!k)return;if(!m.has(k))m.set(k,{rows:[],tags:new Set()});
+    const e=m.get(k);if(!e.rows.includes(r))e.rows.push(r);e.tags.add(keyTag(r[col]));};
+  rows.forEach(r=>{const p=tagParse(r[col]);if(!p.canon)return;
+    push(exact,p.canon,r);push(byBase,p.base,r);
+    p.letters.forEach(L=>push(byLetter,p.base+L,r));
+    push(byZero,T_ZERO(r[col]),r);push(byPfx,T_PFX(r[col]),r);});
+  const uniq=(m,k)=>{const e=m.get(k);return e&&e.tags.size===1?e.rows:null;};
+  return {rows,col,lookup(tag){
+    const p=tagParse(tag);
+    if(!p.canon)return {hits:[],how:""};
+    const a=ALIAS[p.canon];                                            // manual link wins over every rule
+    if(a&&exact.has(keyTag(a)))return {hits:exact.get(keyTag(a)).rows,how:"MANUAL"};
+    if(exact.has(p.canon))return {hits:exact.get(p.canon).rows,how:"EXACT"};   // separators/case/spaces ignored
+    if(MATCHLVL<1)return {hits:[],how:""};
+    if(p.letters.length){
+      const hits=[];
+      p.letters.forEach(L=>{const e=byLetter.get(p.base+L);if(e)e.rows.forEach(r=>{if(!hits.includes(r))hits.push(r);});});
+      if(hits.length)return {hits,how:"CHANNEL"};                       // A/B ↔ A, B, AB
+      if(exact.has(p.base))return {hits:exact.get(p.base).rows,how:"PARENT"};
+    }else{
+      const e=byBase.get(p.base);
+      if(e&&e.rows.length)return {hits:e.rows,how:"CHILDREN"};
+    }
+    let h=uniq(byZero,T_ZERO(tag));if(h)return {hits:h,how:"ZERO-PAD"};  // 05402 = 5402
+    if(MATCHLVL<2)return {hits:[],how:""};
+    h=uniq(byPfx,T_PFX(tag));if(h)return {hits:h,how:"NO PREFIX"};       // FT-5402 = 28-FT-5402
+    return {hits:[],how:""};
+  }};
+}
+function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m||n;
+  let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
+  for(let i=1;i<=m;i++){cur[0]=i;
+    for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    [prev,cur]=[cur,prev];}
+  return prev[n];}
+function bestGuess(tag,pool){
+  const c=keyTag(tag);let best=null,bd=1e9;
+  pool.forEach(t=>{const d=lev(c,keyTag(t));if(d<bd){bd=d;best=t;}});
+  return best&&bd<=Math.max(2,Math.round(c.length*0.25))?{tag:best,dist:bd}:null;}
+
+/* merge JB + alarm columns onto every I/O row, joined on TagNo */
+function mergeJB(){
+  HEADERS=BASEHEAD.slice();DATA=BASEDATA.map(r=>r.slice());
+  MAP.jb=-1;MAP.trip=-1;MAP.sp=-1;MAP.qc=-1;MAP.alm=null;MAP.type=-1;MATCHLOG={jb:null,alm:null};
+  if(MAP.tag<0||MAP.tag===undefined)return;
+  MAP.type=HEADERS.length;MAP.role=MAP.type+1;MAP.pair=MAP.type+2;
+  HEADERS=HEADERS.concat(["TAG · type","TAG · role","TAG · paired with"]);
+  const types=BASEDATA.map(r=>tagType(r[MAP.tag]));
+  if(!TYPESEEDED){ // first load: seed the standard sets, but only with types actually present
+    TYPESEEDED=true;const seen=new Set(types);
+    LOCAL_STD.forEach(t=>{if(seen.has(t))EXCEPT.add(t);});
+    ELEM_STD.forEach(t=>{if(seen.has(t))ELEM.add(t);});
+  }
+  const tagIx=new Map();
+  BASEDATA.forEach((r,n)=>{const t=types[n],l=tagLoop(r[MAP.tag]);
+    if(t&&l&&!tagIx.has(t+"|"+l))tagIx.set(t+"|"+l,String(r[MAP.tag]??"").trim());});
+  DATA=DATA.map((r,n)=>{const t=types[n];
+    const role=EXCEPT.has(t)?"LOCAL":(ELEM.has(t)?"ELEMENT":"SYSTEM");
+    let pair="";
+    if(role==="ELEMENT"){const l=tagLoop(BASEDATA[n][MAP.tag]);
+      pair=(l&&tagIx.get(elemPartner(t)+"|"+l))||"NOT FOUND";}
+    return r.concat([t,role,pair]);});
+  /* --- junction boxes --- */
+  if(JB.data.length&&JB.map.tag>=0){
+    const cols=JB.head.map((h,i)=>i).filter(i=>i!==JB.map.tag);
+    const ix=buildTagIndex(JB.data,JB.map.tag),used=new Set();
+    const base=HEADERS.length;
+    HEADERS=HEADERS.concat(cols.map(i=>"JB · "+JB.head[i]),["JB · links","JB · match"]);
+    let matched=0;const tiers={},unm=[];
+    DATA=DATA.map((r,n)=>{const {hits,how}=ix.lookup(BASEDATA[n][MAP.tag]);
+      hits.forEach(h=>used.add(h));
+      if(hits.length){matched++;tiers[how]=(tiers[how]||0)+1;}
+      else unm.push(String(BASEDATA[n][MAP.tag]||"").trim());
+      const f=hits[0]||[];
+      return r.concat(cols.map(i=>String(f[i]??"")),
+        [hits.length?String(hits.length):"",hits.length?how:"UNMATCHED"]);});
+    MATCHLOG.jb={tiers,unmatched:unm.filter(Boolean),
+      orphans:[...new Set(JB.data.filter(r=>!used.has(r)).map(r=>String(r[JB.map.tag]||"").trim()).filter(Boolean))],
+      poolRight:[...new Set(JB.data.map(r=>String(r[JB.map.tag]||"").trim()).filter(Boolean))]};
+    MAP.jb=JB.map.jb>=0?base+cols.indexOf(JB.map.jb):-1;
+    JB.matched=matched;JB.orphan=JB.data.filter(r=>!used.has(r)).length;
+  }
+  /* --- alarms & trips --- */
+  if(ALM.data.length&&ALM.map.tag>=0){
+    const m=ALM.map,cols=ALM.head.map((h,i)=>i).filter(i=>i!==m.tag);
+    const ix=buildTagIndex(ALM.data,m.tag),used=new Set();
+    const base=HEADERS.length;
+    HEADERS=HEADERS.concat(cols.map(i=>"ALM · "+ALM.head[i]),
+      ["ALM · setpoints","ALM · class","ALM · QC","ALM · match"]);
+    const at={};cols.forEach((c,i)=>{for(const f in m)if(m[f]===c)at[f]=base+i;});
+    let matched=0,trips=0,alarms=0;const tiers={},unm=[];
+    DATA=DATA.map((r,n)=>{const {hits,how}=ix.lookup(BASEDATA[n][MAP.tag]);
+      const a=hits[0];
+      if(!a){unm.push(String(BASEDATA[n][MAP.tag]||"").trim());
+        return r.concat(cols.map(()=>""),["","","","UNMATCHED"]);}
+      hits.forEach(h=>used.add(h));matched++;tiers[how]=(tiers[how]||0)+1;
+      const g=f=>m[f]>=0?String(a[m[f]]??"").trim():"";
+      const u=g("units"),has=["ll","l","h","hh"].some(f=>g(f)!=="");
+      const sp=[["LL","ll"],["L","l"],["H","h"],["HH","hh"]].filter(([,f])=>g(f)!=="")
+        .map(([lab,f])=>`${lab} ${g(f)}`).join(" · ")+(has&&u?" "+u:"");
+      const cls=(g("hh")||g("ll"))?"TRIP":((g("h")||g("l"))?"ALARM":"");
+      if(cls==="TRIP")trips++;else if(cls==="ALARM")alarms++;
+      const q=[],seq=[num(g("ll")),num(g("l")),num(g("h")),num(g("hh"))].filter(v=>v!==null);
+      if(seq.some((v,i)=>i&&v<seq[i-1]))q.push("SETPOINT ORDER");
+      const cmin=num(g("calmin")),cmax=num(g("calmax"));
+      if(cmin!==null&&cmax!==null&&seq.some(v=>v<cmin||v>cmax))q.push("OUTSIDE CAL RANGE");
+      if(seq.length&&!u)q.push("NO UNITS");
+      if(seq.length&&cmin===null&&cmax===null&&num(g("min"))===null)q.push("NO RANGE");
+      return r.concat(cols.map(i=>String(a[i]??"")),
+        [sp.trim(),cls,q.length?q.join(" · "):(seq.length?"OK":""),how]);});
+    MAP.sp=HEADERS.length-4;MAP.trip=HEADERS.length-3;MAP.qc=HEADERS.length-2;
+    MAP.alm=at;
+    ALM.matched=matched;ALM.orphan=ALM.data.filter(r=>!used.has(r)).length;
+    ALM.trips=trips;ALM.alarms=alarms;
+    MATCHLOG.alm={tiers,unmatched:unm.filter(Boolean),
+      orphans:[...new Set(ALM.data.filter(r=>!used.has(r)).map(r=>String(r[m.tag]||"").trim()).filter(Boolean))],
+      poolRight:[...new Set(ALM.data.map(r=>String(r[m.tag]||"").trim()).filter(Boolean))]};
+  }
+}
+function rebuildAll(keepView){
+  mergeJB();
+  buildRows();
+  FACETS=autoFacets();
+  SHOW=SHOW.filter(c=>c<HEADERS.length);
+  if(MAP.jb>=0&&!SHOW.includes(MAP.jb)){SHOW.push(MAP.jb);SHOW.sort((a,b)=>a-b);}
+  if(!keepView){FOCUS=null;SELPAIR=null;}
+  const fuzzy=c=>c<0?0:DATA.filter(r=>r[c]&&r[c]!=="exact").length;
+  $("#tbJB").textContent=JB.data.length?`${JB.matched} / ${BASEDATA.length}`+
+    (MAP.jb>=0&&fuzzy(HEADERS.indexOf("JB · match"))?` · ${fuzzy(HEADERS.indexOf("JB · match"))} fuzzy`:"")+
+    (JB.orphan?` · ${JB.orphan} orphan`:""):"— none —";
+  $("#tbALM").textContent=ALM.data.length?`${ALM.trips} trip · ${ALM.alarms} alarm`+(ALM.orphan?` · ${ALM.orphan} orphan`:""):"— none —";
+  document.querySelector('.tab[data-view="alarm"]').style.display=ALM.data.length?"block":"none";
+  $("#jbTog").style.display=MAP.jb>=0?"flex":"none";
+  buildPickUI();render();matchMini();dataStatus();saveState();
+}
+
+/* build row objects from current MAP */
+function buildRows(){
+  const g=(c,f)=>MAP[f]>=0?(c[MAP[f]]||""):"";
+  RAW=DATA.map(c=>({cells:c,tag:g(c,"tag")||"—",service:g(c,"service"),io:g(c,"io"),
+    type:MAP.type>=0?(c[MAP.type]||""):"",
+    role:MAP.role>=0?(c[MAP.role]||"SYSTEM"):"SYSTEM",
+    pair:MAP.pair>=0?(c[MAP.pair]||""):"",
+    local:MAP.role>=0&&c[MAP.role]==="LOCAL",
+    elem:MAP.role>=0&&c[MAP.role]==="ELEMENT",
+    from:g(c,"from")||(MAP.role<0?"(blank)":c[MAP.role]==="LOCAL"?"LOCAL":c[MAP.role]==="ELEMENT"?"FIELD":"(blank)"),
+    to:g(c,"to")||(MAP.role<0?"(blank)":c[MAP.role]==="LOCAL"?"LOCAL":c[MAP.role]==="ELEMENT"?"TRANSMITTER":"(blank)"),sig:g(c,"sig")||"—",sub:g(c,"sub")||"—",
+    jb:MAP.jb>=0?(c[MAP.jb]||""):"",trip:MAP.trip>=0?(c[MAP.trip]||""):"",sp:MAP.sp>=0?(c[MAP.sp]||""):""}))
+    .filter(r=>MAP.from>=0||MAP.to>=0);
+  TYPES=[...new Set(RAW.map(r=>r.sig))].sort();
+  recolor();
+}
+function recolor(){const p=paletteNow();COLOR={};TYPES.forEach((t,i)=>COLOR[t]=p[i%p.length]);}
+
+/* ---------- dynamic picklists from the columns available ---------- */
+function distinct(col,rows){const m=new Map();
+  (rows||RAW).forEach(r=>{const v=r.cells[col];if(v!=="")m.set(v,(m.get(v)||0)+1);});return m;}
+function autoFacets(){
+  const keep=[],n=RAW.length;
+  HEADERS.forEach((h,c)=>{
+    const d=distinct(c).size;
+    const isRole=Object.values(MAP).includes(c)&&MAP.tag!==c&&MAP.service!==c;
+    if(d>=2&&(isRole||(d<=60&&d<=n*0.5))) keep.push(c);});
+  return keep;
+}
+function buildPickUI(){
+  $("#mapUI").innerHTML=ROLES.map(([k,l])=>`<div class="maprow"><span>${l}</span>
+    <select data-role="${k}"><option value="-1">— none —</option>`+
+    HEADERS.map((h,i)=>`<option value="${i}" ${MAP[k]===i?"selected":""}>${esc(h)}</option>`).join("")+
+    `</select></div>`).join("");
+  $("#mapUI").querySelectorAll("select[data-role]").forEach(s=>s.onchange=()=>{
+    MAP[s.dataset.role]=+s.value; FILT={}; rebuildAll();});
+  if(JB.data.length){
+    $("#mapUI").insertAdjacentHTML("beforeend",
+      `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"></div>`+
+      [["tag","JB file · TagNo"],["jb","JB file · JB number"]].map(([k,l])=>`<div class="maprow"><span>${l}</span>
+        <select data-jbrole="${k}"><option value="-1">— none —</option>`+
+        JB.head.map((h,i)=>`<option value="${i}" ${JB.map[k]===i?"selected":""}>${esc(h)}</option>`).join("")+
+        `</select></div>`).join(""));
+    $("#mapUI").querySelectorAll("select[data-jbrole]").forEach(s=>s.onchange=()=>{
+      JB.map[s.dataset.jbrole]=+s.value;FILT={};rebuildAll(true);});
+  }
+  $("#fcHint").textContent=`(${FACETS.length} of ${HEADERS.length})`;
+  $("#facetUI").innerHTML=HEADERS.map((h,c)=>{const d=distinct(c).size;
+    return `<label class="chk"><input type="checkbox" data-c="${c}" ${FACETS.includes(c)?"checked":""}>
+      ${esc(h)}<span class="n">${d} values</span></label>`;}).join("");
+  $("#facetUI").querySelectorAll("input").forEach(i=>i.onchange=()=>{
+    const c=+i.dataset.c;
+    if(i.checked){if(!FACETS.includes(c))FACETS.push(c);FACETS.sort((a,b)=>a-b);}
+    else{FACETS=FACETS.filter(x=>x!==c);delete FILT[c];}
+    $("#fcHint").textContent=`(${FACETS.length} of ${HEADERS.length})`; render();});
+  $("#showUI").innerHTML=HEADERS.map((h,c)=>`<label class="chk">
+    <input type="checkbox" data-c="${c}" ${SHOW.includes(c)?"checked":""}>${esc(h)}</label>`).join("");
+  $("#showUI").querySelectorAll("input").forEach(i=>i.onchange=()=>{
+    const c=+i.dataset.c;
+    if(i.checked){if(!SHOW.includes(c))SHOW.push(c);SHOW.sort((a,b)=>a-b);} else SHOW=SHOW.filter(x=>x!==c);
+    render();});
+}
+function paintFacets(){
+  const box=$("#facets"); box.innerHTML="";
+  FACETS.forEach(c=>{
+    const others=RAW.filter(r=>Object.entries(FILT).every(([k,v])=>+k===c||!v||r.cells[+k]===v));
+    const d=[...distinct(c,others).entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+    const cur=FILT[c]||"";
+    if(cur&&!d.some(([v])=>v===cur)) d.unshift([cur,0]);
+    const el=document.createElement("div"); el.className="fld";
+    el.innerHTML=`<label>${esc(HEADERS[c])}</label>
+      <select data-c="${c}" class="${cur?"set":""}"><option value="">All (${d.length})</option>`+
+      d.map(([v,n])=>`<option value="${esc(v)}" ${v===cur?"selected":""}>${esc(v)} · ${n}</option>`).join("")+`</select>`;
+    el.querySelector("select").onchange=e=>{FILT[c]=e.target.value;SELPAIR=null;render();};
+    box.appendChild(el);});
+}
+
+/* ---------- search over every column ---------- */
+function fieldIndex(name){
+  const k=norm(name);
+  const alias={tag:"tag",tagno:"tag",service:"service",svc:"service",desc:"service",io:"io",stype:"io",
+    from:"from",src:"from",source:"from",to:"to",dest:"to",type:"sig",sig:"sig",signaltype:"sig",
+    sub:"sub",subsystem:"sub"};
+  let i=HEADERS.findIndex(h=>norm(h)===k);
+  if(i<0) i=HEADERS.findIndex(h=>norm(h).includes(k));
+  if(i<0&&alias[k]!==undefined&&MAP[alias[k]]>=0) i=MAP[alias[k]];
+  return i;
+}
+function parseQuery(q){
+  const t=[],re=/(-?)(?:([a-z0-9]+):)?(?:"([^"]*)"|(\S+))/gi;let m;
+  while((m=re.exec(q))){const val=(m[3]??m[4]??"").trim().toLowerCase();if(!val)continue;
+    t.push({neg:m[1]==="-",col:m[2]?fieldIndex(m[2]):-1,val});}
+  return t;
+}
+function matches(r,terms){
+  const all=r.cells.join(" \u0001 ").toLowerCase();
+  return terms.every(t=>{const hay=t.col>=0?String(r.cells[t.col]||"").toLowerCase():all;
+    return t.neg?!hay.includes(t.val):hay.includes(t.val);});
+}
+function hi(text,terms,col){
+  const s=String(text??"");if(!terms.length)return esc(s);
+  const pos=terms.filter(t=>!t.neg&&(t.col<0||t.col===col)).map(t=>t.val);
+  if(!pos.length)return esc(s);
+  const rx=new RegExp("("+pos.map(v=>v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","gi");
+  return esc(s).replace(rx,"<mark>$1</mark>");
+}
+function buildSuggest(){
+  if(!RAW.length)return;
+  const el=$("#fQ"),q=el.value,caret=el.selectionStart??q.length,before=q.slice(0,caret);
+  const frag=(before.split(/\s+/).pop()||""),box=$("#sugg");SUGL=[];let html="";
+  const fm=frag.match(/^-?([a-z0-9]+):(.*)$/i);
+  if(fm&&fieldIndex(fm[1])>=0){
+    const c=fieldIndex(fm[1]),part=fm[2].toLowerCase();
+    const list=[...distinct(c).entries()].filter(([v])=>v.toLowerCase().includes(part))
+      .sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if(list.length){html+=`<div class="grpname">${esc(HEADERS[c])} values</div>`;
+      list.forEach(([v,n])=>{SUGL.push(fm[1].toLowerCase()+":"+(/\s/.test(v)?`"${v}"`:v));
+        html+=`<div class="item" data-i="${SUGL.length-1}"><span>${esc(v)}</span><span class="meta">${n}</span></div>`;});}
+  }else if(frag.replace(/^-/,"").length>=1){
+    const bare=frag.replace(/^-/,"").toLowerCase(),hits=[];
+    HEADERS.forEach((h,c)=>{[...distinct(c).entries()].filter(([v])=>v.toLowerCase().includes(bare))
+      .sort((a,b)=>b[1]-a[1]).slice(0,3).forEach(([v,n])=>hits.push({h,v,n}));});
+    hits.sort((a,b)=>b.n-a.n).slice(0,9).forEach(x=>{SUGL.push(/\s/.test(x.v)?`"${x.v}"`:x.v);
+      html+=`<div class="item" data-i="${SUGL.length-1}"><span>${esc(x.v)}</span>
+        <span class="meta">${esc(x.h)} · ${x.n}</span></div>`;});
+    if(html)html=`<div class="grpname">matches in any column</div>`+html;
+  }
+  const ex=HEADERS.slice(0,4).map(h=>`<code>${esc(norm(h).slice(0,10))}:…</code>`).join(" ");
+  html+=`<div class="syntax">Field filters use your own column names: ${ex}<br>
+    Combine with spaces (all must match) · exclude with <code>-</code> · phrase with <code>"…"</code></div>`;
+  box.innerHTML=html;box.classList.add("on");SUGI=-1;
+  box.querySelectorAll(".item").forEach(it=>it.onmousedown=e=>{e.preventDefault();applySuggest(+it.dataset.i);});
+}
+function applySuggest(i){const el=$("#fQ"),q=el.value,caret=el.selectionStart??q.length,before=q.slice(0,caret);
+  const frag=(before.split(/\s+/).pop()||"");
+  el.value=before.slice(0,before.length-frag.length)+SUGL[i]+" "+q.slice(caret);
+  el.focus();$("#sugg").classList.remove("on");render();}
+$("#fQ").addEventListener("input",()=>{buildSuggest();render();});
+$("#fQ").addEventListener("focus",buildSuggest);
+$("#fQ").addEventListener("blur",()=>setTimeout(()=>$("#sugg").classList.remove("on"),120));
+$("#fQ").addEventListener("keydown",e=>{const items=$("#sugg").querySelectorAll(".item");
+  if(e.key==="Escape"){if($("#sugg").classList.contains("on"))$("#sugg").classList.remove("on");
+    else{$("#fQ").value="";render();}return;}
+  if(!items.length)return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();
+    SUGI=(SUGI+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;
+    items.forEach((x,i)=>x.classList.toggle("cur",i===SUGI));}
+  else if(e.key==="Enter"&&SUGI>=0){e.preventDefault();applySuggest(+items[SUGI].dataset.i);}});
+$("#qClr").onclick=()=>{$("#fQ").value="";$("#fQ").focus();render();};
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==="k"){e.preventDefault();$("#fQ").focus();$("#fQ").select();}
+  if(e.key==="/"&&document.activeElement.tagName!=="INPUT"){e.preventDefault();$("#fQ").focus();}});
+
+/* ---------- load ---------- */
+function load(head,data,name){
+  BASEHEAD=head;BASEDATA=data;HEADERS=head.slice();DATA=data.map(r=>r.slice());MAP=autoMap(head);
+  if(MAP.from<0&&MAP.to<0) throw new Error("Could not find SIGNAL FROM / SIGNAL TO columns. Open “Columns” to map them manually.");
+  buildRows();
+  FILT={};FOCUS=null;SELPAIR=null;SORT={c:null,dir:1};
+  FACETS=autoFacets();
+  SHOW=ROLES.map(([k])=>MAP[k]).filter(i=>i>=0);
+  HEADERS.forEach((h,i)=>{if(!SHOW.includes(i)&&SHOW.length<10&&distinct(i).size>1)SHOW.push(i);});
+  SHOW.sort((a,b)=>a-b);
+  $("#tbFile").textContent=name;
+  rebuildAll();
+}
+/* junction box list */
+$("#btnUploadJB").onclick=()=>{if(!BASEDATA.length){alert("Load the I/O list first — the junction box list joins onto it by TagNo.");return;}$("#fileJB").click();};
+$("#fileJB").onchange=e=>{if(e.target.files[0])readJBFile(e.target.files[0]);};
+function readJBFile(f){const fr=new FileReader();
+  fr.onload=ev=>{try{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+    let best=null,bn=-1;
+    wb.SheetNames.forEach(n=>{try{const g=ingest(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:""}));
+      const m=autoMapJB(g.head);const c=(m.tag>=0&&m.jb>=0)?g.data.length:0;
+      if(c>bn){bn=c;best=g;}}catch(_){}});
+    if(!best||bn<=0) throw new Error("No sheet with both a TagNo column and a Junction Box Number column was found in that file.");
+    JB={head:best.head,data:best.data,map:autoMapJB(best.head),matched:0,orphan:0};
+    FILES.jb=f.name;rebuildAll(true);
+  }catch(err){alert("Junction box list: "+err.message);}};
+  fr.readAsArrayBuffer(f);}
+$("#btnUpload").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{const fs=[...e.target.files];if(!fs.length)return;
+  if(fs.length===1)readFile(fs[0]);else ingestFiles(fs,"the selected files");};
+$("#btnSample").onclick=()=>{$("#fSheet").innerHTML="<option>SAMPLE</option>";WB=null;
+  JB={head:[],data:[],map:{tag:-1,jb:-1},matched:0,orphan:0};
+  ALM={head:[],data:[],map:{tag:-1},matched:0,orphan:0,trips:0,alarms:0};
+  load(SAMPLE_H.slice(),SAMPLE.map(r=>r.slice()),"SAMPLE — COMPRESSOR 28-K-5401");
+  const box={"PROCESS GAS":"28-JB-5401","SEAL GAS":"28-JB-5401","MACHINE MONITORING":"28-JB-5402",
+    "LUBE OIL":"28-JB-5403","PACKAGE":"28-JB-5404"};
+  const loc={"28-JB-5401":"COMPRESSOR SKID NORTH","28-JB-5402":"BEARING HOUSING","28-JB-5403":"LUBE OIL CONSOLE",
+    "28-JB-5404":"PACKAGE LCP AREA"};
+  const mp={"28-JB-5401":"MP-01","28-JB-5402":"MP-01","28-JB-5403":"MP-02","28-JB-5404":"MP-02"};
+  let k=0;
+  const rows=SAMPLE.filter(r=>r[3]==="FIELD"||r[4]==="FIELD").map(r=>{k++;const b=box[r[6]]||"28-JB-5404";
+    return [r[0],r[3],b,loc[b],`FC-${String(100+k)}`,String(1+(k%12)),`TB1-${String(k*2-1)}/${String(k*2)}`,
+      `MC-${b.slice(-2)}`,mp[b],`TS-${String(200+k)}`,""];});
+  JB={head:["TAGNO","SIGNAL FROM","Junction Box Number","JB Location","Field Cable No","Pair / Core No",
+    "JB Terminal No","Multicore Cable No","Marshalling Panel","MP Terminal","Remarks"],
+    data:rows,map:{tag:0,jb:2},matched:0,orphan:0};
+  const A=[["28-PT-5401","AI","4-20 mA PRESSURE TX","COMPRESSOR SUCTION PRESS","barg","0","40","0-40","0","40","","","","","8","SUCTION PRESS LOW","5","SUCTION PRESS LOW LOW — TRIP"],
+    ["28-PT-5411","AI","4-20 mA PRESSURE TX","COMPRESSOR DISCH PRESS","barg","0","120","0-120","0","120","112","DISCH PRESS HIGH HIGH — TRIP","104","DISCH PRESS HIGH","","","",""],
+    ["28-TT-5415","RTD","PT100 3-WIRE","DISCHARGE TEMPERATURE","°C","0","200","0-200","0","200","165","DISCH TEMP HIGH HIGH — TRIP","150","DISCH TEMP HIGH","","","",""],
+    ["28-ST-5420","AI","SPEED PICKUP","COMPRESSOR SPEED","rpm","0","12000","0-12000","0","12000","11400","OVERSPEED TRIP","10800","SPEED HIGH","4200","SPEED LOW","3600","UNDERSPEED TRIP"],
+    ["28-VT-5421A","AI","EDDY PROBE","RADIAL VIBRATION DE","µm","0","250","0-250","0","250","75","VIB HIGH HIGH — TRIP","50","VIB HIGH","","","",""],
+    ["28-VT-5421B","AI","EDDY PROBE","RADIAL VIBRATION NDE","µm","0","250","0-250","0","250","75","VIB HIGH HIGH — TRIP","50","VIB HIGH","","","",""],
+    ["28-PT-5451","AI","4-20 mA PRESSURE TX","LUBE OIL HEADER PRESS","barg","0","10","0-10","0","10","","","","","2.5","LUBE OIL PRESS LOW","1.5","LUBE OIL PRESS LOW LOW — TRIP"],
+    ["28-PDT-5473","AI","4-20 mA DP TX","SEAL GAS DIFF PRESS","mbar","0","1000","0-1000","0","1000","","","","","350","SEAL GAS DP LOW","250","SEAL GAS DP LOW LOW — TRIP"],
+    ["28-FT-5402","AI","4-20 mA FLOW TX","COMPRESSOR SUCTION FLOW","m³/h","0","5000","0-5000","0","5000","","","","","900","FLOW LOW — SURGE APPROACH","650","FLOW LOW LOW — TRIP"]];
+  ALM={head:["TAGNO","Type","Type desc.","Service","Units","Min.","Max.","Op. Range","Cal. Min","Cal. Max",
+    "HH value","HH descr.","H value","H descr.","L value","L descr.","LL value","LL descr."],
+    data:A,map:autoMapALM(["TAGNO","Type","Type desc.","Service","Units","Min.","Max.","Op. Range","Cal. Min","Cal. Max",
+    "HH value","HH descr.","H value","H descr.","L value","L descr.","LL value","LL descr."]),matched:0,orphan:0,trips:0,alarms:0};
+  rebuildAll(true);};
+["dragenter","dragover"].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();$("#drop").classList.add("on")}));
+["dragleave","drop"].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();
+  if(t==="dragleave"&&e.relatedTarget)return;$("#drop").classList.remove("on");
+  if(t==="drop"&&e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);}));
+function readFile(f){const fr=new FileReader();
+  fr.onload=ev=>{try{
+    WB=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+    $("#fSheet").innerHTML=WB.SheetNames.map(n=>`<option>${esc(n)}</option>`).join("");
+    let best=WB.SheetNames[0],bn=-1;
+    WB.SheetNames.forEach(n=>{let c=0;try{const a=XLSX.utils.sheet_to_json(WB.Sheets[n],{header:1,defval:""});
+      const g=ingest(a);c=autoMap(g.head).from>=0||autoMap(g.head).to>=0?g.data.length:0;}catch(_){}
+      if(c>bn){bn=c;best=n;}});
+    $("#fSheet").value=best;readSheet(f.name);
+  }catch(err){$("#sheet").innerHTML=`<div class="err">Could not read the file: ${esc(err.message)}</div>`;}};
+  fr.readAsArrayBuffer(f);}
+function readSheet(name){try{
+  const aoa=XLSX.utils.sheet_to_json(WB.Sheets[$("#fSheet").value],{header:1,defval:""});
+  const g=ingest(aoa);
+  if(!g.data.length)throw new Error('No data rows on sheet "'+$("#fSheet").value+'".');
+  if(name)FILES.io=name;
+  load(g.head,g.data,(name||$("#tbFile").textContent.split(" › ")[0])+" › "+$("#fSheet").value);
+}catch(err){$("#sheet").innerHTML=`<div class="err">${esc(err.message)}</div>`;}}
+$("#fSheet").onchange=()=>{if(WB)readSheet(null);};
+$("#jbRoute").onchange=e=>{JBON=e.target.checked;render();};
+$("#btnClear").onclick=()=>{FILT={};FINDING=null;$("#fQ").value="";FOCUS=null;SELPAIR=null;SORT={c:null,dir:1};render();};
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));t.classList.add("on");
+  VIEW=t.dataset.view;render();});
+
+/* ---------- popovers & display ---------- */
+const R=document.documentElement;
+const popper=(btn,pop)=>{$(btn).onclick=e=>{e.stopPropagation();
+  document.querySelectorAll(".pop").forEach(p=>{if(p!==$(pop))p.classList.remove("on")});
+  $(pop).classList.toggle("on");$(btn).setAttribute("aria-expanded",$(pop).classList.contains("on"));};};
+popper("#btnDisplay","#pop");popper("#btnCols","#popCols");popper("#btnTmplMenu","#popTmpl");
+document.addEventListener("click",e=>{document.querySelectorAll(".pop").forEach(p=>{
+  if(!p.contains(e.target)&&e.target!==$("#btnDisplay")&&e.target!==$("#btnCols")&&e.target!==$("#btnTmplMenu"))
+    p.classList.remove("on");});});
+document.querySelectorAll(".opts").forEach(g=>g.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+  R.dataset[g.dataset.set]=b.dataset.v;syncOpts();if(RAW.length){recolor();render();}}));
+function syncOpts(){if(typeof saveState==="function")saveState();document.querySelectorAll(".opts").forEach(g=>g.querySelectorAll(".opt").forEach(b=>
+  b.setAttribute("aria-pressed",R.dataset[g.dataset.set]===b.dataset.v)));
+  $("#btnTheme").textContent=R.dataset.theme==="dark"?"☀ Light":"☾ Dark";}
+$("#btnTheme").onclick=()=>{R.dataset.theme=R.dataset.theme==="dark"?"light":"dark";
+  syncOpts();if(RAW.length){recolor();render();}};
+if(matchMedia&&matchMedia("(prefers-color-scheme: light)").matches)R.dataset.theme="light";
+syncOpts();
+
+/* alarm & trip list upload */
+$("#btnUploadALM").onclick=()=>{if(!BASEDATA.length){alert("Load the I/O list first — the alarm & trip list joins onto it by TAGNO.");return;}$("#fileALM").click();};
+$("#fileALM").onchange=e=>{if(e.target.files[0])readALMFile(e.target.files[0]);};
+function readALMFile(f){const fr=new FileReader();
+  fr.onload=ev=>{try{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+    let best=null,bn=-1;const seen=[];
+    wb.SheetNames.forEach(n=>{try{const g=ingest(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:""}));
+      const m=autoMapALM(g.head);
+      const c=almUsable(m)?g.data.length:0;
+      if(c>bn){bn=c;best=g;seen.push(g.head.filter(Boolean).slice(0,10).join(" | "));}
+      else if(!seen.length&&g.head.length)seen.push(g.head.filter(Boolean).slice(0,10).join(" | "));
+      }catch(_){}});
+    if(!best||bn<=0)throw new Error("No sheet with a TAGNO column plus HH / H / L / LL setpoint columns was found.\n\nHeaders detected: "+(seen[0]||"none")+"\n\nRename the setpoint columns to HH value / H value / L value / LL value, or load the sheet and map them under Columns.");
+    ALM={head:best.head,data:best.data,map:autoMapALM(best.head),matched:0,orphan:0,trips:0,alarms:0};
+    FILES.alm=f.name;rebuildAll(true);
+  }catch(err){alert("Alarm & trip list: "+err.message);}};
+  fr.readAsArrayBuffer(f);}
+
+
+/* ---------- instrument type exceptions ---------- */
+const TYPEDESC={VE:"vibration element / probe",TE:"temperature element",FE:"flow element",PE:"pressure element",
+ LE:"level element",AE:"analyser element",TW:"thermowell",PI:"local pressure indicator",PG:"pressure gauge",
+ TI:"local temperature indicator",TG:"temperature gauge",LI:"local level indicator",LG:"level gauge",
+ FI:"local flow indicator",FG:"flow gauge",SG:"sight glass",VG:"vibration gauge",AG:"analyser gauge",
+ RO:"restriction orifice",FO:"flow orifice",ZE:"position element",XG:"local gauge",MG:"moisture gauge",
+ FT:"flow transmitter",PT:"pressure transmitter",TT:"temperature transmitter",VT:"vibration transmitter",
+ ST:"speed transmitter",ZT:"position transmitter",PDT:"differential pressure transmitter",
+ FY:"flow relay / valve",FV:"flow valve",XV:"shutdown valve",HS:"hand switch",XA:"alarm / trip",
+ XI:"status indication",XC:"control signal",FZT:"valve position",FZSC:"closed limit",FZSO:"open limit",
+ PSLL:"pressure switch low low",LSL:"level switch low"};
+$("#btnTypes").onclick=()=>{drawTypeModal();$("#typeModal").classList.add("on");};
+$("#typeClose").onclick=()=>$("#typeModal").classList.remove("on");
+$("#typeModal").onclick=e=>{if(e.target.id==="typeModal")$("#typeModal").classList.remove("on");};
+$("#typeStd").onclick=()=>{const inv=typeInv();
+  LOCAL_STD.forEach(t=>{if(inv.some(x=>x.t===t)){EXCEPT.add(t);ELEM.delete(t);}});
+  ELEM_STD.forEach(t=>{if(inv.some(x=>x.t===t)){ELEM.add(t);EXCEPT.delete(t);}});
+  rebuildAll(true);drawTypeModal();};
+$("#typeNone").onclick=()=>{EXCEPT=new Set();ELEM=new Set();rebuildAll(true);drawTypeModal();};
+function typeInv(){
+  if(MAP.type<0)return [];
+  const m=new Map();
+  RAW.forEach(r=>{const t=r.type||"(none)";if(!m.has(t))m.set(t,{t,n:0,tags:new Set(),blank:0});
+    const e=m.get(t);e.n++;e.tags.add(r.tag);
+    if(r.from==="LOCAL"||r.to==="LOCAL"||r.from==="(blank)"||r.to==="(blank)")e.blank++;});
+  return [...m.values()].sort((a,b)=>b.tags.size-a.tags.size||a.t.localeCompare(b.t));
+}
+function setRole(t,role){
+  EXCEPT.delete(t);ELEM.delete(t);
+  if(role==="L")EXCEPT.add(t);else if(role==="E")ELEM.add(t);
+  rebuildAll(true);drawTypeModal();}
+function drawTypeModal(){
+  const inv=typeInv();
+  const noPair=RAW.filter(r=>r.elem&&r.pair==="NOT FOUND").length;
+  $("#typeCount").innerHTML=`<b>${EXCEPT.size}</b> local · <b>${ELEM.size}</b> element · `+
+    `${inv.length-EXCEPT.size-ELEM.size} on a system · `+
+    `<b>${RAW.filter(r=>r.local||r.elem).length}</b> signals excluded from interface findings`+
+    (noPair?` · <b style="color:#E5534B">${noPair}</b> elements with no transmitter`:"");
+  $("#typeBody").innerHTML=`<div class="typegrid">`+inv.map(x=>{
+    const role=EXCEPT.has(x.t)?"L":(ELEM.has(x.t)?"E":"S");
+    const seg=(k,lab,ttl)=>`<button class="rbtn ${role===k?"on "+k:""}" data-t="${esc(x.t)}" data-r="${k}" title="${ttl}">${lab}</button>`;
+    return `<div class="typechk ${role!=="S"?"on":""}">
+      <span style="flex:1;min-width:0"><b>${esc(x.t)}</b> <span class="ex">${esc(TYPEDESC[x.t]||"")}</span>
+        <span class="c" style="margin:0 0 0 6px">${x.tags.size}</span></span>
+      <span class="seg">${seg("S","SYS","Interfaces with a system — checked normally")}${
+        seg("L","LOC","Local device — no interface at all")}${
+        seg("E","ELEM","Primary element wired to its own transmitter")}</span></div>`;}).join("")+`</div>`;
+  $("#typeBody").querySelectorAll(".rbtn").forEach(b=>b.onclick=()=>setRole(b.dataset.t,b.dataset.r));
+}
+
+/* ---------- tag match report ---------- */
+$("#matchLvl").onchange=e=>{MATCHLVL=+e.target.value;rebuildAll(true);};
+$("#matchClose").onclick=()=>$("#matchModal").classList.remove("on");
+$("#matchModal").onclick=e=>{if(e.target.id==="matchModal")$("#matchModal").classList.remove("on");};
+$("#btnMatch").onclick=()=>{drawMatchReport();$("#matchModal").classList.add("on");};
+function matchMini(){
+  const bits=[];
+  [["jb","Junction box",JB],["alm","Alarm & trip",ALM]].forEach(([k,lab,T])=>{
+    const L=MATCHLOG[k];if(!T.data.length||!L)return;
+    const t=Object.entries(L.tiers).map(([n,c])=>`${n} ${c}`).join(" · ")||"none";
+    bits.push(`<b>${lab}</b>: ${t}${L.unmatched.length?` · ${L.unmatched.length} I/O tags unmatched`:""}${L.orphans.length?` · ${L.orphans.length} orphan`:""}`);});
+  $("#matchMini").innerHTML=bits.join("<br>")||"Load a JB or alarm list to see match quality.";
+}
+function drawMatchReport(){
+  let h="";
+  [["jb","Junction box list",JB],["alm","Alarm & trip list",ALM]].forEach(([k,lab,T])=>{
+    if(!T.data.length){h+=`<div class="mgrp">${lab}</div><div style="font-family:var(--mono);font-size:11px;color:var(--ink3)">not loaded</div>`;return;}
+    const L=MATCHLOG[k]||{tiers:{},unmatched:[],orphans:[],poolRight:[]};
+    h+=`<div class="mgrp">${lab} — ${T.matched} of ${BASEDATA.length} I/O rows joined</div>`;
+    h+=`<div style="margin-bottom:8px">`+Object.entries(L.tiers).map(([n,c])=>
+      `<span class="tier" style="border-color:${n==="EXACT"?cv("--accent2"):cv("--accent")};color:${n==="EXACT"?cv("--accent2"):cv("--accent")}">${n} ${c}</span>`).join("")+
+      (Object.keys(L.tiers).length?"":`<span class="tier">no matches</span>`)+`</div>`;
+    const un=[...new Set(L.unmatched)].slice(0,150);
+    if(un.length){
+      h+=`<table class="mtab"><thead><tr><th>I/O tag with no ${k==="jb"?"JB":"alarm"} row</th>
+        <th>closest tag in that sheet</th><th>edit distance</th><th></th></tr></thead><tbody>`;
+      un.forEach(t=>{const g=bestGuess(t,L.poolRight);
+        h+=`<tr><td class="tag" style="color:${cv("--accent")}">${esc(t)}</td>
+          <td>${g?esc(g.tag):"<span style='color:var(--ink3)'>no close candidate</span>"}</td>
+          <td>${g?g.dist:""}</td>
+          <td>${g?`<button class="sugg-btn" data-l="${esc(t)}" data-r="${esc(g.tag)}">link these</button>`:""}</td></tr>`;});
+      h+=`</tbody></table>`;
+      if([...new Set(L.unmatched)].length>150)h+=`<div style="font-family:var(--mono);font-size:10px;color:var(--ink3)">…and ${[...new Set(L.unmatched)].length-150} more</div>`;
+    }
+    const orp=L.orphans.slice(0,60);
+    if(orp.length)h+=`<div style="font-family:var(--mono);font-size:11px;color:var(--ink2);margin-bottom:6px">
+      Rows in the ${lab.toLowerCase()} with no instrument in the I/O list: ${orp.map(esc).join(", ")}${L.orphans.length>60?` …+${L.orphans.length-60}`:""}</div>`;
+  });
+  const al=Object.entries(ALIAS);
+  if(al.length)h+=`<div class="mgrp">Manual links (${al.length})</div>
+    <div style="font-family:var(--mono);font-size:11px">`+al.map(([a,b])=>
+      `<span class="tier">${esc(a)} → ${esc(b)} <span style="cursor:pointer;color:var(--accent)" data-unlink="${esc(a)}">✕</span></span>`).join("")+`</div>`;
+  $("#matchBody").innerHTML=h;
+  $("#matchBody").querySelectorAll(".sugg-btn").forEach(b=>b.onclick=()=>{
+    ALIAS[T_CANON(b.dataset.l)]=b.dataset.r;rebuildAll(true);drawMatchReport();});
+  $("#matchBody").querySelectorAll("[data-unlink]").forEach(x=>x.onclick=()=>{
+    delete ALIAS[x.dataset.unlink];rebuildAll(true);drawMatchReport();});
+}
+
+/* ---------- panel controls ---------- */
+const setTop=v=>{document.body.classList.toggle("tcol",v);$("#btnTop").textContent=v?"▼":"▲";
+  if(typeof saveState==="function")saveState();
+  $("#btnTop").title=(v?"Show":"Hide")+" the panel (T)";};
+$("#btnTop").onclick=()=>setTop(!document.body.classList.contains("tcol"));
+/* signal schedule pane — collapsed by default */
+function setTbl(v){$("#tblPane").classList.toggle("closed",!v);
+  $("#rightCol").classList.toggle("tclosed",!v);$("#btnTbl").textContent=v?"▼":"▲";}
+$("#btnTbl").onclick=e=>{e.stopPropagation();setTbl($("#tblPane").classList.contains("closed"));};
+$("#tblHead").onclick=()=>setTbl($("#tblPane").classList.contains("closed"));
+const setSide=v=>{$("main").classList.toggle("collapsed",v);};
+$("#btnSide").onclick=()=>setSide(true);
+$("#btnSideOpen").onclick=()=>setSide(false);
+function setMax(v){const p=$("#drawPane");p.classList.toggle("max",v);
+  if(!v)p.classList.remove("zoom");
+  $("#btnMax").textContent=v?"⤡ Exit full screen":"⤢ Full screen";
+  $("#btnFit").style.display=v?"inline-block":"none";
+  $("#btnFit").textContent=p.classList.contains("zoom")?"Fit to screen":"Fill width";
+  if(RAW.length)render();}
+$("#btnPdf").onclick=openPdf;
+$("#btnMax").onclick=()=>setMax(!$("#drawPane").classList.contains("max"));
+$("#btnFit").style.display="none";
+$("#btnFit").onclick=()=>{const p=$("#drawPane");p.classList.toggle("zoom");
+  $("#btnFit").textContent=p.classList.contains("zoom")?"Fit to screen":"Fill width";};
+document.addEventListener("keydown",e=>{
+  const typing=/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(e.key==="Escape"&&$("#drawPane").classList.contains("max")){setMax(false);return;}
+  if(typing)return;
+  if(e.key==="f"||e.key==="F"){e.preventDefault();setMax(!$("#drawPane").classList.contains("max"));}
+  if(e.key==="s"||e.key==="S"){e.preventDefault();setSide(!$("main").classList.contains("collapsed"));}
+  if(e.key==="t"||e.key==="T"){e.preventDefault();setTop(!document.body.classList.contains("tcol"));}
+  if(e.key==="d"||e.key==="D"){e.preventDefault();setTbl($("#tblPane").classList.contains("closed"));}
+  if((e.key==="a"||e.key==="A")&&VIEW==="wiring"&&MAP.sp>=0){e.preventDefault();$("#btnSP").click();}
+  if((e.key==="p"||e.key==="P")&&!e.ctrlKey&&!e.metaKey){e.preventDefault();openPdf();}});
+
+/* ---------- PDF export (A1 / A2 / A3 / A4, fit by width) ---------- */
+const PAPER={A1:[594,841],A2:[420,594],A3:[297,420],A4:[210,297]}; // portrait mm
+function openPdf(){if(!$("#sheet svg")){alert("Draw something first — load a list and pick a view.");return;}
+  $("#pdfModal").classList.add("on");pdfNote();}
+function pdfNote(){
+  const svg=$("#sheet svg");if(!svg)return;
+  const vb=(svg.getAttribute("viewBox")||"0 0 1 1").split(/\s+/).map(Number);
+  const g=pdfGeom(vb);
+  $("#pdfNote").textContent=$("#pdfFit").value==="page"
+    ?`One ${$("#pdfSize").value} ${$("#pdfOrient").value} sheet, drawing scaled to fit.`
+    :`${g.pages} × ${$("#pdfSize").value} ${$("#pdfOrient").value} sheet${g.pages>1?"s":""} — drawing fills the sheet width and continues onto the next page.`;
+}
+function pdfGeom(vb){
+  let [pw,ph]=PAPER[$("#pdfSize").value];
+  if($("#pdfOrient").value==="landscape")[pw,ph]=[ph,pw];
+  const M=10,HDR=13,cw=pw-2*M,ch=ph-2*M-HDR;
+  const ratio=vb[3]/vb[2];
+  let w=cw,h=cw*ratio,pages=Math.max(1,Math.ceil(h/ch-0.002));
+  if($("#pdfFit").value==="page"&&h>ch){h=ch;w=ch/ratio;pages=1;}
+  return {pw,ph,M,HDR,cw,ch,w,h,pages};
+}
+["#pdfSize","#pdfOrient","#pdfFit"].forEach(id=>$(id).onchange=pdfNote);
+$("#pdfCancel").onclick=()=>$("#pdfModal").classList.remove("on");
+$("#pdfModal").onclick=e=>{if(e.target.id==="pdfModal")$("#pdfModal").classList.remove("on");};
+function drawingSVG(){ // capture in light theme so it prints on white paper
+  const dark=R.dataset.theme==="dark";
+  if(dark){R.dataset.theme="light";recolor();render();}
+  const svg=$("#sheet svg").cloneNode(true);
+  if(dark){R.dataset.theme="dark";recolor();render();}
+  return svg;
+}
+function filtersLine(){
+  const f=Object.entries(FILT).filter(([,v])=>v).map(([c,v])=>HEADERS[c]+" = "+v);
+  const q=$("#fQ").value.trim();if(q)f.push("search: "+q);
+  return f.length?f.join("   ·   "):"no filters";
+}
+$("#pdfGo").onclick=()=>{
+  const svg=drawingSVG();
+  const vb=(svg.getAttribute("viewBox")||"0 0 1 1").split(/\s+/).map(Number);
+  const g=pdfGeom(vb);
+  svg.removeAttribute("width");svg.removeAttribute("height");
+  svg.setAttribute("preserveAspectRatio","xMidYMin meet");
+  svg.setAttribute("style",`width:${g.w}mm;height:${g.h}mm;display:block`);
+  const title=$("#drawTitle").textContent,proj=$("#tbFile").textContent;
+  const date=new Date().toISOString().slice(0,10);
+  const body=[];
+  for(let i=0;i<g.pages;i++){
+    body.push(`<section class="pg">
+      <div class="tb"><div class="l"><b>${esc(title)}</b><span>${esc(filtersLine())}</span></div>
+        <div class="r"><span>${esc(proj)}</span><b>${$("#pdfSize").value} · sheet ${i+1} of ${g.pages} · ${date}</b></div></div>
+      <div class="win"><div class="slide" style="margin-top:-${(i*g.ch).toFixed(2)}mm">${svg.outerHTML}</div></div>
+    </section>`);
+  }
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+    @page{size:${g.pw}mm ${g.ph}mm;margin:0}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:#fff;color:#111;
+      font-family:ui-monospace,Consolas,"Courier New",monospace;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .pg{width:${g.pw}mm;height:${g.ph}mm;padding:${g.M}mm;page-break-after:always;overflow:hidden;position:relative}
+    .pg:last-child{page-break-after:auto}
+    .tb{height:${g.HDR}mm;display:flex;justify-content:space-between;align-items:flex-start;
+      border-bottom:.6mm solid #1F3448;padding-bottom:1.5mm;margin-bottom:2mm}
+    .tb b{display:block;font-size:3.6mm;letter-spacing:.3mm}
+    .tb span{display:block;font-size:2.6mm;color:#5A6675}
+    .tb .r{text-align:right}
+    .win{width:${g.cw}mm;height:${g.ch}mm;overflow:hidden}
+  </style></head><body>${body.join("")}</body></html>`;
+  const f=$("#printFrame");
+  f.srcdoc=html;
+  f.onload=()=>{try{f.contentWindow.focus();f.contentWindow.print();}
+    catch(err){alert("Printing was blocked here. Use “Download SVG” and print that instead.");}};
+  $("#pdfModal").classList.remove("on");
+};
+$("#pdfSvg").onclick=()=>{
+  const svg=drawingSVG();
+  const blob=new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n`+svg.outerHTML],{type:"image/svg+xml"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=(VIEW==="wiring"&&FOCUS?"wiring_"+FOCUS:"interface_map").replace(/[^\w-]+/g,"_")+".svg";a.click();
+  $("#pdfModal").classList.remove("on");};
+
+/* ---------- render ---------- */
+function render(){
+  if(!RAW.length)return;
+  const terms=parseQuery($("#fQ").value);
+  ROWS=RAW.filter(r=>Object.entries(FILT).every(([c,v])=>!v||r.cells[+c]===v)&&matches(r,terms));
+  $("#qCnt").textContent=$("#fQ").value.trim()?ROWS.length+" hit"+(ROWS.length===1?"":"s"):"";
+  paintFacets();
+  $("#legend").innerHTML=TYPES.filter(t=>ROWS.some(r=>r.sig===t))
+    .map(t=>`<span><i style="background:${COLOR[t]}"></i>${esc(t)}</span>`).join("");
+  const sys=new Map();
+  ROWS.forEach(r=>{if(!sys.has(r.from))sys.set(r.from,{name:r.from,out:0,in:0});
+    if(!sys.has(r.to))sys.set(r.to,{name:r.to,out:0,in:0});
+    sys.get(r.from).out++;sys.get(r.to).in++;});
+  const list=[...sys.values()].sort((a,b)=>(b.in+b.out)-(a.in+a.out));
+  $("#tbCount").textContent=ROWS.length+" / "+RAW.length;
+  $("#tbSys").textContent=list.length;
+  $("#sysN").textContent=list.length+" blocks";
+  $("#sysNv").textContent=FOCUS?FOCUS:list.length;
+  const jbSet=new Set(ROWS.filter(r=>r.jb).map(r=>r.jb)),noJB=ROWS.filter(r=>!r.jb).length;
+  $("#stat").innerHTML=`<b>${ROWS.length}</b> signals · <b>${list.length}</b> systems · <b>${new Set(ROWS.map(r=>r.from+"→"+r.to)).size}</b> interfaces`+
+    (MAP.jb>=0?` · <b>${jbSet.size}</b> junction boxes`+(noJB?` · <b>${noJB}</b> without JB`:""):"")+
+    (MAP.trip>=0?` · <b>${ROWS.filter(r=>r.trip==="TRIP").length}</b> trips`:"");
+  const max=Math.max(1,...list.map(s=>s.in+s.out));
+  $("#sysList").innerHTML=list.map(s=>`<div class="sys ${FOCUS===s.name?"on":""}" data-sys="${esc(s.name)}">
+    <div class="io" title="${s.in} in / ${s.out} out">
+      <i style="width:${54*s.in/max}px;background:${cv("--accent2")}"></i>
+      <i style="width:${54*s.out/max}px;background:${cv("--accent")}"></i></div>
+    <div class="nm">${esc(s.name)}</div><div class="ct">${s.in+s.out}</div></div>`).join("")
+    ||`<div class="hint" style="padding:16px">No systems match.</div>`;
+  $("#sysList").querySelectorAll(".sys").forEach(el=>el.onclick=()=>{
+    FOCUS=(FOCUS===el.dataset.sys)?null:el.dataset.sys;SELPAIR=null;
+    if(FOCUS){VIEW="wiring";document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="wiring"));}
+    render();});
+  if(!ROWS.length){$("#sheet").innerHTML=`<div class="hint">Nothing matches the current filters.<br>Press Reset, or loosen one picklist.</div>`;
+    drawTable(terms);return;}
+  if(VIEW!=="skid")$("#skidBy").style.display="none";
+  $("#btnSP").style.display=(VIEW==="wiring"&&MAP.sp>=0)?"inline-block":"none";
+  if(VIEW==="qc")drawQC();else if(VIEW==="skid")drawSkid();else if(VIEW==="alarm")drawAlarm();
+  else if(VIEW==="map")drawMap();else drawWiring();
+  drawTable(terms);
+}
+
+const useJB=()=>JBON&&MAP.jb>=0&&ROWS.some(r=>r.jb);
+function drawMap(){
+  if(useJB())return drawMapJB();
+  $("#drawTitle").textContent="Interface map — signal flow between systems";
+  $("#drawSub").textContent="click a run for its schedule · click a block for wiring";
+  const cnt=(n,k)=>ROWS.filter(r=>r[k]===n).length;
+  const froms=[...new Set(ROWS.map(r=>r.from))].sort((a,b)=>cnt(b,"from")-cnt(a,"from"));
+  const tos=[...new Set(ROWS.map(r=>r.to))].sort((a,b)=>cnt(b,"to")-cnt(a,"to"));
+  const pairs=new Map();
+  ROWS.forEach(r=>{const k=r.from+"\u0000"+r.to;(pairs.get(k)||pairs.set(k,[]).get(k)).push(r);});
+  const W=1000,BH=30,GAP=14,PAD=44,LX=30,LW=170,RX=W-30-LW;
+  const rows=Math.max(froms.length,tos.length),H=rows*(BH+GAP)+PAD*2;
+  const yF={},yT={};
+  froms.forEach((n,i)=>yF[n]=PAD+i*(BH+GAP)+(rows-froms.length)*(BH+GAP)/2);
+  tos.forEach((n,i)=>yT[n]=PAD+i*(BH+GAP)+(rows-tos.length)*(BH+GAP)/2);
+  const INK=cv("--ink"),INK2=cv("--ink2"),INK3=cv("--ink3"),L2=cv("--line2"),A=cv("--accent"),A2=cv("--accent2");
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="${SVGNS}" font-family="${monoFont()}">
+    <text x="${LX}" y="24" fill="${INK3}" font-size="10" letter-spacing="3">${esc((HEADERS[MAP.from]||"SIGNAL FROM").toUpperCase())}</text>
+    <text x="${RX+LW}" y="24" fill="${INK3}" font-size="10" letter-spacing="3" text-anchor="end">${esc((HEADERS[MAP.to]||"SIGNAL TO").toUpperCase())}</text>`;
+  const maxN=Math.max(...[...pairs.values()].map(a=>a.length));
+  for(const [k,arr] of pairs){const [f,t]=k.split("\u0000"),y1=yF[f]+BH/2,y2=yT[t]+BH/2;
+    const dim=FOCUS&&f!==FOCUS&&t!==FOCUS,w=1.2+3.8*Math.sqrt(arr.length/maxN);
+    const col=COLOR[arr[0].sig]||INK3,x1=LX+LW,x2=RX,mx=(x1+x2)/2;
+    s+=`<path class="run" data-pair="${esc(k)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none"
+      stroke="${col}" stroke-width="${SELPAIR===k?w+2:w}" opacity="${dim?.1:SELPAIR===k?1:.72}" style="cursor:pointer">
+      <title>${esc(f)} → ${esc(t)} : ${arr.length} signals</title></path>`;
+    if(arr.length>1&&!dim)s+=`<text x="${mx}" y="${(y1+y2)/2-4}" fill="${INK2}" font-size="9" text-anchor="middle" pointer-events="none">${arr.length}</text>`;}
+  const block=(n,x,y,side)=>{const on=FOCUS===n;
+    return `<g class="blk" data-sys="${esc(n)}" style="cursor:pointer">
+      <rect x="${x}" y="${y}" width="${LW}" height="${BH}" fill="${on?cv("--blockOn"):cv("--block")}" stroke="${on?A2:L2}"/>
+      <rect x="${side==="L"?x:x+LW-4}" y="${y}" width="4" height="${BH}" fill="${side==="L"?A2:A}"/>
+      <text x="${x+LW/2}" y="${y+BH/2+4}" fill="${INK}" font-size="12" text-anchor="middle">${esc(n.length>20?n.slice(0,19)+"…":n)}</text></g>`;};
+  froms.forEach(n=>s+=block(n,LX,yF[n],"L"));
+  tos.forEach(n=>s+=block(n,RX,yT[n],"R"));
+  $("#sheet").innerHTML=s+"</svg>";
+  $("#sheet").querySelectorAll(".run").forEach(p=>p.onclick=()=>{SELPAIR=p.dataset.pair;setTbl(true);render();});
+  $("#sheet").querySelectorAll(".blk").forEach(g=>g.onclick=()=>{FOCUS=g.dataset.sys;SELPAIR=null;VIEW="wiring";
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="wiring"));render();});
+}
+
+/* FROM → JUNCTION BOX → TO */
+function drawMapJB(){
+  $("#drawTitle").textContent="Interface map — field routing via junction boxes";
+  $("#drawSub").textContent="click a run for its schedule · click a JB to filter · click a system for wiring";
+  const cnt=(n,k)=>ROWS.filter(r=>r[k]===n).length;
+  const froms=[...new Set(ROWS.map(r=>r.from))].sort((a,b)=>cnt(b,"from")-cnt(a,"from"));
+  const tos=[...new Set(ROWS.map(r=>r.to))].sort((a,b)=>cnt(b,"to")-cnt(a,"to"));
+  const jbc=new Map();ROWS.forEach(r=>{if(r.jb)jbc.set(r.jb,(jbc.get(r.jb)||0)+1);});
+  const jbs=[...jbc.keys()].sort((a,b)=>jbc.get(b)-jbc.get(a)||a.localeCompare(b,undefined,{numeric:true}));
+  const g=new Map();
+  ROWS.forEach(r=>{const k=r.from+"\u0000"+(r.jb||"")+"\u0000"+r.to;(g.get(k)||g.set(k,[]).get(k)).push(r);});
+  const W=1220,BH=30,GAP=14,PAD=48,LW=160,MW=150,LX=20,MX=(W-MW)/2,RX=W-20-LW;
+  const n=Math.max(froms.length,tos.length,jbs.length),H=n*(BH+GAP)+PAD*2;
+  const pos=(arr,o)=>{arr.forEach((x,i)=>o[x]=PAD+i*(BH+GAP)+(n-arr.length)*(BH+GAP)/2);return o;};
+  const yF=pos(froms,{}),yM=pos(jbs,{}),yT=pos(tos,{});
+  const INK=cv("--ink"),INK2=cv("--ink2"),INK3=cv("--ink3"),L2=cv("--line2"),A=cv("--accent"),A2=cv("--accent2");
+  const jbSel=MAP.jb>=0?(FILT[MAP.jb]||""):"";
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="${SVGNS}" font-family="${monoFont()}">
+    <text x="${LX}" y="26" fill="${INK3}" font-size="10" letter-spacing="3">${esc((HEADERS[MAP.from]||"SIGNAL FROM").toUpperCase())}</text>
+    <text x="${MX+MW/2}" y="26" fill="${A}" font-size="10" letter-spacing="3" text-anchor="middle">JUNCTION BOX</text>
+    <text x="${RX+LW}" y="26" fill="${INK3}" font-size="10" letter-spacing="3" text-anchor="end">${esc((HEADERS[MAP.to]||"SIGNAL TO").toUpperCase())}</text>`;
+  const maxN=Math.max(...[...g.values()].map(a=>a.length));
+  for(const [k,arr] of g){
+    const [f,jb,t]=k.split("\u0000");
+    const dim=(FOCUS&&f!==FOCUS&&t!==FOCUS)||(jbSel&&jb!==jbSel);
+    const w=1.2+3.6*Math.sqrt(arr.length/maxN),col=COLOR[arr[0].sig]||INK3;
+    const op=dim?.08:SELPAIR===k?1:.72,sw=SELPAIR===k?w+2:w;
+    const y1=yF[f]+BH/2,y3=yT[t]+BH/2;
+    const seg=(x1,ya,x2,yb)=>{const mx=(x1+x2)/2;
+      return `<path class="run" data-pair="${esc(k)}" d="M${x1},${ya} C${mx},${ya} ${mx},${yb} ${x2},${yb}" fill="none"
+        stroke="${col}" stroke-width="${sw}" opacity="${op}" style="cursor:pointer">
+        <title>${esc(f)} → ${jb?esc(jb)+" → ":""}${esc(t)} : ${arr.length} signals</title></path>`;};
+    if(jb){const y2=yM[jb]+BH/2;
+      s+=seg(LX+LW,y1,MX,y2)+seg(MX+MW,y2,RX,y3);
+      if(arr.length>1&&!dim)s+=`<text x="${(MX+MW+RX)/2}" y="${(y2+y3)/2-4}" fill="${INK2}" font-size="9" text-anchor="middle" pointer-events="none">${arr.length}</text>`;
+    }else{
+      s+=`<path class="run" data-pair="${esc(k)}" d="M${LX+LW},${y1} C${MX-40},${y1} ${MX+MW+40},${y3} ${RX},${y3}"
+        fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}" stroke-dasharray="2 3" style="cursor:pointer">
+        <title>${esc(f)} → ${esc(t)} : ${arr.length} signals — no junction box in the cable schedule</title></path>`;}
+  }
+  const block=(nm,x,y,side,wdt)=>{const on=FOCUS===nm;
+    return `<g class="blk" data-sys="${esc(nm)}" style="cursor:pointer">
+      <rect x="${x}" y="${y}" width="${wdt}" height="${BH}" fill="${on?cv("--blockOn"):cv("--block")}" stroke="${on?A2:L2}"/>
+      <rect x="${side==="L"?x:x+wdt-4}" y="${y}" width="4" height="${BH}" fill="${side==="L"?A2:A}"/>
+      <text x="${x+wdt/2}" y="${y+BH/2+4}" fill="${INK}" font-size="12" text-anchor="middle">${esc(nm.length>19?nm.slice(0,18)+"…":nm)}</text></g>`;};
+  froms.forEach(nm=>s+=block(nm,LX,yF[nm],"L",LW));
+  tos.forEach(nm=>s+=block(nm,RX,yT[nm],"R",LW));
+  jbs.forEach(nm=>{const on=jbSel===nm;
+    s+=`<g class="jbblk" data-jb="${esc(nm)}" style="cursor:pointer">
+      <rect x="${MX}" y="${yM[nm]}" width="${MW}" height="${BH}" rx="3" fill="${on?cv("--blockOn"):cv("--block")}"
+        stroke="${A}" stroke-width="${on?2:1}" stroke-dasharray="${on?"0":"5 3"}"/>
+      <text x="${MX+MW/2}" y="${yM[nm]+BH/2+1}" fill="${A}" font-size="11.5" text-anchor="middle">${esc(nm.length>17?nm.slice(0,16)+"…":nm)}</text>
+      <text x="${MX+MW/2}" y="${yM[nm]+BH-4}" fill="${INK3}" font-size="8.5" text-anchor="middle">${jbc.get(nm)} cores</text>
+      <title>${esc(nm)} — ${jbc.get(nm)} signals</title></g>`;});
+  $("#sheet").innerHTML=s+"</svg>";
+  $("#sheet").querySelectorAll(".run").forEach(p=>p.onclick=()=>{SELPAIR=p.dataset.pair;setTbl(true);render();});
+  $("#sheet").querySelectorAll(".blk").forEach(el=>el.onclick=()=>{FOCUS=el.dataset.sys;SELPAIR=null;VIEW="wiring";
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="wiring"));render();});
+  $("#sheet").querySelectorAll(".jbblk").forEach(el=>el.onclick=()=>{
+    FILT[MAP.jb]=FILT[MAP.jb]===el.dataset.jb?"":el.dataset.jb;SELPAIR=null;render();});
+}
+
+function drawWiring(){
+  if(!FOCUS){$("#drawTitle").textContent="System wiring";$("#drawSub").textContent="";
+    $("#sheet").innerHTML=`<div class="hint">Select a system on the left to draw its wiring.</div>`;return;}
+  const inc=ROWS.filter(r=>r.to===FOCUS),out=ROWS.filter(r=>r.from===FOCUS);
+  const jbOn=useJB()&&(inc.some(r=>r.jb)||out.some(r=>r.jb));
+  $("#drawTitle").textContent="System wiring — "+FOCUS;
+  const trips=[...inc,...out].filter(r=>r.trip==="TRIP").length;
+  $("#drawSub").textContent=`${inc.length} in · ${out.length} out`+
+    (jbOn?` · via ${new Set([...inc,...out].filter(r=>r.jb).map(r=>r.jb)).size} JB`:"")+
+    (MAP.trip>=0?` · ${trips} trip`:"");
+  const spOn=SPON&&MAP.sp>=0&&[...inc,...out].some(r=>r.sp);
+  const W=jbOn?1400:1160,LH=spOn?40:30,TOP=76,CW=220,BX=14,BW=150,JBW=124,JG=16;
+  const CX=jbOn?620:470;
+  const LJX=BX+BW+JG, RJX=W-BX-BW-JG-JBW;
+  const H=Math.max(inc.length,out.length,1)*LH+TOP+50;
+  const group=(arr,key)=>{const m=new Map();
+    arr.forEach(r=>{const k=r[key]+"\u0000"+(jbOn?(r.jb||""):"");(m.get(k)||m.set(k,[]).get(k)).push(r);});
+    return [...m.entries()].sort((a,b)=>b[1].length-a[1].length);};
+  const INK=cv("--ink"),INK2=cv("--ink2"),INK3=cv("--ink3"),L2=cv("--line2"),A=cv("--accent"),A2=cv("--accent2");
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="${SVGNS}" font-family="${monoFont()}">
+    <defs><marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" fill="${INK2}"/></marker></defs>
+    <text x="${BX}" y="30" fill="${INK3}" font-size="10" letter-spacing="3">INCOMING</text>
+    <text x="${W-BX}" y="30" fill="${INK3}" font-size="10" letter-spacing="3" text-anchor="end">OUTGOING</text>`;
+  if(spOn) s+=`<g font-size="9"><rect x="${CX-70}" y="14" width="9" height="9" fill="#E5534B"/>
+    <text x="${CX-56}" y="22" fill="${INK3}">trip HH/LL</text>
+    <circle cx="${CX+25}" cy="18.5" r="3.4" fill="none" stroke="${A}" stroke-width="1.6"/>
+    <text x="${CX+33}" y="22" fill="${INK3}">alarm H/L</text></g>`;
+  if(jbOn) s+=`<text x="${LJX+JBW/2}" y="30" fill="${A}" font-size="9" letter-spacing="2" text-anchor="middle">JB</text>
+    <text x="${RJX+JBW/2}" y="30" fill="${A}" font-size="9" letter-spacing="2" text-anchor="middle">JB</text>`;
+  s+=`<rect x="${CX}" y="${TOP-16}" width="${CW}" height="${Math.max(60,H-TOP-40)}" fill="${cv("--blockOn")}" stroke="${A2}" stroke-width="1.5"/>
+    <text x="${CX+CW/2}" y="${TOP+4}" fill="${A2}" font-size="14" text-anchor="middle" letter-spacing="2">${esc(FOCUS)}</text>
+    <line x1="${CX+12}" y1="${TOP+14}" x2="${CX+CW-12}" y2="${TOP+14}" stroke="${L2}"/>`;
+  const side=(groups,sd)=>{let y=TOP+(spOn?34:28),o="";
+    groups.forEach(([key,arr])=>{
+      const [nm,jb]=key.split("\u0000"),y0=y,n=arr.length,hasJB=jbOn&&jb;
+      const boxX=sd==="L"?BX:W-BX-BW, jbX=sd==="L"?LJX:RJX;
+      const wireStart=sd==="L"?(hasJB?jbX+JBW:BX+BW):CX+CW;
+      const wireEnd=sd==="L"?CX:(hasJB?jbX:W-BX-BW);
+      arr.forEach(r=>{
+        const col=COLOR[r.sig]||INK3,dash=/contact|sol|discrete|digital|pulse/i.test(r.io)?"6 4":"0";
+        const sel=SELPAIR===r.tag;
+        if(hasJB){ // field cable leg: instrument/system block to the junction box
+          const a=sd==="L"?BX+BW:CX+CW, b=sd==="L"?jbX:W-BX-BW;
+          if(sd==="L") o+=`<line x1="${a}" y1="${y}" x2="${b}" y2="${y}" stroke="${col}" stroke-width="${sel?2.2:1.2}" stroke-dasharray="${dash}" opacity="${sel?1:.7}"/>`;
+          else o+=`<line x1="${jbX+JBW}" y1="${y}" x2="${b}" y2="${y}" stroke="${col}" stroke-width="${sel?2.2:1.2}" stroke-dasharray="${dash}" marker-end="url(#ar)" opacity="${sel?1:.7}"/>`;
+        }
+        const cls=r.trip,trip=cls==="TRIP",alrm=cls==="ALARM";
+        const TR="#E5534B";
+        const wcol=trip?TR:col,wsw=sel?2.8:(trip?2.1:1.4);
+        const ty=spOn?y-28:y-18, sy=spOn?y-17:y-6;   // every label sits clear above its wire
+        o+=`<g class="wire" data-tag="${esc(r.tag)}" style="cursor:pointer">`+
+          (trip?`<rect x="${wireStart}" y="${y-4.5}" width="9" height="9" rx="1.5" fill="${TR}"><title>TRIP — ${esc(r.sp)}</title></rect>`
+            :alrm?`<circle cx="${wireStart+4.5}" cy="${y}" r="4" fill="none" stroke="${A}" stroke-width="1.8"><title>ALARM — ${esc(r.sp)}</title></circle>`:"")+`
+          <line x1="${wireStart}" y1="${y}" x2="${wireEnd}" y2="${y}" stroke="${wcol}" stroke-width="${wsw}"
+            stroke-dasharray="${dash}" ${sd==="L"||!hasJB?'marker-end="url(#ar)"':""} opacity="${sel?1:.85}"/>
+          <text x="${wireStart+13}" y="${ty}" fill="${sel?A:(trip?TR:INK)}" font-size="11" font-weight="${trip?"700":"400"}">${esc(r.tag)}</text>
+          <text x="${wireStart+13}" y="${sy}" fill="${INK2}" font-size="9.5">${esc((r.service||"").slice(0,44))}${r.io?" · "+esc(r.io):""}</text>`+
+          (spOn&&r.sp?`<text x="${wireStart+13}" y="${y-6}" font-size="9.5" font-weight="600" fill="${trip?TR:A}">${esc(r.sp)}</text>`:"")+`
+          <title>${esc(r.tag)} — ${esc(r.service)}\n${esc(r.io)} · ${esc(r.sig)} · ${esc(r.sub)}${jb?"\nJunction box: "+esc(jb):""}${r.sp?"\n"+esc(cls)+": "+esc(r.sp):""}</title></g>`;
+        y+=LH;});
+      const bTop=y0-(spOn?30:20);
+      let head=`<g><rect x="${boxX}" y="${bTop}" width="${BW}" height="${n*LH}" fill="${cv("--block")}" stroke="${L2}"/>
+        <text x="${boxX+BW/2}" y="${bTop+n*LH/2+4}" fill="${INK}" font-size="11" text-anchor="middle">${esc(nm.length>17?nm.slice(0,16)+"…":nm)}</text>
+        <text x="${boxX+BW/2}" y="${bTop+n*LH/2+17}" fill="${INK3}" font-size="9" text-anchor="middle">${n} sig</text></g>`;
+      if(hasJB) head+=`<g class="jbblk" data-jb="${esc(jb)}" style="cursor:pointer">
+        <rect x="${jbX}" y="${bTop}" width="${JBW}" height="${n*LH}" rx="3" fill="${cv("--block")}" stroke="${A}" stroke-dasharray="5 3"/>
+        <text x="${jbX+JBW/2}" y="${bTop+n*LH/2+4}" fill="${A}" font-size="10.5" text-anchor="middle">${esc(jb.length>15?jb.slice(0,14)+"…":jb)}</text>
+        <text x="${jbX+JBW/2}" y="${bTop+n*LH/2+17}" fill="${INK3}" font-size="8.5" text-anchor="middle">${n} cores</text>
+        <title>${esc(jb)}</title></g>`;
+      o=head+o; y+=8;});
+    return o;};
+  $("#sheet").innerHTML=s+side(group(inc,"from"),"L")+side(group(out,"to"),"R")+"</svg>";
+  $("#sheet").querySelectorAll(".wire").forEach(g=>g.onclick=()=>{SELPAIR=g.dataset.tag;setTbl(true);render();});
+  $("#sheet").querySelectorAll(".jbblk").forEach(el=>el.onclick=e=>{e.stopPropagation();
+    FILT[MAP.jb]=FILT[MAP.jb]===el.dataset.jb?"":el.dataset.jb;render();});
+}
+
+/* ================= PACKAGE ANALYTICS =================
+   Rule set written the way a package I&C engineer reads an I/O list at IRN / pre-FAT:
+   interface completeness first, then the safety path, then cable schedule integrity,
+   then instrument-level convention checks. Every finding is clickable back to the rows. */
+let QCF=[],FINDING=null;
+const RX={esd:/\b(ESD|SIS|PLANT ESD|SAFETY|F&?G|FGS|SHUTDOWN)\b/i,
+  mms:/\b(MMS|VMS|BENTLY|MPS|MACHINE)\b/i,
+  ctrl:/\b(ASC|CCC|UCP|LCP|CCS|PLC|DCS)\b/i,
+  vib:/^[\d\-]*(VT|ZT|AT|XT|VE|AE)[\-0-9]/i,
+  vibSvc:/VIBRAT|AXIAL|DISPLAC|THRUST|BRG|BEARING/i,
+  spd:/^[\d\-]*(ST|SE|SI)[\-0-9]/i, spdSvc:/SPEED|RPM|TACHO/i,
+  valve:/^[\d\-]*(FY|FV|PV|TV|HV|XV|PCV|TCV|LV)[\-0-9]/i,
+  fb:/^[\d\-]*(ZT|FZT|GT|ZS|ZSC|ZSO|FZSC|FZSO|ZI)[\-0-9]/i,
+  disc:/contact|sol|discrete|digital|pulse|24\s*v/i,
+  ana:/4\s*-?\s*20|ma|rtd|thermo|mv|analog|hart|0-10/i};
+const loopNo=t=>{const m=String(t).match(/(\d{3,6})[A-Z]?$/);return m?m[1]:null;};
+const svcKey=r=>norm(r.service).slice(0,22);
+
+function analyse(){
+  const F=[],R=RAW;
+  const add=(sev,cat,title,rows,hint,list)=>{if((rows&&rows.length)||(list&&list.length))
+    F.push({sev,cat,title,rows:rows||[],list:list||[],hint});};
+  const tagsOf=rows=>[...new Set(rows.map(r=>r.tag))];
+  const byTag=new Map();R.forEach(r=>{if(!byTag.has(r.tag))byTag.set(r.tag,[]);byTag.get(r.tag).push(r);});
+  const jbOn=MAP.jb>=0,almOn=MAP.sp>=0;
+  const col=n=>HEADERS.findIndex(h=>norm(h).includes(n));
+
+  /* ---- 1. interface completeness ---- */
+  add("major","Interface","Signals with an open end — SIGNAL FROM or SIGNAL TO not stated",
+    R.filter(r=>(r.from==="(blank)"||r.to==="(blank)")&&!r.local&&!r.elem),
+    "Every signal needs both ends before wiring can be marshalled. Usually a copy-paste gap in the I/O list.");
+  const dup=new Map();
+  R.forEach(r=>{const k=[r.tag,r.from,r.to,r.io].join("|");dup.set(k,(dup.get(k)||0)+1);});
+  add("major","Interface","Duplicate signal rows (same tag, same route, same I/O type)",
+    R.filter(r=>dup.get([r.tag,r.from,r.to,r.io].join("|"))>1),
+    "Double-counted I/O inflates card count and card allocation. Check for merged revisions of the list.");
+  const ioByTag=new Map();R.forEach(r=>{const k=r.tag;if(!ioByTag.has(k))ioByTag.set(k,new Set());ioByTag.get(k).add(r.io);});
+  add("minor","Interface","Same tag declared with different S.Type (I/O type)",
+    R.filter(r=>ioByTag.get(r.tag)&&ioByTag.get(r.tag).size>1&&r.tag!=="—"),
+    "A tag wired as both contact and 4-20 mA is normally a typing error, or two loops sharing one tag.");
+  add("minor","Interface","Signals with no SubSystem assigned",
+    R.filter(r=>!r.sub||r.sub==="—"),"Unassigned signals fall out of skid-level scope splits and test packs.");
+  /* one-way interfaces */
+  const pair=new Map();
+  R.forEach(r=>pair.set(r.from+"\u0000"+r.to,(pair.get(r.from+"\u0000"+r.to)||0)+1));
+  const oneWay=[];
+  pair.forEach((n,k)=>{const [a,b]=k.split("\u0000");
+    if(!pair.has(b+"\u0000"+a)&&a!=="FIELD"&&b!=="FIELD"&&a!=="(blank)"&&b!=="(blank)")oneWay.push(`${a} → ${b} (${n})`);});
+  add("info","Interface","System-to-system links with traffic in one direction only",null,
+    "Panel-to-panel interfaces normally carry a handshake back (healthy / watchdog / permissive). Confirm the reverse signal is genuinely not required.",oneWay);
+
+  /* ---- 2. safety path ---- */
+  if(almOn){
+    const tripTags=[...byTag.entries()].filter(([,rows])=>rows.some(x=>x.trip==="TRIP"));
+    const noEsd=tripTags.filter(([,rows])=>!rows.some(x=>RX.esd.test(x.to)||RX.esd.test(x.from)));
+    add("critical","Safety path","Trip-rated instruments (HH / LL) with no hardwired path to ESD",
+      noEsd.flatMap(([,rows])=>rows),
+      "The alarm schedule declares a trip but the I/O list never routes the signal to the safety system. Either the setpoint is an alarm, or the ESD input is missing.");
+    const dcsOnly=tripTags.filter(([,rows])=>rows.every(x=>/DCS/i.test(x.to))&&rows.length);
+    add("critical","Safety path","Trip signals routed to DCS only",dcsOnly.flatMap(([,rows])=>rows),
+      "A trip that terminates in the control system alone has no independent protection layer.");
+    const svc=new Map();
+    tripTags.forEach(([t,rows])=>{const k=svcKey(rows[0]);if(!k)return;if(!svc.has(k))svc.set(k,new Set());svc.get(k).add(t);});
+    const single=[...svc.entries()].filter(([,set])=>set.size===1).map(([,set])=>[...set][0]);
+    add("major","Safety path","Trip services measured by a single transmitter (1oo1)",null,
+      "No voting and no degraded-mode operation: a transmitter failure either trips the machine or defeats the protection. Check against the SIL / vendor requirement.",single);
+    add("major","Safety path","Setpoint data failing QC (order, calibrated range, units)",
+      MAP.qc>=0?R.filter(r=>r.cells[MAP.qc]&&r.cells[MAP.qc]!=="OK"&&r.cells[MAP.qc]!==""):[],
+      "LL < L < H < HH must hold, every setpoint must sit inside the calibrated span, and a unit must be stated.");
+    const anaNoSp=R.filter(r=>RX.ana.test(r.io)&&!r.sp&&RX.ctrl.test(r.to));
+    add("info","Safety path","Analogue inputs to the control system with no alarm or trip setpoint",anaNoSp,
+      "Normal for indication-only loops — worth a sweep to confirm nothing was missed in the alarm schedule.");
+  }
+  const solNotSafe=R.filter(r=>/sol/i.test(r.io)&&!RX.esd.test(r.from)&&!/LCP|ASC|CCC/i.test(r.from));
+  add("major","Safety path","Solenoid outputs not driven from the safety or unit control system",solNotSafe,
+    "Shutdown solenoids are normally energised-to-run from ESD. Verify the driving source and fail position.");
+
+  /* ---- 3. machine protection & control (compressor specific) ---- */
+  const vibRows=R.filter(r=>RX.vib.test(r.tag)||RX.vibSvc.test(r.service));
+  const vibTags=[...new Set(vibRows.map(r=>r.tag))];
+  const vibBad=vibTags.filter(t=>!byTag.get(t).some(x=>RX.mms.test(x.to)||RX.mms.test(x.from)));
+  add("major","Machine protection","Vibration / axial / bearing instruments not landing in the machine monitoring system",
+    vibBad.flatMap(t=>byTag.get(t)),
+    "Proximity and thrust probes belong on the MMS rack; a route straight to the DCS loses the protection function and the transient data.");
+  const spdTags=[...new Set(R.filter(r=>RX.spd.test(r.tag)||RX.spdSvc.test(r.service)).map(r=>r.tag))];
+  const spdBad=spdTags.filter(t=>!byTag.get(t).some(x=>/CCC|ASC|UCP|MMS/i.test(x.to)));
+  add("major","Machine protection","Speed signals not reaching the antisurge / performance controller",
+    spdBad.flatMap(t=>byTag.get(t)),
+    "Antisurge control and overspeed protection both need speed. Check the pickup distribution and any repeat outputs.");
+  const valveTags=[...new Set(R.filter(r=>RX.valve.test(r.tag)).map(r=>r.tag))];
+  const fbLoops=new Set(R.filter(r=>RX.fb.test(r.tag)).map(r=>loopNo(r.tag)).filter(Boolean));
+  const noFb=valveTags.filter(t=>{const l=loopNo(t);return l&&!fbLoops.has(l);});
+  add("major","Machine protection","Control / shutdown valves with no position feedback in the same loop",
+    noFb.flatMap(t=>byTag.get(t)||[]),
+    "Antisurge and blowdown valves need position transmitters or limit switches for stroke checking, surge response proof and cause-and-effect verification.");
+
+  /* ---- 4. cable schedule & junction boxes ---- */
+  if(jbOn){
+    add("major","Cable schedule","Field signals with no junction box in the cable schedule",
+      R.filter(r=>(r.from==="FIELD"||r.to==="FIELD")&&!r.jb&&!r.local&&!r.elem),
+      "Every field core lands somewhere. Missing rows are usually instruments added after the cable schedule was issued.");
+    const jbCount=new Map();
+    R.forEach(r=>{if(r.jb)jbCount.set(r.jb,(jbCount.get(r.jb)||0)+1);});
+    const heavy=[...jbCount.entries()].filter(([,n])=>n>24).map(([j,n])=>`${j} — ${n} cores`);
+    add("info","Cable schedule","Junction boxes carrying more than 24 cores",null,
+      "Check terminal capacity and spare allowance (typically 20%) against the JB GA drawing.",heavy);
+    const mixed=[];
+    if(MAP.trip>=0){const m=new Map();
+      R.forEach(r=>{if(!r.jb)return;if(!m.has(r.jb))m.set(r.jb,{t:0,c:0});r.trip==="TRIP"?m.get(r.jb).t++:m.get(r.jb).c++;});
+      m.forEach((v,j)=>{if(v.t&&v.c)mixed.push(`${j} — ${v.t} trip / ${v.c} control`);});}
+    add("info","Cable schedule","Junction boxes mixing trip and control signals",null,
+      "Many specifications segregate safety and control cabling into separate boxes and multicores. Confirm against the project wiring philosophy.",mixed);
+    const tCol=col("terminal"),cCol=col("cableno");
+    if(tCol>=0){const seen=new Map(),clash=[];
+      R.forEach(r=>{const t=r.cells[tCol];if(!r.jb||!t)return;const k=r.jb+" / "+t;
+        if(seen.has(k)&&seen.get(k)!==r.tag)clash.push(`${k} — ${seen.get(k)} & ${r.tag}`);else seen.set(k,r.tag);});
+      add("major","Cable schedule","Same junction box terminal allocated to two different tags",null,
+        "A terminal clash stops loop checking dead. Re-issue the terminal allocation.",[...new Set(clash)]);}
+    if(cCol>=0){const cm=new Map();
+      R.forEach(r=>{const c=r.cells[cCol];if(!c)return;if(!cm.has(c))cm.set(c,new Set());cm.get(c).add(r.tag);});
+      const shared=[...cm.entries()].filter(([,s])=>s.size>1).map(([c,s])=>`${c} — ${[...s].slice(0,4).join(", ")}`);
+      add("info","Cable schedule","One field cable number carrying several tags",null,
+        "Normal for multipair home runs, wrong for single-pair field cables. Worth a scan.",shared);}
+    if(MATCHLOG.jb)add("major","Cable schedule","Junction box rows with no matching instrument in the I/O list",null,
+      "Cable schedule holds tags the I/O list does not — deleted instruments, or a tag numbering revision that never reached the I/O list.",MATCHLOG.jb.orphans);
+  }
+
+  /* ---- 5. data quality ---- */
+  const nonExact=[];
+  [["JB · match","junction box"],["ALM · match","alarm"]].forEach(([h,lab])=>{
+    const c=HEADERS.indexOf(h);if(c<0)return;
+    R.forEach(r=>{const v=r.cells[c];if(v&&v!=="EXACT"&&v!=="UNMATCHED")nonExact.push(`${r.tag} — ${lab} matched by ${v}`);});});
+  add("minor","Data quality","Rows joined by a relaxed tag rule rather than an exact match",null,
+    "Confirm these are the same instrument, then align the tag spelling across the deliverables.",[...new Set(nonExact)]);
+  if(MATCHLOG.alm)add("minor","Data quality","Alarm schedule rows with no matching instrument in the I/O list",null,
+    "Setpoints exist for tags that carry no signal — deleted instruments or soft/calculated points.",MATCHLOG.alm.orphans);
+  const sumTypes=f=>[...new Set(R.filter(f).map(r=>r.type))]
+    .map(t=>`${t} — ${new Set(R.filter(r=>r.type===t).map(r=>r.tag)).size} instruments`);
+  add("info","Interface","Local devices excluded from interface checks (gauges, indicators, orifices)",null,
+    "No interface expected. Adjust under Columns → Instrument types / local devices.",sumTypes(r=>r.local));
+  add("info","Interface","Primary elements excluded — wired to their own transmitter",null,
+    "VE→VT, TE→TT, FE→FT, KE→KT, ZE→ZT. The partner tag is matched by loop number.",sumTypes(r=>r.elem));
+  add("major","Interface","Primary elements with no matching transmitter in the I/O list",
+    R.filter(r=>r.elem&&r.pair==="NOT FOUND"),
+    "An element with no XT tag on the same loop number means either the transmitter is missing from the I/O list, or the loop numbering differs between element and transmitter.");
+  const orphanTx=[];
+  if(MAP.type>=0){
+    const elemLoops=new Set(R.filter(r=>r.elem).map(r=>tagLoop(r.tag)+"|"+elemPartner(r.type)));
+    [...new Set(R.filter(r=>/^(VT|ZT|KT)$/.test(r.type)).map(r=>r.tag))].forEach(t=>{
+      const k=tagLoop(t)+"|"+tagType(t);if(!elemLoops.has(k))orphanTx.push(t);});}
+  add("info","Interface","Vibration / position transmitters with no primary element listed",null,
+    "Probe, extension cable and proximitor are often a separate tag. Confirm they are covered by the package scope split.",orphanTx);
+  const wired=R.filter(r=>r.local&&r.from!=="LOCAL"&&r.to!=="LOCAL");
+  add("minor","Interface","Types marked local that do carry a system signal",wired,
+    "Either the exception is too broad (e.g. VE probes that do land on the MMS) or the tag prefix is being reused.");
+  const conv=R.filter(r=>(RX.disc.test(r.io)&&/direct-/i.test(r.sig))||(RX.ana.test(r.io)&&/maintained|momentary/i.test(r.sig)&&!RX.disc.test(r.io)));
+  add("minor","Data quality","S.Type and SIGNAL TYPE conventions disagree",conv,
+    "Discrete points should carry a contact convention (maintained / momentary), analogue points a sink / source convention.");
+  QCF=F;
+  return F;
+}
+
+function qcKpis(){
+  const n=RAW.length,jbOn=MAP.jb>=0,almOn=MAP.sp>=0;
+  const field=RAW.filter(r=>(r.from==="FIELD"||r.to==="FIELD")&&!r.local&&!r.elem).length;
+  const withJB=RAW.filter(r=>r.jb&&!r.local&&!r.elem).length;
+  const trips=RAW.filter(r=>r.trip==="TRIP");
+  const tripTags=[...new Set(trips.map(r=>r.tag))];
+  const tripEsd=tripTags.filter(t=>RAW.some(r=>r.tag===t&&(RX.esd.test(r.to)||RX.esd.test(r.from))));
+  const open=RAW.filter(r=>(r.from==="(blank)"||r.to==="(blank)")&&!r.local).length;
+  const loc=RAW.filter(r=>r.local).length,elm=RAW.filter(r=>r.elem).length;
+  const crit=QCF.filter(f=>f.sev==="critical").reduce((a,f)=>a+(f.rows.length||f.list.length),0);
+  const maj=QCF.filter(f=>f.sev==="major").reduce((a,f)=>a+(f.rows.length||f.list.length),0);
+  const pct=(a,b)=>b?Math.round(a*100/b):0;
+  return [
+    {k:"Signals",v:n,s:`${new Set(RAW.map(r=>r.tag)).size} instruments`},
+    {k:"Interface complete",v:pct(n-open,n)+"%",s:`${open} open ends`,bar:pct(n-open,n)},
+    {k:"Local / elements",v:loc+" / "+elm,s:`${EXCEPT.size} local · ${ELEM.size} element types`},
+    {k:"Field cores in a JB",v:jbOn?pct(withJB,field)+"%":"—",s:jbOn?`${field-withJB} of ${field} missing`:"no JB list",bar:jbOn?pct(withJB,field):null},
+    {k:"Trips reaching ESD",v:almOn?pct(tripEsd.length,tripTags.length)+"%":"—",
+      s:almOn?`${tripTags.length-tripEsd.length} of ${tripTags.length} not routed`:"no alarm list",
+      bar:almOn?pct(tripEsd.length,tripTags.length):null},
+    {k:"Critical findings",v:crit,s:"safety path"},
+    {k:"Major findings",v:maj,s:"engineering rework"}];
+}
+
+function drawQC(){
+  $("#drawTitle").textContent="Package analytics — interface, safety path and cable schedule QC";
+  analyse();
+  const k=qcKpis();
+  const sevCol={critical:"#E5534B",major:cv("--accent"),minor:cv("--ink2"),info:cv("--accent2")};
+  const total=QCF.reduce((a,f)=>a+(f.rows.length||f.list.length),0);
+  $("#drawSub").textContent=`${QCF.length} rule hits · ${total} items`;
+  let h=`<div class="qc"><div class="kpis">`+k.map(x=>`<div class="kpi"><div class="k">${x.k}</div>
+    <div class="v">${x.v}</div><div class="s">${esc(x.s)}</div>
+    ${x.bar!=null?`<div class="bar2"><i style="width:${x.bar}%;background:${x.bar>=95?"#3FB950":x.bar>=80?cv("--accent"):"#E5534B"}"></i></div>`:""}</div>`).join("")+`</div>`;
+  if(!QCF.length)h+=`<div class="qcgrp">Findings</div><div class="ok" style="font-family:var(--mono);font-size:12px">No rule hits — the three schedules are consistent.</div>`;
+  const cats=[...new Set(QCF.map(f=>f.cat))];
+  const order={critical:0,major:1,minor:2,info:3};
+  cats.forEach(c=>{
+    h+=`<div class="qcgrp">${esc(c)}</div>`;
+    QCF.map((f,i)=>({f,i})).filter(x=>x.f.cat===c).sort((a,b)=>order[a.f.sev]-order[b.f.sev]).forEach(({f,i})=>{
+      const n=f.rows.length||f.list.length;
+      h+=`<div class="find" data-i="${i}"><div class="h">
+        <span class="sev" style="color:${sevCol[f.sev]}">${f.sev.toUpperCase()}</span>
+        <span class="ttl">${esc(f.title)}</span><span class="cnt">${n}</span></div>
+        <div class="body"><div class="hint">${esc(f.hint||"")}</div><div class="tags">`+
+        (f.rows.length?[...new Set(f.rows.map(r=>r.tag))].slice(0,60).map(t=>`<span class="tg" data-tag="${esc(t)}">${esc(t)}</span>`).join("")
+                      :f.list.slice(0,60).map(t=>`<span class="tg">${esc(t)}</span>`).join(""))+
+        `</div>${(f.rows.length?[...new Set(f.rows.map(r=>r.tag))].length:f.list.length)>60?`<div class="hint" style="margin-top:6px">…and ${(f.rows.length?[...new Set(f.rows.map(r=>r.tag))].length:f.list.length)-60} more</div>`:""}
+        ${f.rows.length?`<div style="margin-top:8px"><button class="btn" data-open="${i}">Open ${f.rows.length} rows in the schedule</button></div>`:""}</div></div>`;});
+  });
+  h+=`<div style="margin-top:14px"><button class="btn" id="qcCsv">Export findings to CSV</button></div></div>`;
+  $("#sheet").innerHTML=h;
+  $("#sheet").querySelectorAll(".find .h").forEach(el=>el.onclick=()=>el.parentElement.classList.toggle("open"));
+  $("#sheet").querySelectorAll("[data-open]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const f=QCF[+b.dataset.open];FINDING={title:f.title,rows:f.rows};setTbl(true);drawTable(parseQuery($("#fQ").value));});
+  $("#sheet").querySelectorAll(".tg[data-tag]").forEach(t=>t.onclick=e=>{e.stopPropagation();
+    SELPAIR=t.dataset.tag;FINDING=null;setTbl(true);render();});
+  const csv=$("#qcCsv");if(csv)csv.onclick=()=>{
+    const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+    const lines=[["Severity","Category","Finding","Count","Items","Guidance"].map(q).join(",")];
+    QCF.forEach(f=>lines.push([f.sev,f.cat,f.title,f.rows.length||f.list.length,
+      (f.rows.length?[...new Set(f.rows.map(r=>r.tag))]:f.list).join("; "),f.hint||""].map(q).join(",")));
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
+    a.download="package_analytics_findings.csv";a.click();};
+}
+
+/* ---- subsystem / skid block diagram ---- */
+let SKIDBY=-1,SPON=true;
+$("#btnSP").onclick=()=>{SPON=!SPON;$("#btnSP").style.color=SPON?"":cv("--ink3");render();};
+$("#skidBy").onchange=e=>{SKIDBY=+e.target.value;render();};
+function skidCols(){
+  const out=[];
+  HEADERS.forEach((h,c)=>{const d=distinct(c).size;if(d>=1&&d<=60&&c!==MAP.tag)out.push([c,h,d]);});
+  return out;
+}
+function drawSkid(){
+  const cols=skidCols();
+  const col=(SKIDBY>=0&&SKIDBY<HEADERS.length)?SKIDBY:(MAP.sub>=0?MAP.sub:(cols[0]?cols[0][0]:-1));
+  SKIDBY=col;
+  $("#skidBy").innerHTML=cols.map(([c,h,d])=>`<option value="${c}" ${c===col?"selected":""}>group by ${esc(h)} (${d})</option>`).join("");
+  $("#skidBy").style.display="inline-block";
+  $("#drawTitle").textContent="Subsystem blocks — instruments per "+(HEADERS[col]||"group");
+  if(col<0){$("#sheet").innerHTML=`<div class="hint">No column available to group by.</div>`;return;}
+  /* one entry per instrument tag, not per signal */
+  const g=new Map();
+  ROWS.forEach(r=>{const k=r.cells[col]||"(unassigned)";
+    if(!g.has(k))g.set(k,new Map());
+    const m=g.get(k),t=r.tag||"—";
+    if(!m.has(t))m.set(t,[]);m.get(t).push(r);});
+  const groups=[...g.entries()].map(([name,m])=>({name,tags:[...m.entries()]
+      .sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}))}))
+    .sort((a,b)=>b.tags.length-a.tags.length||a.name.localeCompare(b.name));
+  $("#drawSub").textContent=`${groups.length} blocks · ${groups.reduce((n,x)=>n+x.tags.length,0)} instruments`;
+  if(!groups.length){$("#sheet").innerHTML=`<div class="hint">Nothing matches the current filters.</div>`;return;}
+  const INK=cv("--ink"),INK2=cv("--ink2"),INK3=cv("--ink3"),L2=cv("--line2"),A=cv("--accent"),A2=cv("--accent2");
+  const TRIP="#E5534B";
+  const CW=118,CH=24,GAP=7,PAD=12,HDR=30,W=1280,MARG=16,BGAP=16,TOP=64;
+  /* size every block, then shelf-pack them left to right */
+  const boxes=groups.map(gr=>{
+    const n=gr.tags.length,c=Math.max(1,Math.min(6,Math.round(Math.sqrt(n/1.5))||1));
+    const rows=Math.ceil(n/c);
+    return {gr,c,rows,w:PAD*2+c*(CW+GAP)-GAP,h:HDR+PAD*2+rows*(CH+GAP)-GAP};});
+  let x=MARG,y=TOP,shelf=0,H=TOP;
+  boxes.forEach(b=>{
+    if(x+b.w>W-MARG&&x>MARG){x=MARG;y+=shelf+BGAP;shelf=0;}
+    b.x=x;b.y=y;x+=b.w+BGAP;shelf=Math.max(shelf,b.h);H=Math.max(H,y+b.h);});
+  H+=MARG+8;
+  const sel=MAP.sub>=0?FILT[col]:"";
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="${SVGNS}" font-family="${monoFont()}">
+    <text x="${MARG}" y="26" fill="${INK3}" font-size="10" letter-spacing="3">${esc(String(HEADERS[col]||"").toUpperCase())} — SKID / SUBSYSTEM BLOCKS</text>
+    <g font-size="9">
+      <rect x="${MARG}" y="38" width="9" height="9" fill="none" stroke="${TRIP}" stroke-width="1.6"/><text x="${MARG+14}" y="46" fill="${INK3}">trip (HH / LL)</text>
+      <rect x="${MARG+110}" y="38" width="9" height="9" fill="none" stroke="${A}" stroke-width="1.6"/><text x="${MARG+124}" y="46" fill="${INK3}">alarm (H / L)</text>
+      <rect x="${MARG+220}" y="38" width="9" height="9" fill="none" stroke="${L2}"/><text x="${MARG+234}" y="46" fill="${INK3}">no setpoint</text>
+      <text x="${MARG+330}" y="46" fill="${INK3}">click a tag for its schedule · click a block header to filter</text></g>`;
+  boxes.forEach(b=>{
+    const on=FILT[col]===b.gr.name;
+    s+=`<g class="skidbox" data-g="${esc(b.gr.name)}">
+      <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="4" fill="${cv("--block")}" stroke="${on?A2:L2}" stroke-width="${on?2:1}"/>
+      <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${HDR}" rx="4" fill="${on?cv("--blockOn"):cv("--panel2")}"/>
+      <rect x="${b.x}" y="${b.y+HDR-4}" width="${b.w}" height="4" fill="${on?cv("--blockOn"):cv("--panel2")}"/>
+      <line x1="${b.x}" y1="${b.y+HDR}" x2="${b.x+b.w}" y2="${b.y+HDR}" stroke="${L2}"/>
+      <g class="skidhdr" style="cursor:pointer">
+        <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${HDR}" fill="transparent"/>
+        <text x="${b.x+PAD}" y="${b.y+20}" fill="${on?A2:INK}" font-size="11.5">${esc(b.gr.name.length>26?b.gr.name.slice(0,25)+"…":b.gr.name)}</text>
+        <text x="${b.x+b.w-PAD}" y="${b.y+20}" fill="${INK3}" font-size="10" text-anchor="end">${b.gr.tags.length}</text>
+        <title>${esc(b.gr.name)} — ${b.gr.tags.length} instruments</title></g>`;
+    b.gr.tags.forEach(([tag,rows],i)=>{
+      const cx=b.x+PAD+(i%b.c)*(CW+GAP),cy=b.y+HDR+PAD+Math.floor(i/b.c)*(CH+GAP);
+      const cls=rows.find(r=>r.trip==="TRIP")?"TRIP":(rows.find(r=>r.trip==="ALARM")?"ALARM":"");
+      const stroke=cls==="TRIP"?TRIP:(cls==="ALARM"?A:L2),selT=SELPAIR===tag;
+      const r0=rows[0],jb=rows.map(r=>r.jb).filter(Boolean)[0]||"";
+      s+=`<g class="chip" data-tag="${esc(tag)}" style="cursor:pointer">
+        <rect x="${cx}" y="${cy}" width="${CW}" height="${CH}" rx="2" fill="${selT?cv("--blockOn"):cv("--panel2")}"
+          stroke="${selT?A2:stroke}" stroke-width="${selT||cls?1.6:1}"/>
+        ${rows.length>1?`<text x="${cx+CW-5}" y="${cy+CH-6}" fill="${INK3}" font-size="8" text-anchor="end">×${rows.length}</text>`:""}
+        <text x="${cx+7}" y="${cy+16}" fill="${cls==="TRIP"?TRIP:INK}" font-size="10.5">${esc(tag.length>13?tag.slice(0,12)+"…":tag)}</text>
+        <title>${esc(tag)} — ${esc(r0.service)}\n${esc(r0.io)} · ${esc(r0.from)} → ${esc(r0.to)}${jb?"\nJB: "+esc(jb):""}${r0.sp?"\n"+esc(r0.sp):""}${rows.length>1?"\n"+rows.length+" signals":""}</title></g>`;});
+    s+=`</g>`;});
+  $("#sheet").innerHTML=s+"</svg>";
+  $("#sheet").querySelectorAll(".chip").forEach(el=>el.onclick=e=>{e.stopPropagation();
+    SELPAIR=el.dataset.tag;FINDING=null;setTbl(true);render();});
+  $("#sheet").querySelectorAll(".skidbox").forEach(el=>{
+    const h=el.querySelector(".skidhdr");if(h)h.onclick=()=>{
+      FILT[col]=FILT[col]===el.dataset.g?"":el.dataset.g;SELPAIR=null;render();};});
+}
+
+/* ---- alarm & trip setpoint ladder ---- */
+function drawAlarm(){
+  $("#drawTitle").textContent="Alarm & trip schedule — setpoint ladder";
+  if(MAP.sp<0||!MAP.alm){$("#drawSub").textContent="";
+    $("#sheet").innerHTML=`<div class="hint">No alarm &amp; trip list loaded.<br>Use <b>Upload alarm list</b> — it joins to the I/O list on TAGNO.</div>`;return;}
+  const at=MAP.alm,seen=new Set(),items=[];
+  ROWS.forEach(r=>{if(!r.sp||seen.has(r.tag))return;seen.add(r.tag);items.push(r);});
+  items.sort((a,b)=>a.tag.localeCompare(b.tag,undefined,{numeric:true}));
+  $("#drawSub").textContent=`${items.length} instruments · ${items.filter(r=>r.trip==="TRIP").length} with trips`;
+  if(!items.length){$("#sheet").innerHTML=`<div class="hint">No instruments with setpoints in the current filter.</div>`;return;}
+  const INK=cv("--ink"),INK2=cv("--ink2"),INK3=cv("--ink3"),L2=cv("--line2"),A=cv("--accent"),A2=cv("--accent2");
+  const TRIP="#E5534B",ALRM=A;
+  const W=1240,RH=46,TOP=64,LBL=250,AX=LBL+40,AXW=W-AX-140;
+  const H=TOP+items.length*RH+24;
+  const g=(r,f)=>at[f]!==undefined?String(r.cells[at[f]]??"").trim():"";
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="${SVGNS}" font-family="${monoFont()}">
+    <text x="16" y="24" fill="${INK3}" font-size="10" letter-spacing="3">TAG / SERVICE</text>
+    <text x="${AX}" y="24" fill="${INK3}" font-size="10" letter-spacing="3">RANGE · CALIBRATED SPAN · SETPOINTS</text>
+    <text x="${W-16}" y="24" fill="${INK3}" font-size="10" letter-spacing="3" text-anchor="end">CLASS</text>
+    <g font-size="9"><rect x="${AX}" y="34" width="26" height="7" fill="${A2}" opacity=".22"/>
+      <text x="${AX+32}" y="41" fill="${INK3}">calibrated span</text>
+      <rect x="${AX+150}" y="33" width="3" height="9" fill="${ALRM}"/><text x="${AX+158}" y="41" fill="${INK3}">H / L alarm</text>
+      <rect x="${AX+250}" y="33" width="3" height="9" fill="${TRIP}"/><text x="${AX+258}" y="41" fill="${INK3}">HH / LL trip</text></g>`;
+  items.forEach((r,i)=>{
+    const y=TOP+i*RH+RH/2,sel=SELPAIR===r.tag;
+    const vals={ll:num(g(r,"ll")),l:num(g(r,"l")),h:num(g(r,"h")),hh:num(g(r,"hh"))};
+    const mn=num(g(r,"min")),mx=num(g(r,"max")),cmn=num(g(r,"calmin")),cmx=num(g(r,"calmax")),u=g(r,"units");
+    const nums=[mn,mx,cmn,cmx,vals.ll,vals.l,vals.h,vals.hh].filter(v=>v!==null);
+    let lo=Math.min(...nums),hi=Math.max(...nums);
+    if(!isFinite(lo)||lo===hi){lo=0;hi=1;}
+    const pad=(hi-lo)*0.06;lo-=pad;hi+=pad;
+    const X=v=>AX+(v-lo)/(hi-lo)*AXW;
+    s+=`<g class="alm" data-tag="${esc(r.tag)}" style="cursor:pointer">
+      <rect x="8" y="${y-RH/2+3}" width="${W-16}" height="${RH-6}" fill="${sel?cv("--blockOn"):"none"}" stroke="${sel?A2:"none"}"/>
+      <text x="16" y="${y-2}" fill="${A}" font-size="11.5">${esc(r.tag)}</text>
+      <text x="16" y="${y+11}" fill="${INK3}" font-size="9">${esc((r.service||g(r,"service")||"").slice(0,34))}</text>`;
+    if(cmn!==null&&cmx!==null)
+      s+=`<rect x="${X(cmn)}" y="${y-8}" width="${Math.max(1,X(cmx)-X(cmn))}" height="16" fill="${A2}" opacity=".22"/>`;
+    s+=`<line x1="${AX}" y1="${y}" x2="${AX+AXW}" y2="${y}" stroke="${L2}"/>`;
+    if(mn!==null)s+=`<text x="${X(mn)}" y="${y+20}" fill="${INK3}" font-size="8.5" text-anchor="middle">${esc(g(r,"min"))}</text>`;
+    if(mx!==null)s+=`<text x="${X(mx)}" y="${y+20}" fill="${INK3}" font-size="8.5" text-anchor="middle">${esc(g(r,"max"))}</text>`;
+    [["ll",TRIP,1],["l",ALRM,1],["h",ALRM,-1],["hh",TRIP,-1]].forEach(([k,col,dir])=>{
+      const v=vals[k];if(v===null)return;const x=X(v);
+      s+=`<line x1="${x}" y1="${y-11}" x2="${x}" y2="${y+11}" stroke="${col}" stroke-width="2.4"/>
+        <text x="${x}" y="${dir>0?y+22:y-15}" fill="${col}" font-size="9" text-anchor="middle">${k.toUpperCase()} ${esc(g(r,k))}</text>`;});
+    s+=`<text x="${AX+AXW+10}" y="${y+3}" fill="${INK2}" font-size="9.5">${esc(u)}</text>
+      <text x="${W-16}" y="${y+3}" fill="${r.trip==="TRIP"?TRIP:INK3}" font-size="9.5" text-anchor="end">${esc(r.trip)}</text>
+      <title>${esc(r.tag)} — ${esc(r.service)}\n${esc(r.sp)}${MAP.qc>=0&&r.cells[MAP.qc]&&r.cells[MAP.qc]!=="OK"?"\nQC: "+esc(r.cells[MAP.qc]):""}</title></g>`;
+  });
+  $("#sheet").innerHTML=s+"</svg>";
+  $("#sheet").querySelectorAll(".alm").forEach(el=>el.onclick=()=>{SELPAIR=el.dataset.tag;setTbl(true);render();});
+}
+
+function tableRows(){
+  let rows;
+  if(FINDING&&FINDING.rows&&FINDING.rows.length)return FINDING.rows;
+  if(SELPAIR&&SELPAIR.includes("\u0000")){const p=SELPAIR.split("\u0000");
+    rows=p.length===3?ROWS.filter(r=>r.from===p[0]&&(r.jb||"")===p[1]&&r.to===p[2])
+                     :ROWS.filter(r=>r.from===p[0]&&r.to===p[1]);}
+  else if(FOCUS)rows=ROWS.filter(r=>r.from===FOCUS||r.to===FOCUS);
+  else rows=ROWS;
+  if(SORT.c!=null)rows=[...rows].sort((a,b)=>
+    String(a.cells[SORT.c]).localeCompare(String(b.cells[SORT.c]),undefined,{numeric:true})*SORT.dir);
+  return rows;
+}
+function drawTable(terms=[]){
+  const rows=tableRows();
+  if(FINDING&&FINDING.rows&&FINDING.rows.length){$("#tblTitle").textContent="Finding — "+FINDING.title;}
+  else $("#tblTitle").textContent=SELPAIR&&SELPAIR.includes("\u0000")
+    ?"Signal schedule — "+SELPAIR.split("\u0000").filter(Boolean).join(" → ")
+    :FOCUS?"Signal schedule — "+FOCUS:"Signal schedule — all filtered signals";
+  $("#tblCount").textContent=rows.length+" rows";
+  const cols=SHOW.length?SHOW:HEADERS.map((_,i)=>i);
+  $("#tblWrap").innerHTML=`<table><thead><tr>`+
+    cols.map(c=>`<th data-c="${c}">${esc(HEADERS[c])}${SORT.c===c?(SORT.dir>0?" ▲":" ▼"):""}</th>`).join("")+
+    `</tr></thead><tbody>`+rows.map(r=>`<tr class="${SELPAIR===r.tag?"sel":""}" data-tag="${esc(r.tag)}">`+
+      cols.map(c=>{const v=r.cells[c],h=hi(v,terms,c);
+        if(c===MAP.tag)return `<td class="tag">${h}</td>`;
+        if(c===MAP.sig)return `<td><span class="pill" style="border-color:${COLOR[v]||cv("--line2")};color:${COLOR[v]||cv("--ink2")}">${h}</span></td>`;
+        if((c===MAP.from&&v===FOCUS)||(c===MAP.to&&v===FOCUS))return `<td><b>${h}</b></td>`;
+        return `<td>${h}</td>`;}).join("")+`</tr>`).join("")+`</tbody></table>`;
+  $("#tblWrap").querySelectorAll("th").forEach(th=>th.onclick=()=>{
+    const c=+th.dataset.c;if(SORT.c===c)SORT.dir*=-1;else{SORT.c=c;SORT.dir=1;}drawTable(terms);});
+  $("#tblWrap").querySelectorAll("tr[data-tag]").forEach(tr=>tr.onclick=()=>{SELPAIR=tr.dataset.tag;render();});
+}
+
+/* ---------- template (picklists built from the loaded file) ---------- */
+const SEED={"SYSTEMS":["ASC","ASC (CCS)","CCC","DCS","ESD","FIELD","LCP","LCS","MBC","MBL","MCC","MCP","MMS","MVP",
+  "PLANT DCS","PLANT ESD","SAFETY RELAY","TYR","VFD","XC"],
+ "S.TYPE (I/O TYPE)":["4-20 mA","4-20 mA HART","RTD (3-wire)","Thermocouple","Contact","Sol 24Vdc","24Vdc DI",
+  "24Vdc DO","Pulse","Serial","Modbus TCP","Profibus DP"],
+ "SIGNAL TYPE":["Direct-Sink","Direct-Source","Maintained","Momentary","Dry Contact","Isolated","Fail-Safe (NE)"],
+ "SUBSYSTEM":["PROCESS GAS","ANTISURGE","LUBE OIL","SEAL GAS","MACHINE MONITORING","PACKAGE","F&G","UTILITIES"]};
+$("#btnTmpl").onclick=()=>{
+  const loaded=RAW.length>0;
+  const head=loaded?HEADERS.slice():["TagNo","Instrument Service","S.Type (I/O type)","SIGNAL FROM","SIGNAL TO","SIGNAL TYPE","SubSystem"];
+  const ex=loaded?DATA.slice(0,3):[["28-FT-5402","COMPRESSOR SUCTION FLOW","4-20 mA","FIELD","ASC","Direct-Sink","PROCESS GAS"],
+    ["28-FY-5410B","ANTISURGE VALVE DEMAND","4-20 mA","ASC","FIELD","Direct-Source","ANTISURGE"],
+    ["28-XA-5430","RADIAL VIBRATION TRIP","Contact","MMS","ESD","Maintained","MACHINE MONITORING"]];
+  let names,cols;
+  if(loaded){ // picklists straight from the columns available in the uploaded file
+    const src=(FACETS.length?FACETS:HEADERS.map((_,i)=>i));
+    names=src.map(c=>HEADERS[c]);
+    cols=src.map(c=>[...distinct(c).keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})));
+  }else{ names=Object.keys(SEED); cols=names.map(n=>SEED[n]); }
+  const wb=XLSX.utils.book_new();
+  const io=XLSX.utils.aoa_to_sheet([head,...ex]);
+  io["!cols"]=head.map((h,i)=>({wch:Math.max(14,Math.min(36,h.length+6))}));
+  io["!freeze"]={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,io,"IO LIST");
+  const len=Math.max(...cols.map(c=>c.length)),grid=[names];
+  for(let i=0;i<len;i++)grid.push(cols.map(c=>c[i]||""));
+  const pl=XLSX.utils.aoa_to_sheet(grid);pl["!cols"]=names.map(()=>({wch:24}));
+  XLSX.utils.book_append_sheet(wb,pl,"PICKLISTS");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ["INTERFACE SIGNAL MAPPER — I/O LIST TEMPLATE"],[""],
+    ["One row per signal. Delete the example rows before uploading."],
+    ["SIGNAL FROM and SIGNAL TO are mandatory — they build the drawing. Every other column becomes a filter picklist."],
+    ["Keep system names spelled consistently; each spelling becomes its own block on the drawing."],
+    [loaded?"PICKLISTS below were generated from the values already in your uploaded file.":"PICKLISTS below are a starting vocabulary — edit freely."]
+  ]),"READ ME");
+  XLSX.writeFile(wb,"IO-List-Template.xlsx");
+};
+
+/* ---------- junction box template (pre-filled from the I/O list) ---------- */
+$("#btnTmplJB").onclick=()=>{
+  const head=JB.data.length?JB.head.slice():["TAGNO","SIGNAL FROM","Junction Box Number","JB Location",
+    "Field Cable No","Pair / Core No","JB Terminal No","Multicore Cable No","Marshalling Panel","MP Terminal","Remarks"];
+  let body=[];
+  if(JB.data.length) body=JB.data.map(r=>r.slice());
+  else if(RAW.length&&MAP.tag>=0){ // seed one row per field-routed instrument, JB columns left blank
+    const seen=new Set();
+    RAW.forEach(r=>{const k=r.tag;if(!k||k==="—"||seen.has(k))return;seen.add(k);
+      body.push([r.tag,r.from].concat(new Array(head.length-2).fill("")));});
+  }else body=[["28-FT-5402","FIELD","28-JB-5401","COMPRESSOR SKID","FC-101","1","TB1-1/2","MC-01","MP-01","TS-201",""]];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([head,...body]);
+  ws["!cols"]=head.map(h=>({wch:Math.max(14,Math.min(30,h.length+6))}));
+  ws["!freeze"]={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,ws,"JB LIST");
+  const jbVals=MAP.jb>=0?[...distinct(MAP.jb).keys()].sort():["28-JB-5401","28-JB-5402","28-JB-5403","28-JB-5404"];
+  const frVals=MAP.from>=0?[...distinct(MAP.from).keys()].sort():["FIELD","ASC","ESD","DCS"];
+  const len=Math.max(jbVals.length,frVals.length),grid=[["Junction Box Number","SIGNAL FROM"]];
+  for(let i=0;i<len;i++)grid.push([jbVals[i]||"",frVals[i]||""]);
+  const pl=XLSX.utils.aoa_to_sheet(grid);pl["!cols"]=[{wch:26},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,pl,"PICKLISTS");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ["JUNCTION BOX / CABLE SCHEDULE TEMPLATE"],[""],
+    ["TAGNO is the primary key — it must match the TagNo in the I/O list exactly."],
+    ["Minimum columns: TAGNO, SIGNAL FROM, Junction Box Number. Everything else is optional and comes along for the ride."],
+    ["One row per instrument signal. If a tag appears more than once, the first row drives the drawing and the rest are counted in JB · links."],
+    [body.length&&!JB.data.length?"The TAGNO and SIGNAL FROM columns below were pre-filled from your loaded I/O list — add the junction box data.":"Fill in and upload with the “Upload JB list” button."]
+  ]),"READ ME");
+  XLSX.writeFile(wb,"JB-List-Template.xlsx");
+};
+
+/* ---------- alarm & trip template ---------- */
+const ALM_HEAD=["TAGNO","Type","Type desc.","Service","Units","Min.","Max.","Op. Range","Cal. Min","Cal. Max",
+  "HH value","HH descr.","H value","H descr.","L value","L descr.","LL value","LL descr."];
+$("#btnTmplALM").onclick=()=>{
+  const head=ALM.data.length?ALM.head.slice():ALM_HEAD.slice();
+  let body=[];
+  if(ALM.data.length)body=ALM.data.map(r=>r.slice());
+  else if(RAW.length&&MAP.tag>=0){
+    const seen=new Set();
+    RAW.forEach(r=>{if(!r.tag||r.tag==="—"||seen.has(r.tag))return;seen.add(r.tag);
+      const row=new Array(head.length).fill("");row[0]=r.tag;
+      row[1]=r.io||"";row[3]=r.service||"";body.push(row);});
+  }else body=[["28-PT-5411","AI","4-20 mA transmitter","COMPRESSOR DISCH PRESS","barg","0","100","0-100","0","100",
+    "92","DISCH PRESS HIGH HIGH — TRIP","85","DISCH PRESS HIGH","20","SUCTION PRESS LOW","12","PRESS LOW LOW — TRIP"]];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([head,...body]);
+  ws["!cols"]=head.map(h=>({wch:Math.max(12,Math.min(30,h.length+8))}));
+  ws["!freeze"]={xSplit:1,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,ws,"ALARM TRIP LIST");
+  const types=MAP.io>=0?[...distinct(MAP.io).keys()].sort():["AI","AO","DI","DO","RTD","TC"];
+  const units=["barg","bara","mbar","kPa","°C","°F","m³/h","kg/h","%","mm","µm","rpm","A","V","mm/s"];
+  const len=Math.max(types.length,units.length),grid=[["Type","Units"]];
+  for(let i=0;i<len;i++)grid.push([types[i]||"",units[i]||""]);
+  const pl=XLSX.utils.aoa_to_sheet(grid);pl["!cols"]=[{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,pl,"PICKLISTS");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ["ALARM & TRIP LIST TEMPLATE"],[""],
+    ["TAGNO is the primary key — it must match the TagNo in the I/O list exactly."],
+    ["One row per instrument (not per signal). A tag with several I/O points inherits the same setpoints on each."],
+    ["Leave a setpoint blank where it does not exist. HH or LL present = trip; only H or L = alarm."],
+    ["Setpoints must sit inside Cal. Min – Cal. Max and follow LL < L < H < HH; the app flags any row that does not."],
+    [body.length&&!ALM.data.length?"TAGNO, Type and Service below were pre-filled from your loaded I/O list.":"Fill in and upload with “Upload alarm list”."]
+  ]),"READ ME");
+  XLSX.writeFile(wb,"Alarm-Trip-List-Template.xlsx");
+};
+
+
+/* ================= PERSISTENCE =================
+   Two layers, both optional and both silently skipped if the browser blocks them:
+   1. a linked workspace folder (File System Access API) — files are re-read on every open,
+      so editing the spreadsheets and reopening the page is enough to refresh the drawings;
+   2. an IndexedDB cache of the parsed tables — instant restore, and a fallback when the
+      folder API is unavailable (Firefox / Safari / some file:// setups).                     */
+const DBN="ism-store";
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open(DBN,1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("kv");
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function kvGet(k){try{const db=await idb();return await new Promise((res,rej)=>{
+  const q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+  catch(e){return undefined;}}
+async function kvSet(k,v){try{const db=await idb();await new Promise((res,rej)=>{
+  const t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+  catch(e){}}
+async function kvDel(k){try{const db=await idb();await new Promise((res,rej)=>{
+  const t=db.transaction("kv","readwrite");t.objectStore("kv").delete(k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+  catch(e){}}
+
+let FILES={io:"",jb:"",alm:""},DIR=null,DIRNAME="",SAVET=null,RESTORED="";
+function saveState(){try{clearTimeout(SAVET);SAVET=setTimeout(()=>{
+  if(!BASEDATA.length)return;
+  kvSet("state",{v:2,when:new Date().toISOString(),files:{...FILES},proj:$("#tbFile").textContent,
+    head:BASEHEAD,data:BASEDATA,jb:JB,alm:ALM,map:{...MAP},alias:{...ALIAS},mlvl:MATCHLVL,except:[...EXCEPT],elem:[...ELEM],facets:FACETS.slice(),show:SHOW.slice(),filt:{...FILT},
+    prefs:{theme:R.dataset.theme,accent:R.dataset.accent,font:R.dataset.font,density:R.dataset.density},
+    panels:{top:document.body.classList.contains("tcol"),side:$("main").classList.contains("collapsed"),
+      tbl:!$("#tblPane").classList.contains("closed"),view:VIEW,jbon:JBON}});},500);}catch(e){}}
+
+function dataStatus(){try{
+  const names=[FILES.io,FILES.jb,FILES.alm].filter(Boolean);
+  $("#dataStat").innerHTML=DIR?`⛁ <b>${esc(DIRNAME)}</b> · ${names.length} file${names.length===1?"":"s"} · click to re-scan`
+    :(RESTORED?`⟲ restored ${esc(RESTORED)}`:"");
+  $("#dataNote").innerHTML=DIR
+    ? `Linked folder <b>${esc(DIRNAME)}</b>. Files are re-read every time this page opens.<br>${names.map(esc).join("<br>")}`
+    : (BASEDATA.length?`Cached in this browser${RESTORED?" · restored "+esc(RESTORED):""}.<br>${names.map(esc).join("<br>")||"uploaded data"}`
+        :"Nothing saved yet.");
+}catch(e){}}
+$("#dataStat").onclick=()=>{if(DIR)scanFolder(true);};
+
+/* ---- classify any sheet as I/O list / JB list / alarm list ---- */
+function classify(head){
+  const a=autoMapALM(head);if(a.tag>=0&&(a.hh>=0||a.ll>=0||a.h>=0||a.l>=0))return "alm";
+  const j=autoMapJB(head);if(j.tag>=0&&j.jb>=0)return "jb";
+  const i=autoMap(head);if(i.from>=0&&i.to>=0)return "io";
+  return null;
+}
+async function ingestFiles(files,label){
+  const found={io:null,jb:null,alm:null};
+  for(const f of files){
+    let wb;try{wb=XLSX.read(new Uint8Array(await f.arrayBuffer()),{type:"array"});}catch(_){continue;}
+    wb.SheetNames.forEach(n=>{
+      let g;try{g=ingest(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:""}));}catch(_){return;}
+      if(!g.data.length)return;
+      const t=classify(g.head);if(!t)return;
+      if(!found[t]||g.data.length>found[t].g.data.length)found[t]={g,name:f.name,sheet:n};});
+  }
+  if(!found.io&&!BASEDATA.length){alert("No I/O list found in "+(label||"those files")+
+    " — a sheet with SIGNAL FROM and SIGNAL TO columns is needed first.");return false;}
+  if(found.io){
+    JB={head:[],data:[],map:{tag:-1,jb:-1},matched:0,orphan:0};
+    ALM={head:[],data:[],map:{tag:-1},matched:0,orphan:0,trips:0,alarms:0};
+    FILES={io:found.io.name,jb:"",alm:""};
+    load(found.io.g.head,found.io.g.data,found.io.name+" › "+found.io.sheet);
+  }
+  if(found.jb){JB={head:found.jb.g.head,data:found.jb.g.data,map:autoMapJB(found.jb.g.head),matched:0,orphan:0};
+    FILES.jb=found.jb.name;}
+  if(found.alm){ALM={head:found.alm.g.head,data:found.alm.g.data,map:autoMapALM(found.alm.g.head),
+    matched:0,orphan:0,trips:0,alarms:0};FILES.alm=found.alm.name;}
+  rebuildAll(true);dataStatus();
+  return true;
+}
+
+/* ---- workspace folder ---- */
+const canFolder=typeof window.showDirectoryPicker==="function";
+if(!canFolder)$("#btnFolder").style.display="none";
+$("#btnFolder").onclick=async()=>{
+  try{DIR=await window.showDirectoryPicker({id:"ism-workspace",mode:"read"});DIRNAME=DIR.name;
+    await kvSet("dir",DIR);await scanFolder(true);}catch(e){}
+};
+$("#btnRelink").onclick=()=>{DIR?scanFolder(true):$("#btnFolder").click();};
+$("#btnForget").onclick=async()=>{await kvDel("state");await kvDel("dir");DIR=null;RESTORED="";
+  FILES={io:"",jb:"",alm:""};dataStatus();alert("Saved data cleared. The page will start empty next time.");};
+async function scanFolder(verbose){
+  if(!DIR)return;
+  try{const perm=await DIR.queryPermission({mode:"read"});
+    if(perm!=="granted"){const r=await DIR.requestPermission({mode:"read"});if(r!=="granted")return;}}catch(_){}
+  const files=[];
+  try{for await(const h of DIR.values()){
+    if(h.kind!=="file")continue;
+    if(!/\.(xlsx|xlsm|xls|csv)$/i.test(h.name)||h.name.startsWith("~$"))continue;
+    files.push(await h.getFile());}}catch(e){if(verbose)alert("Could not read the folder: "+e.message);return;}
+  if(!files.length){if(verbose)alert("No spreadsheets found in that folder.");return;}
+  DIRNAME=DIR.name;
+  const ok=await ingestFiles(files,"folder “"+DIR.name+"”");
+  if(ok){RESTORED="";dataStatus();saveState();}
+}
+
+/* ---- restore on open ---- */
+async function restoreState(){
+  const st=await kvGet("state");
+  if(st&&st.head&&st.data){
+    if(st.prefs)Object.assign(R.dataset,st.prefs),syncOpts();
+    BASEHEAD=st.head;BASEDATA=st.data;
+    JB=st.jb||JB;ALM=st.alm||ALM;MAP=st.map||autoMap(BASEHEAD);
+    FILES=st.files||FILES;RESTORED=(st.when||"").slice(0,10);
+    ALIAS=st.alias||{};
+    if(st.except){EXCEPT=new Set(st.except);TYPESEEDED=true;}
+    if(st.elem)ELEM=new Set(st.elem);if(st.mlvl!==undefined){MATCHLVL=st.mlvl;$("#matchLvl").value=String(MATCHLVL);}
+    JBON=st.panels?st.panels.jbon!==false:true;$("#jbRoute").checked=JBON;
+    VIEW=(st.panels&&st.panels.view)||"map";
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view===VIEW));
+    $("#tbFile").textContent=st.proj||"restored session";
+    rebuildAll(true);
+    if(st.facets)FACETS=st.facets.filter(c=>c<HEADERS.length);
+    if(st.show)SHOW=st.show.filter(c=>c<HEADERS.length);
+    if(st.filt)FILT=st.filt;
+    if(st.panels){setTop(!!st.panels.top);setSide(!!st.panels.side);setTbl(!!st.panels.tbl);}
+    buildPickUI();render();
+  }
+  const d=await kvGet("dir");
+  if(d&&canFolder){DIR=d;DIRNAME=d.name;
+    let perm="prompt";try{perm=await DIR.queryPermission({mode:"read"});}catch(_){}
+    if(perm==="granted")await scanFolder(false);}
+  dataStatus();
+}
+restoreState();
+
+/* ---------- export ---------- */
+$("#btnCsv").onclick=()=>{const rows=tableRows();if(!rows.length)return;
+  const cols=SHOW.length?SHOW:HEADERS.map((_,i)=>i);
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  const csv=[cols.map(c=>q(HEADERS[c])).join(",")]
+    .concat(rows.map(r=>cols.map(c=>q(r.cells[c])).join(","))).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="interface_schedule.csv";a.click();};
+</script>
+</body>
+</html>
