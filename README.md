@@ -38,5 +38,5 @@ firebase deploy --only hosting --project my-app-hub-69db8
 
 ## Notes
 
-- The workflow is configured to deploy only when HTML files under `public/` change.
+- The workflow is configured to deploy when anything under `public/` changes — HTML, JavaScript or any other asset Firebase serves.
 - The repo uses a GitHub Actions secret named `FIREBASE_TOKEN` for deployment.

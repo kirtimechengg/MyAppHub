@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centrifugal Compressor Selector</title>
+    <!-- Fonts & Styles -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --line: #e2e8f0;
+            --text: #0f172a;
+            --muted: #64748b;
+            --accent: #2563eb;
+            --accent-soft: #dbeafe;
+            --ok: #15803d;
+            --ok-soft: #dcfce7;
+            --warn: #b45309;
+            --warn-soft: #fef3c7;
+            --bad: #b91c1c;
+            --bad-soft: #fee2e2;
+            --grid: #e7ecf0;
+            --grid-edge: #cbd5e1;
+            --chart-bg: #ffffff;
+        }
+        .dark {
+            --surface: #1e293b;
+            --surface-2: #0f172a;
+            --line: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #60a5fa;
+            --accent-soft: #1e3a8a;
+            --ok: #4ade80;
+            --ok-soft: #14532d;
+            --warn: #fbbf24;
+            --warn-soft: #78350f;
+            --bad: #f87171;
+            --bad-soft: #7f1d1d;
+            --grid: #25313f;
+            --grid-edge: #475569;
+            --chart-bg: #16202c;
+        }
+
+        /* Tailwind's preflight sets this too, so it is a no-op when the CDN is
+           reachable — but the tool's own inputs and tables must not depend on
+           a third-party reset to stay inside the viewport. */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body { font-family: 'Instrument Sans', system-ui, sans-serif; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 1rem;
+        }
+        .field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .field label .unit { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: 0.85; }
+        .field input, .field select {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            color: var(--text);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.65rem;
+            font-size: 0.9rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .field input:focus, .field select:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: -1px;
+        }
+        .field .hint { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+        .grid-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 0.85rem;
+        }
+
+        /* KPI tiles */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+        .kpi {
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: 0.75rem;
+            padding: 0.85rem 0.9rem;
+        }
+        .kpi .num {
+            font-size: 1.5rem; font-weight: 700; color: var(--text);
+            font-variant-numeric: tabular-nums; line-height: 1.15;
+        }
+        .kpi .num .u { font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-left: 0.2rem; }
+        .kpi .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+        /* Tabs */
+        .tabbar { display: flex; gap: 0.25rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+        .tab {
+            padding: 0.55rem 0.95rem; font-size: 0.87rem; font-weight: 600;
+            color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer;
+            white-space: nowrap; background: none; border-top: 0; border-left: 0; border-right: 0;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+        .view { display: none; }
+        .view.on { display: block; }
+
+        /* Tables */
+        table.data { width: 100%; border-collapse: collapse; font-size: 0.83rem; font-variant-numeric: tabular-nums; }
+        /* No text-transform here: uppercasing turns η into a capital eta that
+           reads as "H", and φ/ψ into their capital forms. */
+        table.data th {
+            text-align: right; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em;
+            color: var(--muted); padding: 0.5rem 0.55rem; border-bottom: 1px solid var(--line); white-space: nowrap;
+        }
+        table.data th:first-child, table.data td:first-child { text-align: left; }
+        table.data td { text-align: right; padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--line); color: var(--text); }
+        table.data tr:last-child td { border-bottom: 0; }
+
+        /* Mobile card-stack for the stage table */
+        @media (max-width: 780px) {
+            table.data thead { display: none; }
+            table.data, table.data tbody, table.data tr, table.data td { display: block; width: 100%; }
+            table.data tr { border: 1px solid var(--line); border-radius: 0.6rem; margin-bottom: 0.6rem; padding: 0.3rem 0.5rem; }
+            table.data td { text-align: right; border-bottom: 1px dashed var(--line); padding: 0.35rem 0.1rem; }
+            table.data td:last-child { border-bottom: 0; }
+            table.data td::before {
+                content: attr(data-l); float: left; font-size: 0.7rem; text-transform: uppercase;
+                letter-spacing: 0.03em; color: var(--muted); font-weight: 600;
+            }
+        }
+
+        .pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+        .pill.ok { background: var(--ok-soft); color: var(--ok); }
+        .pill.warn { background: var(--warn-soft); color: var(--warn); }
+        .pill.bad { background: var(--bad-soft); color: var(--bad); }
+
+        .note { border-left: 3px solid var(--accent); background: var(--surface-2); padding: 0.6rem 0.8rem; border-radius: 0 0.5rem 0.5rem 0; font-size: 0.83rem; color: var(--muted); }
+        .note.warn { border-left-color: var(--warn); }
+        .note.bad { border-left-color: var(--bad); }
+        .note + .note { margin-top: 0.5rem; }
+
+        /* The reason lists carry their own bullet character, so suppress the
+           marker rather than relying on Tailwind's preflight to remove it. */
+        ul.reasons { list-style: none; margin: 0; padding: 0; }
+        ul.reasons li { margin-bottom: 0.35rem; }
+
+        #errorBar {
+            position: sticky; top: 4rem; z-index: 40;
+            background: var(--bad-soft); color: var(--bad);
+            border: 1px solid var(--bad); border-radius: 0.6rem;
+            padding: 0.6rem 0.9rem; font-size: 0.85rem; font-weight: 600;
+            margin-bottom: 1rem; display: none;
+        }
+
+        .chart-wrap { background: var(--surface-2); border: 1px solid var(--line); border-radius: 0.75rem; padding: 0.5rem; overflow-x: auto; }
+        .chart-wrap svg { width: 100%; height: auto; min-width: 340px; display: block; }
+
+        /* Print */
+        @media print {
+            #global-nav, .tabbar, .no-print, #errorBar { display: none !important; }
+            body { background: #fff !important; color: #000 !important; }
+            .view { display: block !important; page-break-inside: avoid; }
+            .card { border: 1px solid #ccc !important; box-shadow: none !important; break-inside: avoid; }
+            main { max-width: none !important; padding: 0 !important; }
+            .print-only { display: block !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- 1. SHARED NAVIGATION (Auto-injected) -->
+    <div id="global-nav"></div>
+
+    <!-- 2. PAGE CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+
+        <div class="flex items-center gap-3 mb-2 flex-wrap no-print">
+            <a href="index.html" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition">← Back</a>
+            <h1 class="text-2xl sm:text-3xl font-bold">Centrifugal Compressor Selector</h1>
+            <div class="flex-1"></div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold uppercase tracking-wide" style="color:var(--muted)">Units</span>
+                <select id="unitSystem" class="text-sm rounded-lg px-2 py-1.5 border" style="background:var(--surface);border-color:var(--line);color:var(--text)">
+                    <option value="SI">SI (bara, °C, kg/h, kW, mm)</option>
+                    <option value="US">US (psia, °F, lb/h, hp, in)</option>
+                </select>
+            </div>
+        </div>
+        <p class="text-sm mb-6" style="color:var(--muted)">
+            Real-gas stage, speed and frame selection from process data and gas composition, using a cubic
+            or corresponding-states equation of state.
+        </p>
+
+        <div class="print-only" style="margin-bottom:1rem">
+            <h1 style="font-size:1.4rem;font-weight:700">Centrifugal Compressor Selection Datasheet</h1>
+            <p id="printStamp" style="font-size:0.8rem;color:#555"></p>
+        </div>
+
+        <div id="errorBar"></div>
+
+        <div class="tabbar mb-5 no-print">
+            <button class="tab on" data-view="v-process">Process Data</button>
+            <button class="tab" data-view="v-gas">Gas Composition</button>
+            <button class="tab" data-view="v-machine">Machine &amp; Limits</button>
+            <button class="tab" data-view="v-results">Results</button>
+            <button class="tab" data-view="v-charts">Charts</button>
+            <button class="tab" data-view="v-report">Report</button>
+        </div>
+
+        <!-- ============================ PROCESS ============================ -->
+        <section id="v-process" class="view on space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Suction conditions</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Suction pressure <span class="unit" data-unit="pressure"></span></label>
+                        <input type="number" id="inP1" value="30" step="any">
+                        <span class="hint">Absolute pressure at the compressor flange.</span>
+                    </div>
+                    <div class="field">
+                        <label>Suction temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inT1" value="40" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Mass flow <span class="unit" data-unit="massFlow"></span></label>
+                        <input type="number" id="inMdot" value="20000" step="any">
+                        <span class="hint">Total flow through the first section.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h2 class="font-bold text-lg">Sections</h2>
+                    <div class="flex gap-2 no-print">
+                        <button id="btnAddSection" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">+ Add section</button>
+                        <button id="btnDelSection" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--bad-soft);color:var(--bad)">− Remove last</button>
+                    </div>
+                </div>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    One section is an uncooled body of impellers. Add sections to model intercooling — each
+                    section ends at its own discharge pressure, and the cooler between sections sets the next
+                    section's inlet temperature and pressure drop.
+                </p>
+                <div id="sectionRows" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- ============================ GAS ============================ -->
+        <section id="v-gas" class="view space-y-5">
+            <div class="card p-5">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 class="font-bold text-lg">Gas composition</h2>
+                    <div class="flex gap-2 items-center flex-wrap no-print">
+                        <select id="presetSelect" class="text-sm rounded-lg px-2 py-1.5 border" style="background:var(--surface-2);border-color:var(--line);color:var(--text)">
+                            <option value="">Load a preset…</option>
+                        </select>
+                        <button id="btnNormalise" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Normalise to 100%</button>
+                        <button id="btnClearComp" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--bad-soft);color:var(--bad)">Clear</button>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mb-4 flex-wrap items-end no-print">
+                    <div class="field" style="min-width:230px;flex:1">
+                        <label>Add component</label>
+                        <select id="compPicker"></select>
+                    </div>
+                    <button id="btnAddComp" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent);color:#fff">Add</button>
+                </div>
+
+                <div id="compRows" class="space-y-2 mb-4"></div>
+
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="text-sm font-semibold">Total:</span>
+                    <span id="compTotal" class="text-sm font-bold" style="font-variant-numeric:tabular-nums"></span>
+                    <span id="compTotalPill"></span>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Mixture properties at suction</h2>
+                <div id="mixProps" class="kpi-grid"></div>
+                <div id="mixWarn" class="mt-4 space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- ============================ MACHINE ============================ -->
+        <section id="v-machine" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Equation of state</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Model</label>
+                        <select id="inModel">
+                            <option value="PR">Peng-Robinson</option>
+                            <option value="SRK">Soave-Redlich-Kwong</option>
+                            <option value="LK">Lee-Kesler</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="note mt-4" id="modelNote"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Impeller and aerodynamic limits</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Impeller construction</label>
+                        <select id="inImpeller"></select>
+                        <span class="hint" id="impellerHint"></span>
+                    </div>
+                    <div class="field">
+                        <label>Target head coefficient ψ</label>
+                        <input type="number" id="inPsi" value="0.52" step="0.01" min="0.30" max="0.75">
+                        <span class="hint">Polytropic, Hp / U₂². Typical 0.45–0.60.</span>
+                    </div>
+                    <div class="field">
+                        <label>Target flow coefficient φ</label>
+                        <input type="number" id="inPhi" value="0.075" step="0.005" min="0.005" max="0.20">
+                        <span class="hint">Best efficiency 0.055–0.095.</span>
+                    </div>
+                    <div class="field">
+                        <label>Max peripheral Mach Mu₂</label>
+                        <input type="number" id="inMu2" value="1.05" step="0.05">
+                    </div>
+                    <div class="field">
+                        <label>Max inlet relative Mach</label>
+                        <input type="number" id="inMrel" value="0.85" step="0.05">
+                    </div>
+                    <div class="field">
+                        <label>Max discharge temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inT2max" value="150" step="any">
+                        <span class="hint">Polymerisation, seals and material limit.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Mechanical constraints</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Max shaft speed <span class="unit">rpm</span></label>
+                        <input type="number" id="inMaxSpeed" value="20000" step="500">
+                        <span class="hint">Caps the aerodynamic speed solve.</span>
+                    </div>
+                    <div class="field">
+                        <label>Min impeller diameter <span class="unit" data-unit="length"></span></label>
+                        <input type="number" id="inMinD2" value="180" step="any">
+                        <span class="hint">Room for shaft, seals and bearings.</span>
+                    </div>
+                    <div class="field">
+                        <label>Fixed speed override <span class="unit">rpm</span></label>
+                        <input type="number" id="inSpeedManual" value="" step="100" placeholder="auto">
+                        <span class="hint">Leave blank to let the tool predict it.</span>
+                    </div>
+                    <div class="field">
+                        <label>Common shaft across sections</label>
+                        <select id="inCommonShaft">
+                            <option value="0">No — separate bodies / pinions</option>
+                            <option value="1">Yes — one shaft, one speed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Efficiency and power train</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Polytropic efficiency</label>
+                        <input type="number" id="inEtaP" value="" step="0.01" min="0.5" max="0.92" placeholder="auto">
+                        <span class="hint">Blank uses the flow-based correlation.</span>
+                    </div>
+                    <div class="field">
+                        <label>Mechanical efficiency</label>
+                        <input type="number" id="inEtaMech" value="0.985" step="0.005" min="0.9" max="1">
+                        <span class="hint">Bearing and seal losses.</span>
+                    </div>
+                    <div class="field">
+                        <label>Gearbox in the train</label>
+                        <select id="inGearbox">
+                            <option value="0">No</option>
+                            <option value="1">Yes (+2% loss)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Driver margin</label>
+                        <input type="number" id="inMargin" value="0.10" step="0.05" min="0" max="0.5">
+                        <span class="hint">API 617 asks for 110% of maximum power.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ RESULTS ============================ -->
+        <section id="v-results" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Selection summary</h2>
+                <div id="kpiMain" class="kpi-grid"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Compressor type</h2>
+                <div id="frameOut"></div>
+            </div>
+
+            <div id="warnBox" class="space-y-2"></div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Stage by stage</h2>
+                <div id="stageTable"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Section summary</h2>
+                <div id="sectionTable"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-2">Head method cross-check</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    The integrated ∫v·dP path is what the selection uses. Schultz and the simple polytropic
+                    form are shown for comparison — divergence between them is itself the signal that the gas
+                    is far from ideal.
+                </p>
+                <div id="crossCheck"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Rotordynamic screening</h2>
+                <div id="rotorOut"></div>
+            </div>
+        </section>
+
+        <!-- ============================ CHARTS ============================ -->
+        <section id="v-charts" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Stage selection map</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Flow coefficient against head coefficient, with the usable envelope and the best-efficiency core.</p>
+                <div class="chart-wrap" id="chartPhiPsi"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Mach numbers</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Peripheral and inlet relative Mach number per stage against their limits.</p>
+                <div class="chart-wrap" id="chartMach"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Performance curve</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Polytropic head against inlet volume flow for the first section, with surge and choke bounds and speed lines.</p>
+                <div class="chart-wrap" id="chartPerf"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Build-up through the machine</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Pressure as bars on the left axis, temperature as a line on the right axis. Intercoolers show as drops.</p>
+                <div class="chart-wrap" id="chartBuild"></div>
+            </div>
+        </section>
+
+        <!-- ============================ REPORT ============================ -->
+        <section id="v-report" class="view space-y-5">
+            <div class="card p-5 no-print">
+                <h2 class="font-bold text-lg mb-4">Case management</h2>
+                <div class="flex gap-2 flex-wrap">
+                    <button id="btnPrint" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent);color:#fff">Print / save as PDF</button>
+                    <button id="btnExport" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Export JSON</button>
+                    <label class="text-sm px-4 py-2 rounded-lg font-semibold cursor-pointer" style="background:var(--accent-soft);color:var(--accent)">
+                        Import JSON<input type="file" id="fileImport" accept="application/json" style="display:none">
+                    </label>
+                    <span id="saveStatus" class="text-xs self-center" style="color:var(--muted)"></span>
+                </div>
+                <div class="field mt-4" style="max-width:420px">
+                    <label>Case name</label>
+                    <input type="text" id="inCaseName" value="Untitled case" style="font-variant-numeric:normal">
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Datasheet</h2>
+                <div id="datasheet"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Assumptions and limitations</h2>
+                <div class="space-y-2 text-sm" style="color:var(--muted)">
+                    <p><strong style="color:var(--text)">Purpose.</strong> This is an estimation and screening tool for preliminary sizing and for
+                    checking vendor proposals. It is not a substitute for a vendor selection, an API 617
+                    rotordynamic analysis, or a rigorous process simulation.</p>
+                    <p><strong style="color:var(--text)">Impeller eye geometry.</strong> The inlet relative Mach number needs an eye diameter and hub
+                    ratio that are really the vendor's to choose. A correlation of eye-to-tip ratio against flow
+                    coefficient with a fixed 0.30 hub ratio is used instead. This is the largest single
+                    simplification in the aerodynamic model.</p>
+                    <p><strong style="color:var(--text)">Efficiency is correlated, not calculated.</strong> Polytropic efficiency comes from an inlet-flow
+                    correlation with a flow-coefficient derate. A real stage varies by several points with the
+                    vendor's diffuser and return-channel design.</p>
+                    <p><strong style="color:var(--text)">Equal head split, constant diameter.</strong> Head is split equally between the impellers of a
+                    section and the tip diameter is held constant, so the flow coefficient falls stage by stage
+                    as the gas densifies. A wide φ spread across a section is the signal that intercooling or a
+                    second body is needed.</p>
+                    <p><strong style="color:var(--text)">Frame rules are simplified.</strong> They encode common practice and the API 617 hydrogen
+                    partial-pressure rule for barrel casings. Vendor frame ranges differ substantially.</p>
+                    <p><strong style="color:var(--text)">No phase equilibrium.</strong> Condensation at an intercooler is flagged from a Wilson K-value
+                    dew-point estimate only. No flash is performed and the composition is held constant through
+                    the machine — a real knockout drum would change it.</p>
+                    <p><strong style="color:var(--text)">Equation of state accuracy.</strong> Peng-Robinson and SRK are reliable for hydrocarbons away
+                    from the critical point. Near the critical point, and for light gases such as hydrogen,
+                    helium and nitrogen well above their critical temperature at high pressure, all three models
+                    lose accuracy — SRK and Lee-Kesler usually do better than PR there. Compare models before
+                    trusting a number.</p>
+                    <p><strong style="color:var(--text)">Rotordynamics.</strong> The bearing span, critical speed and cross-coupling figures are
+                    order-of-magnitude screening indicators only.</p>
+                </div>
+            </div>
+
+            <div class="card p-5 no-print">
+                <h2 class="font-bold text-lg mb-3">Engine self-test</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Numerical checks of the thermodynamic and aerodynamic engine against published data and
+                    internal consistency. Run these after changing anything in <code>compressor-eos.js</code>.
+                </p>
+                <button id="btnSelfTest" class="text-sm px-4 py-2 rounded-lg font-semibold mb-3" style="background:var(--accent-soft);color:var(--accent)">Run self-test</button>
+                <div id="selfTestOut"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 3. REQUIRED SCRIPTS (Do not remove) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- 4. APP CORE (Embedded for Stability) -->
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
+            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            projectId: "my-app-hub-69db8",
+            storageBucket: "my-app-hub-69db8.firebasestorage.app",
+            messagingSenderId: "709494807607",
+            appId: "1:709494807607:web:e8cdafc2511ab6e354b3b2",
+            measurementId: "G-KWWNJDP8LY"
+        };
+        Object.freeze(firebaseConfig);
+
+        class AppCore {
+            constructor() {
+                this.user = null;
+                this.db = null;
+                this.auth = null;
+                this.globalState = { theme: 'light', notifications: 0, lastActive: null };
+                this.stateListeners = [];
+            }
+
+            async init() {
+                if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+                try { await this.db.enablePersistence(); } catch (err) { console.log("Persistence disabled:", err.code); }
+                this.injectStyles();
+                this.setupAuth();
+            }
+
+            setupAuth() {
+                this.auth.onAuthStateChanged(user => {
+                    this.user = user;
+                    if (user) {
+                        this.connectGlobalStore();
+                        this.renderNav();
+                        this.onLogin(user);
+                    } else {
+                        this.renderNav();
+                    }
+                });
+            }
+
+            connectGlobalStore() {
+                if (!this.user) return;
+                this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            this.globalState = { ...this.globalState, ...doc.data() };
+                            this.notifyListeners();
+                            this.applyTheme(this.globalState.theme);
+                        } else {
+                            this.updateGlobalStore({ theme: 'light', created: Date.now() });
+                        }
+                    });
+            }
+
+            async updateGlobalStore(data) {
+                if (!this.user) return;
+                try {
+                    await this.db.collection('users').doc(this.user.uid).collection('app_data').doc('global_store').set(
+                        { ...data, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }
+                    );
+                } catch (e) { console.error("Sync Error:", e); }
+            }
+
+            subscribe(callback) { this.stateListeners.push(callback); callback(this.globalState); }
+            notifyListeners() { this.stateListeners.forEach(cb => cb(this.globalState)); this.updateUI(); }
+
+            injectStyles() {
+                if (typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        darkMode: 'class',
+                        theme: { extend: { fontFamily: { sans: ['Instrument Sans', 'sans-serif'] } } }
+                    };
+                }
+            }
+
+            applyTheme(theme) {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+                if (typeof window.onThemeChange === 'function') window.onThemeChange();
+            }
+
+            toggleTheme() {
+                const newTheme = this.globalState.theme === 'dark' ? 'light' : 'dark';
+                // Apply straight away so the page responds even when offline.
+                this.globalState.theme = newTheme;
+                this.applyTheme(newTheme);
+                this.renderNav();
+                this.updateGlobalStore({ theme: newTheme });
+            }
+
+            renderNav() {
+                const navContainer = document.getElementById('global-nav');
+                if (!navContainer) return;
+                const email = this.user ? (this.user.email || 'Anonymous') : 'Not Logged In';
+                const avatar = email.charAt(0).toUpperCase();
+                navContainer.innerHTML = `
+                    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <a href="index.html" class="flex items-center gap-2 font-bold text-xl text-slate-800 dark:text-white hover:opacity-80 transition">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">A</div>
+                                <span>App Hub</span>
+                            </a>
+                            <div class="flex items-center gap-4">
+                                <div id="global-status" class="hidden md:flex text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    ${this.user ? '🟢 Synced' : '⚪ Offline'}
+                                </div>
+                                <button onclick="Core.toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                    ${this.globalState.theme === 'dark' ? '🌙' : '☀️'}
+                                </button>
+                                <div class="relative group cursor-pointer">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold shadow-sm">
+                                        ${this.user ? avatar : '?'}
+                                    </div>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 hidden group-hover:block">
+                                        <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                                            <p class="text-xs text-slate-500">Signed in as</p>
+                                            <p class="text-sm font-medium truncate text-slate-900 dark:text-slate-100">${email}</p>
+                                        </div>
+                                        ${this.user ? '<button onclick="firebase.auth().signOut()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Sign Out</button>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                `;
+            }
+
+            onLogin(user) {}
+            updateUI() {}
+        }
+
+        const Core = new AppCore();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => Core.init());
+        } else {
+            Core.init();
+        }
+    </script>
+
+    <!-- 5. THERMODYNAMIC / AERODYNAMIC ENGINE -->
+    <script src="compressor-eos.js"></script>
+
+    <!-- 6. PAGE LOGIC -->
+    <script>
+    (function () {
+        'use strict';
+
+        const E = window.CompEng;
+        const $ = id => document.getElementById(id);
+        const TOOL_ID = 'compressor_selector';
+
+        /* ---------------------------------------------------------------- */
+        /* Unit handling                                                     */
+        /* ---------------------------------------------------------------- */
+        /* Every numeric input is tagged with the unit category it belongs to.
+           Values live in the input in display units; reads convert to SI base
+           and a system switch converts the values already typed in.          */
+
+        const FIELD_UNITS = {
+            inP1: 'pressure',
+            inT1: 'temperature',
+            inMdot: 'massFlow',
+            inT2max: 'temperature',
+            inMinD2: 'length'
+        };
+        // Section fields are dynamic; their categories are held on the element.
+
+        let unitSystem = 'SI';
+        let units = E.systemUnits('SI');
+
+        function unitLabel(cat) {
+            const d = E.unitDef(cat, units[cat]);
+            return d ? d.label : '';
+        }
+
+        function readSI(el, cat) {
+            const v = Number(el.value);
+            if (!isFinite(v)) return NaN;
+            return E.toBase(cat, units[cat], v);
+        }
+
+        function writeSI(el, cat, siValue, dp) {
+            const v = E.fromBase(cat, units[cat], siValue);
+            el.value = fmtNum(v, dp);
+        }
+
+        /* dp given: fixed decimals, for tables and tiles.
+           dp omitted: six significant figures, which is what input fields get -
+           enough that switching SI -> US -> SI returns the original number
+           rather than a rounded one. */
+        function fmtNum(v, dp) {
+            if (!isFinite(v)) return '';
+            if (dp != null) return Number(v.toFixed(dp));
+            if (v === 0) return 0;
+            return Number(v.toPrecision(6));
+        }
+
+        function allUnitFields() {
+            const out = [];
+            Object.keys(FIELD_UNITS).forEach(id => {
+                const el = $(id);
+                if (el) out.push({ el, cat: FIELD_UNITS[id] });
+            });
+            document.querySelectorAll('[data-unitcat]').forEach(el => {
+                out.push({ el, cat: el.getAttribute('data-unitcat') });
+            });
+            return out;
+        }
+
+        function switchUnitSystem(next) {
+            const oldUnits = units;
+            const fields = allUnitFields();
+            // Capture in SI with the OLD units, then rewrite with the new ones.
+            const captured = fields.map(f => {
+                const raw = Number(f.el.value);
+                return isFinite(raw) && f.el.value !== ''
+                    ? E.toBase(f.cat, oldUnits[f.cat], raw)
+                    : null;
+            });
+            unitSystem = next;
+            units = E.systemUnits(next);
+            fields.forEach((f, i) => {
+                if (captured[i] == null) return;
+                f.el.value = fmtNum(E.fromBase(f.cat, units[f.cat], captured[i]));
+            });
+            refreshUnitLabels();
+            renderSections();       // sections hold SI; redraw them in the new units
+            recalc();
+        }
+
+        function refreshUnitLabels() {
+            document.querySelectorAll('[data-unit]').forEach(el => {
+                const cat = el.getAttribute('data-unit');
+                el.textContent = '(' + unitLabel(cat) + ')';
+            });
+            document.querySelectorAll('[data-unitlbl]').forEach(el => {
+                el.textContent = unitLabel(el.getAttribute('data-unitlbl'));
+            });
+        }
+
+        /* Display helper: SI value -> string in the current display unit. */
+        function disp(cat, si, dp) {
+            return fmtNum(E.fromBase(cat, units[cat], si), dp);
+        }
+        function dispU(cat, si, dp) {
+            return disp(cat, si, dp) + ' ' + unitLabel(cat);
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Composition editor                                                */
+        /* ---------------------------------------------------------------- */
+
+        let composition = [];   // [{id, molPct}]
+
+        function buildComponentPicker() {
+            const sel = $('compPicker');
+            const groups = {};
+            E.COMPONENTS.forEach(c => {
+                (groups[c.group] = groups[c.group] || []).push(c);
+            });
+            sel.innerHTML = Object.keys(groups).map(g =>
+                `<optgroup label="${g}">` +
+                groups[g].map(c => `<option value="${c.id}">${c.name} (${c.formula}) — MW ${c.MW.toFixed(2)}</option>`).join('') +
+                `</optgroup>`
+            ).join('');
+
+            const ps = $('presetSelect');
+            ps.innerHTML = '<option value="">Load a preset…</option>' +
+                Object.keys(E.PRESETS).map(k => `<option value="${k}">${k}</option>`).join('');
+        }
+
+        function renderComposition() {
+            const wrap = $('compRows');
+            if (!composition.length) {
+                wrap.innerHTML = '<p class="text-sm" style="color:var(--muted)">No components yet — add one above or load a preset.</p>';
+            } else {
+                wrap.innerHTML = composition.map((c, i) => {
+                    const def = E.BY_ID[c.id];
+                    return `
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold truncate">${def.name}</div>
+                            <div class="text-xs" style="color:var(--muted)">${def.formula} · MW ${def.MW.toFixed(2)} · Tc ${def.Tc.toFixed(1)} K · Pc ${def.Pc.toFixed(2)} bar · ω ${def.omega.toFixed(3)}</div>
+                        </div>
+                        <div style="width:110px" class="field">
+                            <input type="number" step="any" data-comp="${i}" value="${c.molPct}" aria-label="mol% ${def.name}">
+                        </div>
+                        <span class="text-xs" style="color:var(--muted)">mol%</span>
+                        <button class="no-print px-2 py-1 rounded" data-del="${i}" style="color:var(--bad)" title="Remove">✕</button>
+                    </div>`;
+                }).join('');
+            }
+
+            wrap.querySelectorAll('input[data-comp]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    composition[Number(inp.getAttribute('data-comp'))].molPct = Number(inp.value);
+                    updateCompTotal();
+                    recalc();
+                });
+            });
+            wrap.querySelectorAll('button[data-del]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    composition.splice(Number(btn.getAttribute('data-del')), 1);
+                    renderComposition();
+                    recalc();
+                });
+            });
+            updateCompTotal();
+        }
+
+        function compTotal() {
+            return composition.reduce((a, c) => a + (Number(c.molPct) || 0), 0);
+        }
+
+        function updateCompTotal() {
+            const t = compTotal();
+            $('compTotal').textContent = t.toFixed(3) + ' mol%';
+            const off = Math.abs(t - 100);
+            const pill = $('compTotalPill');
+            if (!composition.length) { pill.innerHTML = ''; return; }
+            if (off < 0.001) pill.innerHTML = '<span class="pill ok">Normalised</span>';
+            else if (off < 2) pill.innerHTML = '<span class="pill warn">Off by ' + (t - 100).toFixed(3) + ' — will be normalised</span>';
+            else pill.innerHTML = '<span class="pill bad">Off by ' + (t - 100).toFixed(2) + ' — will be normalised</span>';
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Sections                                                          */
+        /* ---------------------------------------------------------------- */
+
+        /* Sections are held in SI internally - Pa, K, and Pa of pressure drop -
+           and converted only for display. Holding them in display units meant a
+           unit switch could rewrite the inputs while leaving the state behind,
+           so every read has to go through the same conversion the render does. */
+        let sections = [{ P2: 90e5, Tcool: 313.15, dPcool: 0.5e5 }];
+
+        /* A pressure drop is a difference, so only the scale factor applies. */
+        function pScale() {
+            return E.toBase('pressure', units.pressure, 1) - E.toBase('pressure', units.pressure, 0);
+        }
+        const dPtoBase = v => v * pScale();
+        const dPfromBase = v => v / pScale();
+
+        const SEC_CONV = {
+            P2: { to: v => E.toBase('pressure', units.pressure, v), from: v => E.fromBase('pressure', units.pressure, v) },
+            Tcool: { to: v => E.toBase('temperature', units.temperature, v), from: v => E.fromBase('temperature', units.temperature, v) },
+            dPcool: { to: dPtoBase, from: dPfromBase }
+        };
+
+        function renderSections() {
+            const wrap = $('sectionRows');
+            wrap.innerHTML = sections.map((s, i) => {
+                const last = i === sections.length - 1;
+                const v = k => fmtNum(SEC_CONV[k].from(s[k]));
+                return `
+                <div class="p-3 rounded-xl" style="background:var(--surface-2);border:1px solid var(--line)">
+                    <div class="text-xs font-bold mb-2" style="color:var(--accent)">SECTION ${i + 1}${last ? ' (final)' : ''}</div>
+                    <div class="grid-fields">
+                        <div class="field">
+                            <label>Discharge pressure <span class="unit" data-unit="pressure"></span></label>
+                            <input type="number" step="any" data-sec="${i}" data-k="P2" value="${v('P2')}">
+                        </div>
+                        ${last ? '' : `
+                        <div class="field">
+                            <label>Intercooler outlet temp <span class="unit" data-unit="temperature"></span></label>
+                            <input type="number" step="any" data-sec="${i}" data-k="Tcool" value="${v('Tcool')}">
+                        </div>
+                        <div class="field">
+                            <label>Intercooler Δp <span class="unit" data-unit="pressure"></span></label>
+                            <input type="number" step="any" data-sec="${i}" data-k="dPcool" value="${v('dPcool')}">
+                            <span class="hint">Pressure drop across the cooler.</span>
+                        </div>`}
+                    </div>
+                </div>`;
+            }).join('');
+
+            wrap.querySelectorAll('input[data-sec]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const i = Number(inp.getAttribute('data-sec'));
+                    const k = inp.getAttribute('data-k');
+                    sections[i][k] = SEC_CONV[k].to(Number(inp.value));
+                    recalc();
+                });
+            });
+            refreshUnitLabels();
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Impeller select                                                   */
+        /* ---------------------------------------------------------------- */
+
+        function buildImpellerSelect() {
+            $('inImpeller').innerHTML = E.IMPELLER_TYPES.map(t =>
+                `<option value="${t.id}">${t.label}</option>`).join('');
+            $('inImpeller').value = 'std';
+            updateImpellerHint();
+        }
+
+        function updateImpellerHint() {
+            const t = E.impellerType($('inImpeller').value);
+            $('impellerHint').textContent =
+                'Tip speed limit ' + t.u2max + ' m/s, max ψ ' + t.psiMax.toFixed(2) + '.';
+        }
+
+        const MODEL_NOTES = {
+            PR: 'Peng-Robinson. The default for hydrocarbon and natural-gas duty — good liquid densities and reliable well away from the critical point. It runs a few percent low on Z for light supercritical gases such as hydrogen and nitrogen at high pressure.',
+            SRK: 'Soave-Redlich-Kwong. Very close to Peng-Robinson for light hydrocarbons and usually a little better for light supercritical gases (H₂, N₂, He) at high pressure. A reasonable second opinion on any case.',
+            LK: 'Lee-Kesler with Kay’s rule pseudo-criticals. Three-parameter corresponding states, the classical route for enthalpy departures on non-polar gases. It degrades on mixtures of widely differing molecular size and on anything polar — do not use it for water, methanol or ammonia mixtures.'
+        };
+
+        /* ---------------------------------------------------------------- */
+        /* Error bar                                                         */
+        /* ---------------------------------------------------------------- */
+
+        function showError(msg) {
+            const bar = $('errorBar');
+            bar.textContent = msg;
+            bar.style.display = 'block';
+        }
+        function clearError() { $('errorBar').style.display = 'none'; }
+
+        /* ---------------------------------------------------------------- */
+        /* SVG chart helper                                                  */
+        /* ---------------------------------------------------------------- */
+        /* Colours are resolved from the CSS custom properties so the charts
+           follow the hub's global dark mode; they are redrawn on every
+           recalculation and on a theme change.                              */
+
+        function pal() {
+            const cs = getComputedStyle(document.documentElement);
+            const v = (k, fb) => (cs.getPropertyValue(k) || '').trim() || fb;
+            return {
+                bg: v('--chart-bg', '#fff'),
+                grid: v('--grid', '#e7ecf0'),
+                gridEdge: v('--grid-edge', '#cbd5e1'),
+                text: v('--text', '#0f172a'),
+                muted: v('--muted', '#64748b'),
+                accent: v('--accent', '#2563eb'),
+                ok: v('--ok', '#15803d'),
+                warn: v('--warn', '#b45309'),
+                bad: v('--bad', '#b91c1c'),
+                line: v('--line', '#e2e8f0')
+            };
+        }
+
+        function niceTicks(lo, hi, count) {
+            const span = hi - lo;
+            if (!(span > 0)) return [lo];
+            const raw = span / Math.max(1, count);
+            const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+            const norm = raw / mag;
+            const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+            const start = Math.ceil(lo / step) * step;
+            const out = [];
+            for (let v = start; v <= hi + step * 1e-9; v += step) out.push(Number(v.toPrecision(12)));
+            return out;
+        }
+
+        function esc(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        /**
+         * o = {
+         *   w,h, title, xlab, ylab, y2lab,
+         *   x0,x1,y0,y1, y20,y21,
+         *   xfmt,yfmt,y2fmt, xticksRaw (array of {v,label}),
+         *   rects:  [{x0,x1,y0,y1,fill,opacity,label}]
+         *   series: [{pts:[[x,y]], stroke, dash, width, marker, axis:'y'|'y2', label}]
+         *   bars:   [{x,y,label}]  (drawn on y axis, from y0)
+         *   hlines: [{y, color, dash, label, axis}]
+         *   points: [{x,y,label,ok}]
+         *   legend: [{label,color,dash}]
+         * }
+         */
+        function svgPlot(o) {
+            const p = pal();
+            const W = o.w || 720, H = o.h || 420;
+            const m = { l: 66, r: o.y2lab ? 62 : 20, t: o.title ? 34 : 14, b: o.legend ? 62 : 48 };
+            const px = v => m.l + (v - o.x0) / (o.x1 - o.x0) * (W - m.l - m.r);
+            const py = v => H - m.b - (v - o.y0) / (o.y1 - o.y0) * (H - m.t - m.b);
+            const py2 = v => H - m.b - (v - o.y20) / (o.y21 - o.y20) * (H - m.t - m.b);
+
+            const xf = o.xfmt || (v => String(fmtNum(v)));
+            const yf = o.yfmt || (v => String(fmtNum(v)));
+            const y2f = o.y2fmt || (v => String(fmtNum(v)));
+
+            let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" style="background:${p.bg};border-radius:0.5rem">`;
+            if (o.title) {
+                s += `<text x="${W / 2}" y="20" text-anchor="middle" font-family="Instrument Sans,sans-serif" font-size="13" font-weight="600" fill="${p.text}">${esc(o.title)}</text>`;
+            }
+
+            // Shaded regions first, so everything else sits on top.
+            (o.rects || []).forEach(r => {
+                const x = px(r.x0), y = py(r.y1), w = px(r.x1) - px(r.x0), h = py(r.y0) - py(r.y1);
+                s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0, w).toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" fill="${r.fill}" fill-opacity="${r.opacity == null ? 0.12 : r.opacity}"/>`;
+                if (r.label) {
+                    s += `<text x="${(x + 6).toFixed(1)}" y="${(y + 14).toFixed(1)}" font-family="Instrument Sans,sans-serif" font-size="10" font-weight="600" fill="${r.labelColor || p.muted}">${esc(r.label)}</text>`;
+                }
+            });
+
+            // Gridlines
+            const xticks = o.xticksRaw || niceTicks(o.x0, o.x1, 6).map(v => ({ v, label: xf(v) }));
+            const yticks = niceTicks(o.y0, o.y1, 5);
+            xticks.forEach(t => {
+                const X = px(t.v);
+                s += `<line x1="${X.toFixed(1)}" y1="${m.t}" x2="${X.toFixed(1)}" y2="${H - m.b}" stroke="${p.grid}" stroke-width="1"/>`;
+                s += `<text x="${X.toFixed(1)}" y="${H - m.b + 16}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="${p.muted}">${esc(t.label)}</text>`;
+            });
+            yticks.forEach(v => {
+                const Y = py(v);
+                s += `<line x1="${m.l}" y1="${Y.toFixed(1)}" x2="${W - m.r}" y2="${Y.toFixed(1)}" stroke="${p.grid}" stroke-width="1"/>`;
+                s += `<text x="${m.l - 8}" y="${(Y + 3.5).toFixed(1)}" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="${p.muted}">${esc(yf(v))}</text>`;
+            });
+            if (o.y2lab) {
+                niceTicks(o.y20, o.y21, 5).forEach(v => {
+                    const Y = py2(v);
+                    s += `<text x="${W - m.r + 8}" y="${(Y + 3.5).toFixed(1)}" text-anchor="start" font-family="ui-monospace,monospace" font-size="10" fill="${p.muted}">${esc(y2f(v))}</text>`;
+                });
+            }
+
+            // Axis frame
+            s += `<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${H - m.b}" stroke="${p.gridEdge}" stroke-width="1"/>`;
+            s += `<line x1="${m.l}" y1="${H - m.b}" x2="${W - m.r}" y2="${H - m.b}" stroke="${p.gridEdge}" stroke-width="1"/>`;
+
+            // Bars
+            (o.bars || []).forEach(b => {
+                const bw = Math.max(6, (W - m.l - m.r) / ((o.bars.length) * 1.9));
+                const X = px(b.x), Y = py(b.y), base = py(o.y0);
+                s += `<rect x="${(X - bw / 2).toFixed(1)}" y="${Y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, base - Y).toFixed(1)}" fill="${p.accent}" fill-opacity="0.55" rx="2"/>`;
+                if (b.label) {
+                    s += `<text x="${X.toFixed(1)}" y="${(Y - 5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="${p.muted}">${esc(b.label)}</text>`;
+                }
+            });
+
+            // Horizontal limit lines
+            (o.hlines || []).forEach(l => {
+                const Y = (l.axis === 'y2' ? py2 : py)(l.y);
+                if (!isFinite(Y)) return;
+                s += `<line x1="${m.l}" y1="${Y.toFixed(1)}" x2="${W - m.r}" y2="${Y.toFixed(1)}" stroke="${l.color || p.bad}" stroke-width="1.5" stroke-dasharray="${l.dash || '5 4'}"/>`;
+                if (l.label) {
+                    s += `<text x="${W - m.r - 5}" y="${(Y - 5).toFixed(1)}" text-anchor="end" font-family="Instrument Sans,sans-serif" font-size="10" font-weight="600" fill="${l.color || p.bad}">${esc(l.label)}</text>`;
+                }
+            });
+
+            // Series
+            (o.series || []).forEach(ser => {
+                const fy = ser.axis === 'y2' ? py2 : py;
+                let d = '';
+                ser.pts.forEach((pt, i) => {
+                    if (!isFinite(pt[0]) || !isFinite(pt[1])) return;
+                    d += (d ? 'L' : 'M') + px(pt[0]).toFixed(1) + ' ' + fy(pt[1]).toFixed(1) + ' ';
+                });
+                if (d) {
+                    s += `<path d="${d}" fill="none" stroke="${ser.stroke || p.accent}" stroke-width="${ser.width || 2}" ${ser.dash ? `stroke-dasharray="${ser.dash}"` : ''} stroke-linejoin="round"/>`;
+                }
+                if (ser.marker) {
+                    ser.pts.forEach(pt => {
+                        if (!isFinite(pt[0]) || !isFinite(pt[1])) return;
+                        s += `<circle cx="${px(pt[0]).toFixed(1)}" cy="${fy(pt[1]).toFixed(1)}" r="3.5" fill="${ser.stroke || p.accent}"/>`;
+                    });
+                }
+            });
+
+            // Highlighted points. Stage points often sit almost on top of each
+            // other, so labels are stacked with a leader line instead of being
+            // written at the same height and overlapping into mush.
+            const placed = [];
+            (o.points || []).forEach(pt => {
+                if (!isFinite(pt.x) || !isFinite(pt.y)) return;
+                const X = px(pt.x), Y = py(pt.y);
+                const col = pt.ok === false ? p.bad : (pt.color || p.ok);
+                s += `<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="6" fill="${col}" stroke="${p.bg}" stroke-width="2"/>`;
+                if (pt.label) {
+                    let lx = X + 10, ly = Y - 8;
+                    // Push the label up until it clears any already placed.
+                    let guard = 0;
+                    while (guard++ < 40 && placed.some(q => Math.abs(q.x - lx) < 46 && Math.abs(q.y - ly) < 12)) {
+                        ly -= 13;
+                    }
+                    if (ly < m.t + 10) { ly = Y + 16; }
+                    placed.push({ x: lx, y: ly });
+                    if (Math.abs(ly - (Y - 8)) > 2) {
+                        s += `<line x1="${X.toFixed(1)}" y1="${Y.toFixed(1)}" x2="${(lx - 2).toFixed(1)}" y2="${(ly - 3).toFixed(1)}" stroke="${col}" stroke-width="1" opacity="0.45"/>`;
+                    }
+                    s += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="${col}">${esc(pt.label)}</text>`;
+                }
+            });
+
+            // Axis labels
+            if (o.xlab) s += `<text x="${(m.l + (W - m.l - m.r) / 2).toFixed(1)}" y="${H - (o.legend ? 34 : 8)}" text-anchor="middle" font-family="Instrument Sans,sans-serif" font-size="11" fill="${p.muted}">${esc(o.xlab)}</text>`;
+            if (o.ylab) s += `<text transform="translate(15 ${(m.t + (H - m.t - m.b) / 2).toFixed(1)}) rotate(-90)" text-anchor="middle" font-family="Instrument Sans,sans-serif" font-size="11" fill="${p.muted}">${esc(o.ylab)}</text>`;
+            if (o.y2lab) s += `<text transform="translate(${W - 10} ${(m.t + (H - m.t - m.b) / 2).toFixed(1)}) rotate(-90)" text-anchor="middle" font-family="Instrument Sans,sans-serif" font-size="11" fill="${p.muted}">${esc(o.y2lab)}</text>`;
+
+            // Legend
+            if (o.legend) {
+                let lx = m.l;
+                const ly = H - 14;
+                o.legend.forEach(item => {
+                    s += `<line x1="${lx}" y1="${ly - 4}" x2="${lx + 18}" y2="${ly - 4}" stroke="${item.color}" stroke-width="2.5" ${item.dash ? `stroke-dasharray="${item.dash}"` : ''}/>`;
+                    s += `<text x="${lx + 23}" y="${ly}" font-family="Instrument Sans,sans-serif" font-size="10" fill="${p.muted}">${esc(item.label)}</text>`;
+                    lx += 30 + item.label.length * 5.6;
+                });
+            }
+
+            s += `</svg>`;
+            return s;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Charts                                                            */
+        /* ---------------------------------------------------------------- */
+
+        function drawCharts(train) {
+            const p = pal();
+            const lim = currentLimits();
+            const allStages = [];
+            train.sections.forEach(sec => sec.stages.forEach(st => allStages.push({ sec: sec.section, st })));
+
+            /* --- 1. phi vs psi selection map --- */
+            const phiMax = Math.max(0.16, ...allStages.map(s => s.st.phi * 1.15));
+            $('chartPhiPsi').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Flow coefficient φ against head coefficient ψ',
+                xlab: 'Flow coefficient  φ = Q₁ / (¼πD₂²U₂)',
+                ylab: 'Head coefficient  ψ = Hp / U₂²',
+                x0: 0, x1: phiMax, y0: 0.30, y1: 0.78,
+                xfmt: v => v.toFixed(3),
+                yfmt: v => v.toFixed(2),
+                rects: [
+                    { x0: E.DEFAULTS.phiMin, x1: E.DEFAULTS.phiMax, y0: E.DEFAULTS.psiMin, y1: E.DEFAULTS.psiMax, fill: p.accent, opacity: 0.10, label: 'Usable envelope', labelColor: p.muted },
+                    { x0: E.DEFAULTS.phiBestLo, x1: E.DEFAULTS.phiBestHi, y0: 0.48, y1: 0.58, fill: p.ok, opacity: 0.18, label: 'Best efficiency', labelColor: p.ok }
+                ],
+                points: allStages.map(s => ({
+                    x: s.st.phi, y: s.st.psi,
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    ok: s.st.phi >= E.DEFAULTS.phiMin && s.st.phi <= E.DEFAULTS.phiMax &&
+                        s.st.psi >= E.DEFAULTS.psiMin && s.st.psi <= E.DEFAULTS.psiMax
+                })),
+                legend: [
+                    { label: 'Stage inside limits', color: p.ok },
+                    { label: 'Stage outside limits', color: p.bad }
+                ]
+            });
+
+            /* --- 2. Mach numbers --- */
+            const n = allStages.length;
+            const machMax = Math.max(lim.mu2Max, lim.mrelMax, ...allStages.map(s => Math.max(s.st.Mu2, s.st.Mrel))) * 1.15;
+            $('chartMach').innerHTML = svgPlot({
+                w: 720, h: 380,
+                title: 'Mach numbers through the machine',
+                xlab: 'Stage', ylab: 'Mach number',
+                x0: 0.5, x1: n + 0.5, y0: 0, y1: machMax,
+                xticksRaw: allStages.map((s, i) => ({
+                    v: i + 1,
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + s.st.index
+                })),
+                yfmt: v => v.toFixed(2),
+                series: [
+                    { pts: allStages.map((s, i) => [i + 1, s.st.Mu2]), stroke: p.accent, marker: true, label: 'Mu₂' },
+                    { pts: allStages.map((s, i) => [i + 1, s.st.Mrel]), stroke: p.warn, marker: true, dash: '5 3', label: 'M rel' }
+                ],
+                hlines: [
+                    { y: lim.mu2Max, color: p.bad, label: 'Mu₂ limit ' + lim.mu2Max.toFixed(2) },
+                    { y: lim.mrelMax, color: p.warn, dash: '3 3', label: 'M rel limit ' + lim.mrelMax.toFixed(2) }
+                ],
+                legend: [
+                    { label: 'Peripheral Mach Mu₂', color: p.accent },
+                    { label: 'Inlet relative Mach', color: p.warn, dash: '5 3' }
+                ]
+            });
+
+            /* --- 3. Performance curve, first section --- */
+            const sec = train.sections[0];
+            const Qd = sec.Q1;                    // m3/s
+            const Hd = sec.HpTotal;               // J/kg
+            // Normalised centrifugal characteristic, fitted through
+            // (0.65, 1.09), (1.00, 1.00), (1.25, 0.82) in q = Q/Qd.
+            const curve = (q) => 0.7556 + 1.0158 * q - 0.7714 * q * q;
+            const speedLine = (frac) => {
+                const pts = [];
+                for (let q = 0.65; q <= 1.2501; q += 0.025) {
+                    pts.push([
+                        E.fromBase('volFlow', units.volFlow, Qd * q * frac),
+                        E.fromBase('head', units.head, Hd * curve(q) * frac * frac)
+                    ]);
+                }
+                return pts;
+            };
+            const qToDisp = q => E.fromBase('volFlow', units.volFlow, Qd * q);
+            const hToDisp = h => E.fromBase('head', units.head, h);
+            const xLo = qToDisp(0.60), xHi = qToDisp(1.32);
+            const yLo = hToDisp(Hd * 0.72 * 0.95 * 0.95), yHi = hToDisp(Hd * 1.12 * 1.05 * 1.05);
+            $('chartPerf').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Section 1 performance — head against inlet volume flow',
+                xlab: 'Inlet volume flow (' + unitLabel('volFlow') + ')',
+                ylab: 'Polytropic head (' + unitLabel('head') + ')',
+                x0: xLo, x1: xHi, y0: yLo, y1: yHi,
+                xfmt: v => fmtNum(v, v > 100 ? 0 : 2),
+                yfmt: v => fmtNum(v, 1),
+                series: [
+                    { pts: speedLine(1.00), stroke: p.accent, width: 2.5 },
+                    { pts: speedLine(0.95), stroke: p.muted, dash: '5 4' },
+                    { pts: speedLine(1.05), stroke: p.muted, dash: '5 4' },
+                    // Surge line through the left-hand end of each speed line
+                    {
+                        pts: [0.95, 1.00, 1.05].map(f => [qToDisp(0.65 * f), hToDisp(Hd * curve(0.65) * f * f)]),
+                        stroke: p.bad, width: 2, dash: '2 3'
+                    },
+                    // Choke / stonewall
+                    {
+                        pts: [0.95, 1.00, 1.05].map(f => [qToDisp(1.25 * f), hToDisp(Hd * curve(1.25) * f * f)]),
+                        stroke: p.warn, width: 2, dash: '2 3'
+                    }
+                ],
+                points: [{ x: qToDisp(1), y: hToDisp(Hd), label: 'Duty', ok: true }],
+                legend: [
+                    { label: '100% speed', color: p.accent },
+                    { label: '95% / 105%', color: p.muted, dash: '5 4' },
+                    { label: 'Surge', color: p.bad, dash: '2 3' },
+                    { label: 'Choke', color: p.warn, dash: '2 3' }
+                ]
+            });
+
+            /* --- 4. Build-up through the machine --- */
+            const nodes = [];
+            train.sections.forEach(s => {
+                s.stages.forEach(st => nodes.push({
+                    label: (train.sections.length > 1 ? 'S' + s.section + '·' : '') + st.index,
+                    P: st.Pout * 1e5, T: st.Tout + 273.15
+                }));
+                if (s.cooler) nodes.push({ label: 'IC' + s.section, P: s.cooler.Pout, T: s.cooler.Tout, cooler: true });
+            });
+            const suction = { label: 'In', P: train.sections[0].inlet.P, T: train.sections[0].inlet.T };
+            const seq = [suction].concat(nodes);
+            const pDisp = seq.map(nd => E.fromBase('pressure', units.pressure, nd.P));
+            const tDisp = seq.map(nd => E.fromBase('temperature', units.temperature, nd.T));
+            const tLo = Math.min(...tDisp), tHi = Math.max(...tDisp);
+            const tPad = Math.max(5, (tHi - tLo) * 0.15);
+            $('chartBuild').innerHTML = svgPlot({
+                w: 720, h: 400,
+                title: 'Pressure and temperature build-up',
+                xlab: 'Station', ylab: 'Pressure (' + unitLabel('pressure') + ')',
+                y2lab: 'Temperature (' + unitLabel('temperature') + ')',
+                x0: -0.5, x1: seq.length - 0.5,
+                y0: 0, y1: Math.max(...pDisp) * 1.12,
+                y20: tLo - tPad, y21: tHi + tPad,
+                xticksRaw: seq.map((nd, i) => ({ v: i, label: nd.label })),
+                yfmt: v => fmtNum(v, 1),
+                y2fmt: v => fmtNum(v, 0),
+                bars: seq.map((nd, i) => ({ x: i, y: pDisp[i] })),
+                series: [
+                    { pts: seq.map((nd, i) => [i, tDisp[i]]), stroke: p.warn, width: 2.5, marker: true, axis: 'y2' }
+                ],
+                legend: [
+                    { label: 'Pressure', color: p.accent },
+                    { label: 'Temperature', color: p.warn }
+                ]
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Reading the form                                                  */
+        /* ---------------------------------------------------------------- */
+
+        function currentLimits() {
+            return Object.assign({}, E.DEFAULTS, {
+                mu2Max: Number($('inMu2').value) || E.DEFAULTS.mu2Max,
+                mrelMax: Number($('inMrel').value) || E.DEFAULTS.mrelMax,
+                t2MaxC: readSI($('inT2max'), 'temperature') - 273.15,
+                psiTarget: Number($('inPsi').value) || E.DEFAULTS.psiTarget,
+                phiTarget: Number($('inPhi').value) || E.DEFAULTS.phiTarget,
+                etaMech: Number($('inEtaMech').value) || E.DEFAULTS.etaMech
+            });
+        }
+
+        function buildInput() {
+            if (!composition.length) throw new Error('Add at least one component to the gas composition.');
+            if (compTotal() <= 0) throw new Error('Gas composition must total more than zero.');
+
+            const mix = E.makeMixture(composition);
+            const P1 = readSI($('inP1'), 'pressure');
+            const T1 = readSI($('inT1'), 'temperature');
+            const mdot = readSI($('inMdot'), 'massFlow');
+
+            if (!(P1 > 0)) throw new Error('Suction pressure must be greater than zero (absolute).');
+            if (!(T1 > 0)) throw new Error('Suction temperature is out of range.');
+            if (!(mdot > 0)) throw new Error('Mass flow must be greater than zero.');
+
+            const secs = sections.map((s, i) => {
+                const o = { P2: s.P2 };
+                if (i < sections.length - 1) {
+                    o.Tcool_K = s.Tcool;
+                    o.dPcool_Pa = s.dPcool;
+                }
+                return o;
+            });
+
+            let prev = P1;
+            for (let i = 0; i < secs.length; i++) {
+                if (!(secs[i].P2 > prev)) {
+                    throw new Error('Section ' + (i + 1) + ' discharge pressure must be above its inlet pressure.');
+                }
+                prev = secs[i].P2 - (secs[i].dPcool_Pa || 0);
+                if (!(prev > 0)) throw new Error('Intercooler Δp after section ' + (i + 1) + ' is larger than the pressure itself.');
+            }
+
+            const etaManual = $('inEtaP').value === '' ? null : Number($('inEtaP').value);
+            if (etaManual != null && !(etaManual > 0.3 && etaManual < 1)) {
+                throw new Error('Polytropic efficiency must be between 0.3 and 1, or blank for automatic.');
+            }
+            const speedManual = $('inSpeedManual').value === '' ? null : Number($('inSpeedManual').value);
+            if (speedManual != null && !(speedManual > 0)) throw new Error('Fixed speed must be greater than zero.');
+
+            return {
+                mix: mix,
+                model: $('inModel').value,
+                T1: T1, P1: P1, mdot: mdot,
+                sections: secs,
+                impeller: E.impellerType($('inImpeller').value),
+                limits: currentLimits(),
+                psiTarget: Number($('inPsi').value) || undefined,
+                phiTarget: Number($('inPhi').value) || undefined,
+                etaPManual: etaManual || undefined,
+                etaMech: Number($('inEtaMech').value) || undefined,
+                speedManual: speedManual || undefined,
+                maxSpeed: Number($('inMaxSpeed').value) || undefined,
+                minD2: readSI($('inMinD2'), 'length') || undefined,
+                commonShaft: $('inCommonShaft').value === '1'
+            };
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Rendering results                                                 */
+        /* ---------------------------------------------------------------- */
+
+        function kpi(num, unit, label) {
+            return `<div class="kpi"><div class="num">${num}${unit ? `<span class="u">${unit}</span>` : ''}</div><div class="lbl">${label}</div></div>`;
+        }
+
+        function renderMixProps(inp) {
+            try {
+                const st = E.state(inp.mix, inp.T1, inp.P1, inp.model);
+                const d = E.derived(inp.mix, inp.T1, inp.P1, inp.model);
+                $('mixProps').innerHTML =
+                    kpi(inp.mix.MW.toFixed(2), 'g/mol', 'Molecular weight') +
+                    kpi(st.Z.toFixed(4), '', 'Compressibility Z') +
+                    kpi(disp('density', st.rho, 3), unitLabel('density'), 'Density') +
+                    kpi(d.gamma.toFixed(3), '', 'Cp / Cv') +
+                    kpi(d.kv.toFixed(3), '', 'Isentropic volume exponent') +
+                    kpi(disp('velocity', d.sonic, 1), unitLabel('velocity'), 'Acoustic velocity') +
+                    kpi((d.cpMass / 1000).toFixed(3), 'kJ/kg·K', 'Real Cp') +
+                    kpi(inp.mix.TcKay.toFixed(1), 'K', 'Pseudo-critical Tc') +
+                    kpi(inp.mix.PcKay.toFixed(2), 'bar', 'Pseudo-critical Pc') +
+                    kpi(inp.mix.omegaKay.toFixed(4), '', 'Pseudo acentric factor');
+
+                const warns = [];
+                const Tr = inp.T1 / inp.mix.TcKay, Pr = inp.P1 / (inp.mix.PcKay * 1e5);
+                if (Tr < 1.05 && Pr > 0.5) {
+                    warns.push(['warn', 'Suction is close to the pseudo-critical point (Tr ' + Tr.toFixed(2) + ', Pr ' + Pr.toFixed(2) + '). Cubic equations of state lose accuracy here — compare all three models before trusting the answer.']);
+                }
+                const polar = inp.mix.comps.filter(c => ['H2O', 'MeOH', 'NH3'].indexOf(c.id) >= 0);
+                if (polar.length && inp.model === 'LK') {
+                    warns.push(['bad', 'Lee-Kesler is not valid for the polar component(s) present (' + polar.map(c => c.name).join(', ') + '). Use Peng-Robinson or SRK.']);
+                }
+                const dew = E.dewPointWarning(inp.mix, inp.T1, inp.P1);
+                if (dew.condensing) {
+                    warns.push(['bad', 'The suction condition is at or below the mixture dew point — liquid is likely to be present. The heaviest component is ' + dew.heaviest + '. A knockout drum is needed upstream; this tool assumes dry gas.']);
+                }
+                $('mixWarn').innerHTML = warns.map(w => `<div class="note ${w[0]}">${w[1]}</div>`).join('');
+            } catch (e) {
+                $('mixProps').innerHTML = '';
+                $('mixWarn').innerHTML = `<div class="note bad">${esc(e.message)}</div>`;
+            }
+        }
+
+        function renderResults(train, inp) {
+            const first = train.sections[0];
+            const last = train.sections[train.sections.length - 1];
+            const dr = E.driverRating(train.shaftPower, {
+                gearbox: $('inGearbox').value === '1' || train.frame.gearRequired,
+                margin: Number($('inMargin').value)
+            });
+
+            const speeds = train.sections.map(s => Math.round(s.speed));
+            const speedTxt = speeds.every(v => v === speeds[0]) ? speeds[0].toLocaleString() : speeds.map(v => v.toLocaleString()).join(' / ');
+            // Inches need a decimal place to say anything useful; millimetres do not.
+            const dDp = unitSystem === 'US' ? 2 : 0;
+            const diams = train.sections.map(s => disp('length', s.stages[0].D2, dDp));
+            const diamTxt = diams.every(v => v === diams[0]) ? diams[0] : diams.join(' / ');
+
+            $('kpiMain').innerHTML =
+                kpi(train.totalStages, '', 'Number of stages') +
+                kpi(speedTxt, 'rpm', 'Predicted speed') +
+                kpi(diamTxt, unitLabel('length'), 'Impeller diameter D₂') +
+                kpi(train.sections.length, '', 'Sections') +
+                kpi(disp('power', train.gasPower, 1), unitLabel('power'), 'Gas (hydraulic) power') +
+                kpi(disp('power', train.shaftPower, 1), unitLabel('power'), 'Shaft power') +
+                kpi(disp('temperature', last.T2, 1), unitLabel('temperature'), 'Final discharge temp') +
+                kpi(first.etaPoly.toFixed(3), '', 'Polytropic efficiency') +
+                kpi(first.etaIsen.toFixed(3), '', 'Isentropic efficiency') +
+                kpi(disp('head', train.sections.reduce((a, s) => a + s.HpTotal, 0), 1), unitLabel('head'), 'Total polytropic head') +
+                kpi((last.P2 / first.inlet.P).toFixed(2), '', 'Overall pressure ratio') +
+                kpi(disp('power', dr.rated, 1), unitLabel('power'), 'Driver rating required') +
+                kpi(unitSystem === 'US' ? dr.nema_hp.toLocaleString() : dr.iec_kW.toLocaleString(),
+                    unitSystem === 'US' ? 'hp' : 'kW',
+                    unitSystem === 'US' ? 'Next NEMA motor size' : 'Next IEC motor size');
+
+            /* Frame */
+            $('frameOut').innerHTML = `
+                <div class="mb-3">
+                    <div class="text-xl font-bold">${esc(train.frame.type)}</div>
+                    <div class="text-sm" style="color:var(--muted)">${esc(train.frame.casing)}</div>
+                </div>
+                <ul class="reasons text-sm" style="color:var(--muted)">
+                    ${train.frame.reasons.map(r => `<li>• ${esc(r)}</li>`).join('')}
+                </ul>
+                ${train.frame.h2PartialPressure_bar > 0.01 ? `<p class="text-xs mt-3" style="color:var(--muted)">Hydrogen partial pressure at discharge: <strong>${train.frame.h2PartialPressure_bar.toFixed(2)} bar</strong> (API 617 barrel-casing threshold is about 14 bar).</p>` : ''}`;
+
+            /* Warnings */
+            const warns = [];
+            if (train.inletDew && train.inletDew.condensing) {
+                warns.push(['bad', 'The suction condition is at or below the mixture dew point (heaviest component ' +
+                    train.inletDew.heaviest + '). Liquid carry-over will damage the machine — a suction knockout drum is ' +
+                    'required, and every number below assumes dry vapour.']);
+            }
+            train.sections.forEach(s => {
+                if (s.t2Exceeded) {
+                    warns.push(['bad', 'Section ' + s.section + ' discharge temperature is ' +
+                        dispU('temperature', s.T2, 1) + ', above the ' + dispU('temperature', currentLimits().t2MaxC + 273.15, 0) +
+                        ' limit. Add a section with an intercooler, or raise the limit if the gas and materials allow it.']);
+                }
+                if (s.speedLimited) {
+                    warns.push(['warn', 'Section ' + s.section + ' is speed-limited at ' + Math.round(s.maxSpeed).toLocaleString() +
+                        ' rpm — the impeller is larger and the flow coefficient lower than the aerodynamic optimum would give.']);
+                }
+                if (s.sizeLimited) {
+                    warns.push(['warn', 'Section ' + s.section + ' is limited by the minimum impeller diameter (' +
+                        dispU('length', s.minD2, 0) + '), which sets the speed rather than aerodynamics.']);
+                }
+                const phis = s.stages.map(x => x.phi);
+                const spread = Math.max(...phis) / Math.min(...phis);
+                if (spread > 3) {
+                    warns.push(['warn', 'Section ' + s.section + ' flow coefficient falls from ' + Math.max(...phis).toFixed(3) +
+                        ' to ' + Math.min(...phis).toFixed(3) + ' (a factor of ' + spread.toFixed(1) +
+                        '). That much spread means the later impellers are running well off their best point — intercooling or a second body would recover efficiency.']);
+                }
+                s.stages.forEach(st => {
+                    if (st.Mu2 > currentLimits().mu2Max) warns.push(['bad', 'Section ' + s.section + ' stage ' + st.index + ' peripheral Mach ' + st.Mu2.toFixed(2) + ' exceeds the limit.']);
+                    if (st.Mrel > currentLimits().mrelMax) warns.push(['bad', 'Section ' + s.section + ' stage ' + st.index + ' inlet relative Mach ' + st.Mrel.toFixed(2) + ' exceeds the limit.']);
+                    if (st.phi < E.DEFAULTS.phiMin) warns.push(['warn', 'Section ' + s.section + ' stage ' + st.index + ' flow coefficient ' + st.phi.toFixed(4) + ' is below ' + E.DEFAULTS.phiMin + ' — a very narrow impeller with poor efficiency.']);
+                });
+                if (s.cooler && s.cooler.dewWarning.condensing) {
+                    warns.push(['warn', 'The intercooler after section ' + s.section + ' takes the gas below its dew point (heaviest component ' +
+                        s.cooler.dewWarning.heaviest + '). A knockout drum is needed; this tool does not flash the stream or change the composition.']);
+                }
+            });
+            if (train.totalStages > E.DEFAULTS.maxStagesPerBody) {
+                warns.push(['warn', train.totalStages + ' impellers is more than the ~' + E.DEFAULTS.maxStagesPerBody +
+                    ' normally put in one body — expect a tandem arrangement or a two-body train.']);
+            }
+            $('warnBox').innerHTML = warns.length
+                ? warns.map(w => `<div class="note ${w[0]}">${esc(w[1])}</div>`).join('')
+                : '<div class="note">All stages are inside the flow, head, Mach, tip-speed and temperature limits set on the Machine tab.</div>';
+
+            /* Stage table */
+            const rows = [];
+            train.sections.forEach(s => s.stages.forEach(st => rows.push({ s, st })));
+            $('stageTable').innerHTML = `
+                <table class="data">
+                    <thead><tr>
+                        <th>Stage</th>
+                        <th>P in → out (${unitLabel('pressure')})</th>
+                        <th>T in → out (${unitLabel('temperature')})</th>
+                        <th>Z in</th>
+                        <th>Q₁ (${unitLabel('volFlow')})</th>
+                        <th>Head (${unitLabel('head')})</th>
+                        <th>U₂ (${unitLabel('velocity')})</th>
+                        <th>D₂ (${unitLabel('length')})</th>
+                        <th>φ</th><th>ψ</th><th>Mu₂</th><th>M rel</th><th>Blading</th><th>Status</th>
+                    </tr></thead>
+                    <tbody>
+                    ${rows.map(({ s, st }) => `
+                        <tr>
+                            <td data-l="Stage">${train.sections.length > 1 ? 'S' + s.section + ' · ' : ''}#${st.index}</td>
+                            <td data-l="Pressure">${disp('pressure', st.Pin * 1e5, 2)} → ${disp('pressure', st.Pout * 1e5, 2)}</td>
+                            <td data-l="Temperature">${disp('temperature', st.Tin + 273.15, 1)} → ${disp('temperature', st.Tout + 273.15, 1)}</td>
+                            <td data-l="Z in">${st.Zin.toFixed(4)}</td>
+                            <td data-l="Q₁">${disp('volFlow', st.Q1, 1)}</td>
+                            <td data-l="Head">${disp('head', st.Hp, 1)}</td>
+                            <td data-l="U₂">${disp('velocity', st.U2, 1)}</td>
+                            <td data-l="D₂">${disp('length', st.D2, 1)}</td>
+                            <td data-l="φ">${st.phi.toFixed(4)}</td>
+                            <td data-l="ψ">${st.psi.toFixed(3)}</td>
+                            <td data-l="Mu₂">${st.Mu2.toFixed(3)}</td>
+                            <td data-l="M rel">${st.Mrel.toFixed(3)}</td>
+                            <td data-l="Blading">${st.blading}</td>
+                            <td data-l="Status"><span class="pill ${st.ok ? 'ok' : 'bad'}">${st.ok ? 'OK' : 'Check'}</span></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+
+            /* Section table */
+            $('sectionTable').innerHTML = `
+                <table class="data">
+                    <thead><tr>
+                        <th>Section</th>
+                        <th>P in → out (${unitLabel('pressure')})</th>
+                        <th>T in → out (${unitLabel('temperature')})</th>
+                        <th>Ratio</th><th>Stages</th><th>Speed (rpm)</th>
+                        <th>Head (${unitLabel('head')})</th><th>Poly. eff.</th>
+                        <th>Gas power (${unitLabel('power')})</th>
+                        <th>Cooler duty (${unitLabel('power')})</th>
+                    </tr></thead>
+                    <tbody>
+                    ${train.sections.map(s => `
+                        <tr>
+                            <td data-l="Section">${s.section}</td>
+                            <td data-l="Pressure">${disp('pressure', s.inlet.P, 2)} → ${disp('pressure', s.P2, 2)}</td>
+                            <td data-l="Temperature">${disp('temperature', s.inlet.T, 1)} → ${disp('temperature', s.T2, 1)}</td>
+                            <td data-l="Ratio">${(s.P2 / s.inlet.P).toFixed(3)}</td>
+                            <td data-l="Stages">${s.nStages}</td>
+                            <td data-l="Speed">${Math.round(s.speed).toLocaleString()}</td>
+                            <td data-l="Head">${disp('head', s.HpTotal, 1)}</td>
+                            <td data-l="η poly">${s.etaPoly.toFixed(3)}</td>
+                            <td data-l="Gas power">${disp('power', s.gasPower, 1)}</td>
+                            <td data-l="Cooler duty">${s.cooler ? disp('power', s.cooler.duty, 1) : '—'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+
+            /* Cross-check */
+            const cc = train.sections.map(s => {
+                const d1 = E.derived(inp.mix, s.inlet.T, s.inlet.P, inp.model);
+                const simple = E.simplePolytropicHead(inp.mix, s.inlet.T, s.inlet.P, s.P2, s.inlet.Z, d1.kv, s.etaPoly);
+                return { s, simple };
+            });
+            $('crossCheck').innerHTML = `
+                <table class="data">
+                    <thead><tr>
+                        <th>Section</th>
+                        <th>Integrated ∫v·dP (${unitLabel('head')})</th>
+                        <th>Schultz (${unitLabel('head')})</th>
+                        <th>Schultz f</th><th>Schultz n</th>
+                        <th>Simple polytropic (${unitLabel('head')})</th>
+                        <th>Spread</th>
+                    </tr></thead>
+                    <tbody>
+                    ${cc.map(({ s, simple }) => {
+                        const vals = [s.HpTotal, s.schultz.Hp, simple];
+                        const spread = (Math.max(...vals) / Math.min(...vals) - 1) * 100;
+                        return `<tr>
+                            <td data-l="Section">${s.section}</td>
+                            <td data-l="Integrated">${disp('head', s.HpTotal, 2)}</td>
+                            <td data-l="Schultz">${disp('head', s.schultz.Hp, 2)}</td>
+                            <td data-l="f">${s.schultz.f.toFixed(4)}</td>
+                            <td data-l="n">${s.schultz.n.toFixed(4)}</td>
+                            <td data-l="Simple">${disp('head', simple, 2)}</td>
+                            <td data-l="Spread"><span class="pill ${spread < 3 ? 'ok' : spread < 8 ? 'warn' : 'bad'}">${spread.toFixed(1)}%</span></td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table>`;
+
+            /* Rotordynamics */
+            $('rotorOut').innerHTML = `
+                <div class="kpi-grid mb-4">
+                    ${kpi(disp('length', train.rotor.bearingSpan, 0), unitLabel('length'), 'Est. bearing span')}
+                    ${kpi(disp('length', train.rotor.shaftDia, 0), unitLabel('length'), 'Est. shaft diameter')}
+                    ${kpi(train.rotor.LD.toFixed(1), '', 'Span / diameter')}
+                    ${kpi(Math.round(train.rotor.firstCriticalEst).toLocaleString(), 'rpm', 'Est. first critical')}
+                    ${kpi(train.rotor.flexRatio.toFixed(2), '', 'Flexibility ratio')}
+                </div>
+                <ul class="reasons text-sm" style="color:var(--muted)">
+                    ${train.rotor.flags.map(f => `<li>• ${esc(f)}</li>`).join('')}
+                </ul>
+                <p class="text-xs mt-3" style="color:var(--muted)"><em>${esc(train.rotor.disclaimer)}</em></p>`;
+
+            renderDatasheet(train, inp, dr);
+        }
+
+        function renderDatasheet(train, inp, dr) {
+            const first = train.sections[0], last = train.sections[train.sections.length - 1];
+            const row = (k, v) => `<tr><td data-l="Item" style="text-align:left">${k}</td><td data-l="Value"><strong>${v}</strong></td></tr>`;
+            $('printStamp').textContent = ($('inCaseName').value || 'Untitled case') + ' — generated ' + new Date().toLocaleString();
+            $('datasheet').innerHTML = `
+                <table class="data">
+                    <thead><tr><th>Item</th><th>Value</th></tr></thead>
+                    <tbody>
+                    ${row('Case', esc($('inCaseName').value || 'Untitled case'))}
+                    ${row('Equation of state', esc(train.modelName))}
+                    ${row('Gas', esc(composition.map(c => E.BY_ID[c.id].name + ' ' + (c.molPct / compTotal() * 100).toFixed(2) + '%').join(', ')))}
+                    ${row('Molecular weight', inp.mix.MW.toFixed(3) + ' g/mol')}
+                    ${row('Suction', dispU('pressure', first.inlet.P, 3) + ' / ' + dispU('temperature', first.inlet.T, 2))}
+                    ${row('Discharge', dispU('pressure', last.P2, 3) + ' / ' + dispU('temperature', last.T2, 2))}
+                    ${row('Overall pressure ratio', (last.P2 / first.inlet.P).toFixed(3))}
+                    ${row('Mass flow', dispU('massFlow', inp.mdot, 1))}
+                    ${row('Inlet volume flow', dispU('volFlow', first.Q1, 2))}
+                    ${row('Inlet compressibility Z', first.inlet.Z.toFixed(4))}
+                    ${row('Inlet acoustic velocity', dispU('velocity', first.inletDerived.sonic, 1))}
+                    ${row('Total polytropic head', dispU('head', train.sections.reduce((a, s) => a + s.HpTotal, 0), 2))}
+                    ${row('Polytropic efficiency', first.etaPoly.toFixed(4) + ' (' + first.etaSource + ')')}
+                    ${row('Isentropic efficiency', first.etaIsen.toFixed(4))}
+                    ${row('Sections', train.sections.length)}
+                    ${row('Total stages', train.totalStages)}
+                    ${row('Speed', train.sections.map(s => Math.round(s.speed).toLocaleString()).join(' / ') + ' rpm')}
+                    ${row('Impeller diameter D₂', train.sections.map(s => disp('length', s.stages[0].D2, 1)).join(' / ') + ' ' + unitLabel('length'))}
+                    ${row('Impeller construction', esc(inp.impeller.label))}
+                    ${row('Max peripheral Mach Mu₂', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mu2))).toFixed(3))}
+                    ${row('Max inlet relative Mach', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mrel))).toFixed(3))}
+                    ${row('Flow coefficient φ range', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4) + ' → ' + Math.min(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4))}
+                    ${row('Head coefficient ψ', train.sections[0].stages[0].psi.toFixed(3))}
+                    ${row('Gas (hydraulic) power', dispU('power', train.gasPower, 2))}
+                    ${row('Shaft power', dispU('power', train.shaftPower, 2))}
+                    ${row('Power at driver', dispU('power', dr.atDriver, 2))}
+                    ${row('Driver rating (+' + (dr.margin * 100).toFixed(0) + '%)', dispU('power', dr.rated, 2))}
+                    ${row('Standard motor size', unitSystem === 'US' ? dr.nema_hp.toLocaleString() + ' hp (NEMA)' : dr.iec_kW.toLocaleString() + ' kW (IEC)')}
+                    ${row('Compressor type', esc(train.frame.type))}
+                    ${row('Casing', esc(train.frame.casing))}
+                    </tbody>
+                </table>`;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Main calculation                                                  */
+        /* ---------------------------------------------------------------- */
+
+        let lastTrain = null, lastInput = null;
+
+        function recalc() {
+            try {
+                const inp = buildInput();
+                lastInput = inp;
+                renderMixProps(inp);
+                const train = E.runTrain(inp);
+                lastTrain = train;
+                clearError();
+                renderResults(train, inp);
+                drawCharts(train);
+                scheduleSave();
+            } catch (e) {
+                showError(e.message || String(e));
+                console.error(e);
+            }
+        }
+
+        window.onThemeChange = function () {
+            if (lastTrain) { try { drawCharts(lastTrain); } catch (e) { /* charts redraw on next calc */ } }
+        };
+
+        /* ---------------------------------------------------------------- */
+        /* State, persistence, import/export                                 */
+        /* ---------------------------------------------------------------- */
+
+        const SIMPLE_INPUTS = ['inP1', 'inT1', 'inMdot', 'inModel', 'inImpeller', 'inPsi', 'inPhi',
+            'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2', 'inSpeedManual', 'inCommonShaft',
+            'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
+
+        function collectState() {
+            const vals = {};
+            SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            // version 2: sections are stored in SI, not display units.
+            return { version: 2, unitSystem, composition, sections, values: vals };
+        }
+
+        function applyState(s) {
+            if (!s || typeof s !== 'object') return;
+            if (s.unitSystem === 'SI' || s.unitSystem === 'US') {
+                unitSystem = s.unitSystem;
+                units = E.systemUnits(unitSystem);
+                $('unitSystem').value = unitSystem;
+            }
+            if (Array.isArray(s.composition)) {
+                composition = s.composition.filter(c => E.BY_ID[c.id]).map(c => ({ id: c.id, molPct: Number(c.molPct) || 0 }));
+            }
+            if (Array.isArray(s.sections) && s.sections.length) {
+                // Version 1 stored sections in whatever units were on screen at
+                // the time; version 2 stores SI. Convert a v1 file on the way in
+                // using the unit system it was saved under.
+                const legacy = !s.version || s.version < 2;
+                const su = legacy ? E.systemUnits(s.unitSystem === 'US' ? 'US' : 'SI') : null;
+                const pS = legacy ? (E.toBase('pressure', su.pressure, 1) - E.toBase('pressure', su.pressure, 0)) : 1;
+                sections = s.sections.map(x => legacy ? ({
+                    P2: E.toBase('pressure', su.pressure, Number(x.P2) || 0),
+                    Tcool: E.toBase('temperature', su.temperature, Number(x.Tcool) || 40),
+                    dPcool: (Number(x.dPcool) || 0) * pS
+                }) : ({
+                    P2: Number(x.P2) || 0,
+                    Tcool: Number(x.Tcool) || 313.15,
+                    dPcool: Number(x.dPcool) || 0
+                }));
+            }
+            if (s.values) {
+                Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
+            }
+            refreshUnitLabels();
+            renderComposition();
+            renderSections();
+            updateImpellerHint();
+            $('modelNote').textContent = MODEL_NOTES[$('inModel').value];
+        }
+
+        let saveTimer = null;
+        function scheduleSave() {
+            if (!Core.user) return;
+            clearTimeout(saveTimer);
+            $('saveStatus').textContent = 'Saving…';
+            saveTimer = setTimeout(async () => {
+                try {
+                    await Core.db.collection('users').doc(Core.user.uid)
+                        .collection('app_data').doc(TOOL_ID)
+                        .set(collectState(), { merge: true });
+                    $('saveStatus').textContent = 'Saved ' + new Date().toLocaleTimeString();
+                } catch (e) {
+                    $('saveStatus').textContent = 'Save failed — working offline';
+                }
+            }, 1500);
+        }
+
+        Core.onLogin = async function () {
+            try {
+                const doc = await Core.db.collection('users').doc(Core.user.uid)
+                    .collection('app_data').doc(TOOL_ID).get();
+                if (doc.exists) { applyState(doc.data()); recalc(); }
+            } catch (e) { /* offline: keep the defaults already on screen */ }
+        };
+
+        /* ---------------------------------------------------------------- */
+        /* Wiring                                                            */
+        /* ---------------------------------------------------------------- */
+
+        function init() {
+            buildComponentPicker();
+            buildImpellerSelect();
+            composition = E.PRESETS['Lean natural gas'].map(c => ({ id: c.id, molPct: c.molPct }));
+            renderComposition();
+            renderSections();
+            refreshUnitLabels();
+            $('modelNote').textContent = MODEL_NOTES.PR;
+
+            // Tabs
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+                    document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+                    btn.classList.add('on');
+                    $(btn.getAttribute('data-view')).classList.add('on');
+                    // Charts need a real width to lay out, so redraw on reveal.
+                    if (btn.getAttribute('data-view') === 'v-charts' && lastTrain) drawCharts(lastTrain);
+                });
+            });
+
+            // Live recalculation on every input
+            SIMPLE_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                el.addEventListener('input', () => {
+                    if (id === 'inImpeller') {
+                        updateImpellerHint();
+                        const t = E.impellerType(el.value);
+                        $('inMaxSpeed').value = t.open ? E.DEFAULTS.maxSpeedOpen : E.DEFAULTS.maxSpeedClosed;
+                        writeSI($('inMinD2'), 'length', t.open ? E.DEFAULTS.minD2Open : E.DEFAULTS.minD2Closed, 0);
+                    }
+                    if (id === 'inModel') $('modelNote').textContent = MODEL_NOTES[el.value];
+                    recalc();
+                });
+                el.addEventListener('change', recalc);
+            });
+
+            $('unitSystem').addEventListener('change', e => switchUnitSystem(e.target.value));
+
+            $('btnAddComp').addEventListener('click', () => {
+                const id = $('compPicker').value;
+                if (composition.some(c => c.id === id)) return;
+                composition.push({ id, molPct: 0 });
+                renderComposition();
+                recalc();
+            });
+
+            $('btnNormalise').addEventListener('click', () => {
+                const t = compTotal();
+                if (t <= 0) return;
+                composition.forEach(c => { c.molPct = Number((c.molPct / t * 100).toFixed(6)); });
+                renderComposition();
+                recalc();
+            });
+
+            $('btnClearComp').addEventListener('click', () => {
+                composition = [];
+                renderComposition();
+                recalc();
+            });
+
+            $('presetSelect').addEventListener('change', e => {
+                const k = e.target.value;
+                if (!k) return;
+                composition = E.PRESETS[k].map(c => ({ id: c.id, molPct: c.molPct }));
+                renderComposition();
+                e.target.value = '';
+                recalc();
+            });
+
+            $('btnAddSection').addEventListener('click', () => {
+                const lastP = sections[sections.length - 1].P2;
+                const inletP = readSI($('inP1'), 'pressure');
+                // Insert an intermediate stop at the geometric mean of the
+                // suction and the current final pressure, and push the existing
+                // final pressure out to the new last section.
+                const mid = Math.sqrt(Math.max(inletP, 1) * lastP);
+                sections[sections.length - 1].P2 = mid;
+                sections.push({
+                    P2: lastP,
+                    Tcool: sections[0].Tcool != null ? sections[0].Tcool : 313.15,
+                    dPcool: sections[0].dPcool != null ? sections[0].dPcool : 0.5e5
+                });
+                renderSections();
+                recalc();
+            });
+
+            $('btnDelSection').addEventListener('click', () => {
+                if (sections.length <= 1) return;
+                const finalP = sections[sections.length - 1].P2;
+                sections.pop();
+                sections[sections.length - 1].P2 = finalP;
+                renderSections();
+                recalc();
+            });
+
+            $('btnPrint').addEventListener('click', () => window.print());
+
+            $('btnExport').addEventListener('click', () => {
+                const blob = new Blob([JSON.stringify(collectState(), null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = ($('inCaseName').value || 'compressor-case').replace(/[^\w\-]+/g, '_') + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            });
+
+            $('fileImport').addEventListener('change', e => {
+                const f = e.target.files && e.target.files[0];
+                if (!f) return;
+                const r = new FileReader();
+                r.onload = () => {
+                    try {
+                        applyState(JSON.parse(r.result));
+                        recalc();
+                    } catch (err) {
+                        showError('Could not read that file: ' + err.message);
+                    }
+                };
+                r.readAsText(f);
+                e.target.value = '';
+            });
+
+            $('btnSelfTest').addEventListener('click', () => {
+                const res = E.selfTest();
+                const fails = res.filter(r => !r.pass).length;
+                $('selfTestOut').innerHTML = `
+                    <div class="note ${fails ? 'bad' : ''}" style="margin-bottom:0.75rem">
+                        ${fails ? fails + ' of ' + res.length + ' checks failed.' : 'All ' + res.length + ' checks passed.'}
+                    </div>
+                    <table class="data">
+                        <thead><tr><th>Check</th><th>Value</th><th>Expected</th><th>Tol</th><th>Result</th></tr></thead>
+                        <tbody>${res.map(r => `<tr>
+                            <td data-l="Check" style="text-align:left">${esc(r.name)}${r.note ? `<div class="text-xs" style="color:var(--muted)">${esc(r.note)}</div>` : ''}</td>
+                            <td data-l="Value">${Number(r.value).toPrecision(6)}</td>
+                            <td data-l="Expected">${r.expected}</td>
+                            <td data-l="Tol">${r.tolerance}</td>
+                            <td data-l="Result"><span class="pill ${r.pass ? 'ok' : 'bad'}">${r.pass ? 'PASS' : 'FAIL'}</span></td>
+                        </tr>`).join('')}</tbody>
+                    </table>`;
+            });
+
+            recalc();
+
+            if (/[?&]selftest=1/.test(window.location.search)) {
+                document.querySelector('.tab[data-view="v-report"]').click();
+                $('btnSelfTest').click();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+</body>
+</html>

@@ -215,7 +215,7 @@
             async prefetchSearchData() {
                 if(!this.user) return;
                 // List of known collections to index
-                const collections = ['tva_tool', 'dgs_tool'];
+                const collections = ['tva_tool', 'dgs_tool', 'compressor_selector'];
                 
                 collections.forEach(col => {
                     this.db.collection('users').doc(this.user.uid).collection('app_data').doc(col)
@@ -378,24 +378,48 @@
             }
         }
 
+        // Built-in tools that ship with the hub. New entries added here appear
+        // for everyone: a brand-new account is seeded with the whole list, and
+        // an existing account has anything missing appended on next load.
+        const SYSTEM_APPS = [
+            { name: 'Torsional Tool', icon: '⚙️', category: 'Engineering', link: 'tva_tool.html', desc: 'API 617/684 Analysis', isSystem: true, searchRef: 'tva_tool' },
+            { name: 'DGS Validator', icon: '🌬️', category: 'Engineering', link: 'dgs_tool.html', desc: 'API 692 Inspection Checklist', isSystem: true, searchRef: 'dgs_tool' },
+            { name: 'Compressor Selector', icon: '🌀', category: 'Engineering', link: 'compressor_selector.html', desc: 'Real-gas EOS stage & frame selection', isSystem: true, searchRef: 'compressor_selector' },
+            { name: 'Add Page', icon: '➕', category: 'System', link: 'template.html', desc: 'Create a new page', isSystem: true }
+        ];
+
+        // Guards the upsert so the write it triggers cannot loop through the
+        // snapshot listener that observes the same document.
+        let systemAppsUpserted = false;
+
         function loadApps() {
             if (!Core.user) return;
             Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps')
                 .onSnapshot(doc => {
                     const container = document.getElementById('apps-container');
                     container.innerHTML = '';
-                    
+
                     let apps = (doc.exists && doc.data().list) ? doc.data().list : [];
                     Core.apps = apps; // Cache for search
 
                     // --- INITIAL SETUP (First Run) ---
                     if (apps.length === 0) {
-                        apps = [
-                            { name: 'Torsional Tool', icon: '⚙️', category: 'Engineering', link: 'tva_tool.html', desc: 'API 617/684 Analysis', isSystem: true, searchRef: 'tva_tool' },
-                            { name: 'DGS Validator', icon: '🌬️', category: 'Engineering', link: 'dgs_tool.html', desc: 'API 692 Inspection Checklist', isSystem: true, searchRef: 'dgs_tool' },
-                            { name: 'Add Page', icon: '➕', category: 'System', link: 'template.html', desc: 'Create a new page', isSystem: true }
-                        ];
+                        apps = SYSTEM_APPS.slice();
                         Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps').set({ list: apps });
+                        systemAppsUpserted = true;
+                    } else if (!systemAppsUpserted) {
+                        // --- UPSERT NEW BUILT-IN TOOLS ---
+                        // Match on link, not name, so a renamed card is not
+                        // duplicated. Only ever appends; cards the user added
+                        // or edited are left exactly as they are.
+                        const haveLinks = new Set(apps.map(a => a.link));
+                        const missing = SYSTEM_APPS.filter(a => !haveLinks.has(a.link));
+                        systemAppsUpserted = true;
+                        if (missing.length) {
+                            apps = apps.concat(missing);
+                            Core.apps = apps;
+                            Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps').set({ list: apps });
+                        }
                     }
 
                     // --- GROUP BY CATEGORY ---
@@ -539,6 +563,24 @@
                             </div>
                         `;
                     });
+                }
+            }
+
+            // Searching Compressor Selector saved case
+            const compCase = Core.deepSearchData['compressor_selector'];
+            if (compCase) {
+                const caseName = (compCase.values && compCase.values.inCaseName) || '';
+                const gasNames = (compCase.composition || [])
+                    .map(c => (c.id || '').toLowerCase()).join(' ');
+                const content = `${caseName} ${gasNames} compressor centrifugal stages impeller`.toLowerCase();
+                if (content.includes(term)) {
+                    html += `<div class="p-4 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase text-slate-500 mt-2">Found in Compressor Selector</div>`;
+                    html += `
+                        <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" onclick="window.location.href='compressor_selector.html'">
+                            <div class="text-sm font-medium text-slate-800 dark:text-slate-200">${caseName || 'Saved case'}</div>
+                            <div class="text-xs text-slate-500 truncate">${(compCase.composition || []).length} components • ${(compCase.sections || []).length} section(s)</div>
+                        </div>
+                    `;
                 }
             }
 
