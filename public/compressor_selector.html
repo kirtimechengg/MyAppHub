@@ -155,6 +155,26 @@
         ul.reasons { list-style: none; margin: 0; padding: 0; }
         ul.reasons li { margin-bottom: 0.35rem; }
 
+        /* Help tab: a formula shown exactly as coded, and the symbol chip that
+           ties it back to a column header or field label elsewhere in the app. */
+        .formula {
+            font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+            font-size: 0.82rem; line-height: 1.6;
+            background: var(--surface-2); border: 1px solid var(--line); border-radius: 0.5rem;
+            padding: 0.65rem 0.9rem; margin: 0.5rem 0; overflow-x: auto; white-space: pre;
+            color: var(--text);
+        }
+        .symchip {
+            display: inline-block; font-family: ui-monospace, monospace; font-size: 0.78rem;
+            font-weight: 700; background: var(--accent-soft); color: var(--accent);
+            padding: 0.05rem 0.4rem; border-radius: 0.3rem; margin-right: 0.3rem;
+        }
+        .help-toc a {
+            display: block; padding: 0.3rem 0; font-size: 0.85rem; color: var(--accent);
+            text-decoration: none; border-bottom: 1px dashed var(--line);
+        }
+        .help-toc a:hover { text-decoration: underline; }
+
         #errorBar {
             position: sticky; top: 4rem; z-index: 40;
             background: var(--bad-soft); color: var(--bad);
@@ -217,17 +237,37 @@
             <button class="tab" data-view="v-results">Results</button>
             <button class="tab" data-view="v-charts">Charts</button>
             <button class="tab" data-view="v-report">Report</button>
+            <button class="tab" data-view="v-help">Help &amp; Formulas</button>
         </div>
 
         <!-- ============================ PROCESS ============================ -->
         <section id="v-process" class="view on space-y-5">
             <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Pressure reference</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Atmospheric pressure <span class="unit" data-unit="pressure"></span></label>
+                        <input type="number" id="inAtmPressure" value="1.01325" step="any">
+                        <span class="hint">Local barometric pressure — the reference for gauge readings.</span>
+                    </div>
+                    <div class="field">
+                        <label>Pressure basis</label>
+                        <select id="inPressureBasis">
+                            <option value="absolute">Absolute (bara / psia)</option>
+                            <option value="gauge">Gauge (barg / psig)</option>
+                        </select>
+                        <span class="hint">Applies to suction and every section's discharge pressure below. An intercooler Δp is always a difference, unaffected by this setting.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
                 <h2 class="font-bold text-lg mb-4">Suction conditions</h2>
                 <div class="grid-fields">
                     <div class="field">
-                        <label>Suction pressure <span class="unit" data-unit="pressure"></span></label>
+                        <label>Suction pressure <span class="unit" data-unit="pressureRef"></span></label>
                         <input type="number" id="inP1" value="30" step="any">
-                        <span class="hint">Absolute pressure at the compressor flange.</span>
+                        <span class="hint">Pressure at the compressor flange, per the basis above.</span>
                     </div>
                     <div class="field">
                         <label>Suction temperature <span class="unit" data-unit="temperature"></span></label>
@@ -597,6 +637,370 @@
             </div>
         </section>
 
+        <!-- ============================ HELP ============================ -->
+        <section id="v-help" class="view no-print space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-2">Help &amp; formulas</h2>
+                <p class="text-sm mb-4" style="color:var(--muted)">
+                    Every number this tool reports is produced by one of the formulas below, using exactly the
+                    variable names shown in <code>compressor-eos.js</code>. The <span class="symchip">chip</span>
+                    next to each quantity is the symbol you'll see again in the Results tables and charts, so a
+                    number on screen can always be traced back to the equation that made it.
+                </p>
+                <div class="help-toc grid-fields" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+                    <a href="#help-pressure">1. Pressure reference (gauge / absolute)</a>
+                    <a href="#help-mixture">2. Gas mixture properties</a>
+                    <a href="#help-eos">3. Equation of state (Z, PR / SRK / Lee-Kesler)</a>
+                    <a href="#help-realgas">4. Real-gas Cp, Cv, k, speed of sound</a>
+                    <a href="#help-path">5. Compression path &amp; head</a>
+                    <a href="#help-eff">6. Efficiency prediction</a>
+                    <a href="#help-aero">7. Stage aerodynamics (φ, ψ, U₂, D₂, N)</a>
+                    <a href="#help-stages">8. Stage count &amp; speed solve</a>
+                    <a href="#help-igc">9. Integrally geared: pinions &amp; gear ratio</a>
+                    <a href="#help-frame">10. Compressor type &amp; casing selection</a>
+                    <a href="#help-power">11. Power &amp; driver rating</a>
+                    <a href="#help-rotor">12. Rotordynamic screening</a>
+                    <a href="#help-dew">13. Dew-point screening</a>
+                    <a href="#help-limits">14. Where the default limits come from</a>
+                </div>
+            </div>
+
+            <div class="card p-5" id="help-pressure">
+                <h2 class="font-bold text-lg mb-1">1. Pressure reference (gauge / absolute)</h2>
+                <p class="text-sm" style="color:var(--muted)">
+                    Only the suction pressure <span class="symchip">P₁</span> and each section's discharge pressure
+                    <span class="symchip">P₂</span> are "a pressure relative to atmosphere" — an intercooler Δp is
+                    already a difference and this setting doesn't touch it. Everywhere else in the engine, pressure
+                    is absolute Pa always; gauge/absolute is purely how the number is typed in and displayed.
+                </p>
+                <div class="formula">P_abs = P_gauge + P_atmospheric
+P_gauge = P_abs − P_atmospheric</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    Changing the atmospheric pressure reference re-derives the display for values already entered
+                    (the same way switching SI ⇄ US units re-displays a value without changing what it physically
+                    means) — it does not silently move your process case. The suction field reads its typed value
+                    fresh on every calculation, so editing the atmospheric reference updates it immediately; each
+                    section's discharge pressure is stored once as absolute and re-displayed, so it stays put until
+                    you retype it.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-mixture">
+                <h2 class="font-bold text-lg mb-1">2. Gas mixture properties</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">Shown on the Gas Composition tab, computed once the composition is normalised to mole fractions <span class="symchip">yᵢ</span>.</p>
+                <div class="formula">MW  = Σ yᵢ · MWᵢ                        molecular weight
+Tc  = Σ yᵢ · Tcᵢ    (Kay's rule)      pseudo-critical temperature
+Pc  = Σ yᵢ · Pcᵢ    (Kay's rule)      pseudo-critical pressure
+ω   = Σ yᵢ · ωᵢ     (Kay's rule)      pseudo acentric factor
+Rsp = R / (MW/1000)                   specific gas constant, J/(kg·K)</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    Kay's rule (a plain mole-fraction average of the pure-component critical properties) is what
+                    feeds the Lee-Kesler model and the reduced-property warning on that tab. Peng-Robinson and SRK
+                    don't use a single pseudo-critical point — they mix at the level of the EOS's own <em>a</em>
+                    and <em>b</em> parameters, described next.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-eos">
+                <h2 class="font-bold text-lg mb-1">3. Equation of state — compressibility Z</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    Peng-Robinson and SRK are the same cubic equation with different constants, so one derivation
+                    covers both. Selectable on the Machine tab; drives every density, enthalpy and entropy value in
+                    the tool.
+                </p>
+                <div class="formula">P = RT/(v−b) − aα(T) / [(v+δ₁b)(v+δ₂b)]
+
+              δ₁        δ₂        Ωa        Ωb        m(ω)
+  SRK:        1         0         0.42748   0.08664   0.480 + 1.574ω − 0.176ω²
+  PR:         1+√2      1−√2      0.45724   0.07780   0.37464 + 1.54226ω − 0.26992ω²
+                                                        (1978 heavy-fluid form above ω=0.49:
+                                                         0.379642 + 1.48503ω − 0.164423ω² + 0.016666ω³)
+
+  aᵢ = Ωa·R²·Tcᵢ²/Pcᵢ      bᵢ = Ωb·R·Tcᵢ/Pcᵢ      α = [1 + m(1 − √(T/Tcᵢ))]²
+
+  van der Waals mixing:
+  a_m = ΣΣ yᵢyⱼ(1−kᵢⱼ)√(aᵢαᵢ · aⱼαⱼ)         b_m = Σ yᵢ bᵢ
+
+  A = a_m·P/(R²T²)    B = b_m·P/(RT)
+
+  Cubic in Z:
+    SRK:  Z³ − Z² + (A−B−B²)Z − AB = 0
+    PR:   Z³ − (1−B)Z² + (A−3B²−2B)Z − (AB−B²−B³) = 0
+
+  Solved via the trigonometric/Cardano method (no initial guess, cannot diverge);
+  <span class="symchip">Z</span> is the largest real root with Z &gt; B (the vapour root).</div>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    Binary interaction parameters <span class="symchip">kᵢⱼ</span> are a sparse table (N₂, CO₂, H₂S
+                    and H₂ pairs with the hydrocarbons; everything else defaults to 0), reused unchanged between
+                    PR and SRK, which is normal practice for screening work.
+                </p>
+                <p class="text-sm mb-1" style="color:var(--muted)">Enthalpy and entropy departure — one general form for both models, parameterised by δ₁/δ₂:</p>
+                <div class="formula">H − H^ig = RT(Z−1) + (T·da_m/dT − a_m)/(b_m(δ₁−δ₂)) · ln[(Z+δ₁B)/(Z+δ₂B)]
+S − S^ig = R·ln(Z−B) +          (da_m/dT)/(b_m(δ₁−δ₂)) · ln[(Z+δ₁B)/(Z+δ₂B)]</div>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    <strong style="color:var(--text)">Lee-Kesler</strong> is a different approach: three-parameter
+                    corresponding states, using Kay's-rule pseudo-critical Tc/Pc/ω (above) rather than a mixture
+                    EOS. Two reference fluids — "simple" (ω=0) and "reference" (n-octane, ω=0.3978) — are each
+                    solved from the same modified BWR form for their own Z and departures, then blended:
+                </p>
+                <div class="formula">Z    = Z⁽⁰⁾  + (ω/ω_ref)·(Z⁽ʳ⁾  − Z⁽⁰⁾)
+H−H^ig = H⁽⁰⁾ + (ω/ω_ref)·(H⁽ʳ⁾ − H⁽⁰⁾)     (same blend for S−S^ig)</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    Reliable for non-polar mixtures of similar-sized molecules; the tool warns if you pick it for a
+                    mixture containing water, methanol or ammonia.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-realgas">
+                <h2 class="font-bold text-lg mb-1">4. Real-gas Cp, Cv, isentropic exponent, speed of sound</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">Shown on the Gas Composition tab as "Real Cp", "Cp / Cv", "Isentropic volume exponent" and "Acoustic velocity".</p>
+                <div class="formula">Cp = (∂H/∂T)_P                 central difference of H(T,P), ΔT ≈ max(0.02 K, T·10⁻⁵)
+
+Cp − Cv = −T·(∂v/∂T)²_P / (∂v/∂P)_T        triple-product relation
+kᵥ      = (Cp/Cv) · (−v/P) / (∂v/∂P)_T      isentropic volume exponent, <span class="symchip">kᵥ</span>
+a       = √(kᵥ · P · v / MW)                acoustic velocity, <span class="symchip">a₁</span></div>
+                <p class="text-sm" style="color:var(--muted)">
+                    All three derivatives come from numerically differencing v(T,P), which keeps Peng-Robinson,
+                    SRK and Lee-Kesler on exactly the same footing — Lee-Kesler only ever gives Z(T,P), not a
+                    P(v,T) form to differentiate analytically, so this is the one method that works for all three.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-path">
+                <h2 class="font-bold text-lg mb-1">5. Compression path — polytropic head, three ways</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    The <strong style="color:var(--text)">integrated path</strong> is what the tool actually sizes
+                    the machine on. Schultz and the simple single-step form are shown alongside on the Results tab
+                    as a cross-check — divergence between the three is itself the sign the gas is far from ideal.
+                </p>
+                <div class="formula">Integrated (used for sizing):
+  dHp = v·dP            polytropic head increment
+  dh  = v·dP / ηp        small-stage definition of polytropic efficiency
+  → stepped in ~40 sub-stages; T₂ falls out of the real enthalpy balance,
+    not an ideal-gas exponent shortcut.
+
+Schultz (cross-check):
+  n  = ln(P₂/P₁) / ln(v₁/v₂)
+  nₛ = ln(P₂/P₁) / ln(v₁/v₂ₛ)                      (v₂ₛ at the isentropic endpoint)
+  f  = (h₂ₛ−h₁) / [(nₛ/(nₛ−1))·(P₂v₂ₛ − P₁v₁)]      Schultz correction factor
+  Hp = f · (n/(n−1)) · (P₂v₂ − P₁v₁)
+
+Simple single-step polytropic (cross-check):
+  n  = 1 / (1 − (k−1)/(k·ηp))
+  Hp = (n/(n−1)) · Z₁ · Rsp · T₁ · (rp^((n−1)/n) − 1)</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    <strong style="color:var(--text)">A note on that last line:</strong> the coefficient is
+                    <code>n/(n−1)</code>, not <code>n/exp</code> with <code>exp=(n−1)/n</code> — those aren't the
+                    same thing, and writing it the second way overstates the head by a factor of n. That's the
+                    exact bug this tool's cross-check caught in the hub's older CompressorCalc_9 estimator; the
+                    three methods here agree to within a percent or two on any duty that isn't strongly non-ideal,
+                    which is the whole point of showing all three.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-eff">
+                <h2 class="font-bold text-lg mb-1">6. Polytropic efficiency prediction</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">Shown as "Polytropic efficiency" on the Results tab; overridable on the Machine tab.</p>
+                <div class="formula">Qcfm = 0.5885 · Q₁ [m³/h]
+η_base = clamp( 0.61 + 0.03·log₁₀(max(Qcfm,1)),  0.70, 0.85 )
+
+φ-penalty (parabolic derate about the best-efficiency point φ=0.075):
+  d = (φ − 0.075) / 0.075
+  f = clamp( 1 − 0.16·d² ,  0.80, 1.0 )
+
+ηp = clamp( η_base · f ,  0.68, 0.87 )</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    The flow-only base correlation is the same one the hub's earlier CompressorCalc_9 tool uses, so
+                    the two agree on the same duty; the φ-penalty is layered on top once a flow coefficient is
+                    known, and the whole thing re-solves iteratively since φ itself depends on the stage geometry
+                    that depends on ηp.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-aero">
+                <h2 class="font-bold text-lg mb-1">7. Stage aerodynamics</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    These are exactly the columns in the "Stage by stage" table. All consistent SI (Hp in J/kg, U₂
+                    in m/s, D₂ in m, N in rpm, Q₁ in m³/s).
+                </p>
+                <div class="formula"><span class="symchip">ψ</span> = Hp_stage / U₂²                        head (work) coefficient
+<span class="symchip">φ</span> = Q₁ / (¼π·D₂²·U₂)                    flow coefficient
+<span class="symchip">U₂</span> = π·D₂·N / 60                        tip speed
+<span class="symchip">Mu₂</span> = U₂ / a₁                           peripheral Mach number
+
+Sizing solve, for a target ψ and φ:
+  U₂ = √(Hp_stage / ψ)
+  D₂ = √(4·Q₁ / (π·φ·U₂))
+  N  = 60·U₂ / (π·D₂)
+
+Given a fixed N instead (manual speed, or a pinion's shared speed):
+  U₂ = √(Hp_stage / ψ)          D₂ = 60·U₂/(π·N)          φ = Q₁ / (¼π·D₂²·U₂)</div>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    <strong style="color:var(--text)">Inlet relative Mach</strong> (<span class="symchip">M rel</span>)
+                    needs an eye diameter and hub ratio that are really the vendor's to choose — the largest single
+                    simplification in this aerodynamic model:
+                </p>
+                <div class="formula">eyeRatio = clamp( 0.40 + 1.9·φ^0.55 ,  0.35, 0.72 )     D₁/D₂ correlated to φ
+D₁ = eyeRatio · D₂                                       eye diameter
+hubRatio = 0.30                                          fixed assumption
+A_eye = ¼π·D₁²·(1 − hubRatio²)
+Cx1 = Q₁ / A_eye            U1 = U₂·eyeRatio            W1 = √(Cx1² + U1²)
+M rel = W1 / a₁</div>
+            </div>
+
+            <div class="card p-5" id="help-stages">
+                <h2 class="font-bold text-lg mb-1">8. Stage count &amp; speed solve</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">How "Number of stages" and "Predicted speed" on the Results tab are actually chosen.</p>
+                <div class="formula">Allowable tip speed = min( impeller mechanical limit,  Mu₂max · a₁ )
+ψ = min( target ψ, impeller's own ψ max )
+Head per stage max = ψ · (allowable tip speed)²
+
+Seed stage count = ceil( total polytropic head / head-per-stage max )
+→ march the section at that count, check every stage's Mu₂, M rel, U₂, φ
+  against their limits; if any is exceeded, add a stage and re-march
+  (up to 20 stages). Left on Auto, this loop is what decides the count.
+
+Manual override: the requested count is used exactly - the loop above is
+skipped, not grown to "fix" a limit violation. Limits are still checked
+and flagged; a manual count just isn't silently overruled.</div>
+                <p class="text-sm mb-2" style="color:var(--muted)">Speed and diameter, once the stage count is set:</p>
+                <div class="formula">speedLimited  — the free (auto) solve wanted a speed above the architecture's cap; pinned at the cap
+sizeLimited   — the free solve wanted a diameter below the minimum; pinned at the minimum
+overSpeed     — the FINAL speed (auto or manual) is still above the cap - flagged, not hidden
+underSize     — the FINAL diameter (auto or manual) is still below the minimum - flagged, not hidden</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    A manual speed is put through the exact same overSpeed/underSize check as the automatic one —
+                    there's no separate "trust the user" code path, so a hand-typed speed that would build an
+                    impossible impeller shows the same warning an automatic one would.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-igc">
+                <h2 class="font-bold text-lg mb-1">9. Integrally geared: pinion pairing &amp; gear ratio</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">Only applies when the architecture is set to Integrally geared. Each section is one impeller; pinions carry one or two of them.</p>
+                <div class="formula">Auto-pairing: consecutive stages pair up (1&amp;2, 3&amp;4, ...). With an odd
+stage count, the leftover single-impeller pinion goes to whichever stage's
+free-solve speed differs most from its neighbour's - the pairing that
+would have cost the most aerodynamically is the one skipped.
+
+Common pinion speed - the geometric mean of the members' free speeds,
+so the compromise is split evenly in log space rather than favouring
+the faster stage:
+  N_pinion = (N₁ · N₂ · ... )^(1/count)      then clamped to maxSpeed and minD2
+
+Gear ratio:
+  ratio = N_pinion / N_bullGear</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    Each impeller on a shared pinion is then resized to that common speed via the "fixed N" sizing
+                    solve above (§7) — so a paired stage runs off its own aerodynamic optimum, and that cost shows
+                    up directly as its φ moving away from the 0.055–0.095 best-efficiency band, not hidden anywhere.
+                    A single mesh above a ~20:1 ratio, or more than 4 pinions on one bull gear, gets flagged as
+                    needing an intermediate gear stage or a split into two machines.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-frame">
+                <h2 class="font-bold text-lg mb-1">10. Compressor type &amp; casing selection</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    The architecture (beam-type / integrally geared / overhung) is your choice on the Machine tab —
+                    this only decides the <em>casing</em> within it, and whether the duty actually suits the
+                    architecture picked.
+                </p>
+                <div class="formula">Beam-type casing:
+  H₂ partial pressure at discharge ≥ 14 bar (200 psi)  →  vertically split barrel   (API 617)
+  else discharge pressure ≥ 60 bara                     →  vertically split barrel
+  else discharge ≥ 40 bara AND MW &lt; 12                  →  vertically split barrel
+  else                                                   →  horizontally split
+
+Suitability warnings (any architecture):
+  IGC with H₂ partial pressure ≥ 14 bar, or discharge ≥ 60 bara, or MW &lt; 12
+      → a beam-type barrel is flagged as the safer choice
+  Overhung needing more than 1 stage, or discharge ≥ 20 bara
+      → flagged as needing a different architecture
+
+  Q₁ &gt; 200,000 m³/h with ≤ 2 stages   → axial machine may suit better
+  &gt; 9 stages in one beam-type body    → tandem or two-body train suggested
+  Predicted speed above the architecture's usual ceiling → geared drive implied
+  Predicted speed &lt; 3000 rpm          → direct low-speed motor drive suggested</div>
+            </div>
+
+            <div class="card p-5" id="help-power">
+                <h2 class="font-bold text-lg mb-1">11. Power &amp; driver rating</h2>
+                <div class="formula">Gas power   = ṁ · Hp_total / ηp                          W
+Shaft power = Gas power / η_mech                          η_mech default 0.985
+
+Gear loss:
+  integrally geared: 1.5% per pinion mesh (charged per pinion, not one flat figure)
+  beam/overhung with a gearbox: flat 2%
+Coupling loss: 0.5% (always)
+
+Power at driver = Shaft power · (1 + gear loss) · (1 + coupling loss)
+Driver rating   = Power at driver · (1 + margin)          margin default 10%  (API 617: 110% of max power)
+
+Standard size: next value ≥ rating from the IEC kW or NEMA hp table.</div>
+            </div>
+
+            <div class="card p-5" id="help-rotor">
+                <h2 class="font-bold text-lg mb-1">12. Rotordynamic screening (indicative only)</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">
+                    Beam-type and overhung only — this beam-rotor model describes a shaft between two bearings and
+                    doesn't apply to an integrally geared pinion, which is short, stiff and overhung; the pinion
+                    table's gear ratio and tip speed are the relevant figures there instead.
+                </p>
+                <div class="formula">pitch = 0.33 · D₂                          impeller pitch, correlated to tip diameter
+bearing span = pitch · stages + 1.6·D₂
+shaft diameter = 0.30 · D₂
+L/D = span / shaft diameter
+
+First critical of a bare simply-supported steel shaft
+(sqrt(E/ρ) = 5135 m/s for steel; a 0.55 knockdown for impeller/collar mass):
+  N_critical ≈ 121000 · 0.55 · d / L²           rpm, order of magnitude
+
+flexibility ratio = operating speed / N_critical
+
+Aero cross-coupling indicator (API 617 Level-I style):
+  Qa = (shaft power[kW] / speed) · stages · (ρ_discharge / ρ_suction)</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    Flags: L/D &gt; 12 (flexible rotor), flexibility ratio &gt; 2.5 (runs well above the estimated
+                    first critical), Qa &gt; 8 (high power/stage-count/density-rise combination — consider a
+                    shunt-injected or hole-pattern seal). All of this is order-of-magnitude screening, not a
+                    substitute for an API 617 Level I/II lateral and stability analysis.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-dew">
+                <h2 class="font-bold text-lg mb-1">13. Dew-point screening</h2>
+                <p class="text-sm mb-2" style="color:var(--muted)">Checked at suction and at every intercooler outlet; warns rather than blocks the calculation.</p>
+                <div class="formula">Wilson K-value, per component:
+  Kᵢ = (Pcᵢ/P) · exp[ 5.373·(1+ωᵢ)·(1 − Tcᵢ/T) ]
+
+dewSum = Σ yᵢ/Kᵢ            condensing if dewSum &gt; 1</div>
+                <p class="text-sm" style="color:var(--muted)">
+                    A screening estimate only — no flash is performed and the composition is never changed through
+                    the machine. If the suction condition itself is well past its dew point (dewSum &gt; 1.5) the
+                    calculation stops outright, since a centrifugal compressor needs dry vapour at inlet; a milder
+                    exceedance, or one at an intercooler, is flagged as a warning instead.
+                </p>
+            </div>
+
+            <div class="card p-5" id="help-limits">
+                <h2 class="font-bold text-lg mb-1">14. Where the default limits come from</h2>
+                <p class="text-sm mb-3" style="color:var(--muted)">All editable on the Machine tab; these are the shipped defaults.</p>
+                <div class="formula">ψ target 0.52   (usable 0.42–0.65)        φ usable 0.010–0.150, best-efficiency 0.055–0.095
+Mu₂ max — by impeller construction, not one fixed number for every stage:
+  cast/high-MW           1.00        closed steel, standard    1.05
+  closed steel, HS       1.10        open/semi-open (IGC)      1.30        titanium   1.35
+M rel max 0.85           Max discharge temperature 150 °C (material/seal/polymerisation limit)
+Max stages per beam-type body ~9                Mechanical efficiency 0.985
+
+Tip-speed limit by construction (m/s): cast 260 · standard steel 320 · high-strength steel 375 · open 500 · titanium 600
+Max shaft speed: 20,000 rpm (beam/overhung, closed impellers) · 60,000 rpm (integrally geared pinion)
+Min impeller diameter: 180 mm (closed) · 100 mm (open) — room for shaft, seals and bearings
+
+Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, ~1.5% loss per mesh</div>
+            </div>
+        </section>
+
     </main>
 
     <!-- 3. REQUIRED SCRIPTS (Do not remove) -->
@@ -826,6 +1230,7 @@
 
         const FIELD_UNITS = {
             inP1: 'pressure',
+            inAtmPressure: 'pressure',
             inT1: 'temperature',
             inMdot: 'massFlow',
             inT2max: 'temperature',
@@ -835,6 +1240,13 @@
 
         let unitSystem = 'SI';
         let units = E.systemUnits('SI');
+
+        /* Suction pressure and every section's discharge pressure can be
+           entered/displayed as gauge (relative to the atmospheric pressure
+           input) or absolute. Nothing else changes: the engine and every
+           internally-stored pressure stay absolute Pa always - this is a
+           display/entry-layer concern only, exactly like the SI/US toggle. */
+        let pressureBasis = 'absolute';   // 'absolute' | 'gauge'
 
         function unitLabel(cat) {
             const d = E.unitDef(cat, units[cat]);
@@ -875,6 +1287,25 @@
             return out;
         }
 
+        /**
+         * Toggling gauge/absolute doesn't change any physical value - it
+         * changes what a typed number means and what a stored one displays
+         * as, exactly like switchUnitSystem() below. inP1 is captured and
+         * re-displayed explicitly since it's a plain live-read field; the
+         * sections array already stores P2 as absolute Pa, so it only needs
+         * a re-render (SEC_CONV.P2.from is basis-aware, see further down).
+         */
+        function switchPressureBasis(next) {
+            if (next !== 'absolute' && next !== 'gauge') return;
+            if (next === pressureBasis) return;
+            const p1Abs = readPabs($('inP1'));
+            pressureBasis = next;
+            if (isFinite(p1Abs)) $('inP1').value = fmtNum(disp('pressure', pRel(p1Abs)));
+            refreshUnitLabels();
+            renderSections();
+            recalc();
+        }
+
         function switchUnitSystem(next) {
             const oldUnits = units;
             const fields = allUnitFields();
@@ -899,7 +1330,7 @@
         function refreshUnitLabels() {
             document.querySelectorAll('[data-unit]').forEach(el => {
                 const cat = el.getAttribute('data-unit');
-                el.textContent = '(' + unitLabel(cat) + ')';
+                el.textContent = '(' + (cat === 'pressureRef' ? pressureRefLabel() : unitLabel(cat)) + ')';
             });
             document.querySelectorAll('[data-unitlbl]').forEach(el => {
                 el.textContent = unitLabel(el.getAttribute('data-unitlbl'));
@@ -912,6 +1343,51 @@
         }
         function dispU(cat, si, dp) {
             return disp(cat, si, dp) + ' ' + unitLabel(cat);
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Gauge / absolute pressure reference                               */
+        /* ---------------------------------------------------------------- */
+        /* Only the suction pressure and each section's discharge pressure
+           are "a pressure relative to atmosphere" - an intercooler Δp is
+           already a difference and is untouched by any of this. */
+
+        function atmPressureSI() {
+            const v = readSI($('inAtmPressure'), 'pressure');
+            return isFinite(v) && v > 0 ? v : 101325;
+        }
+
+        /* Absolute Pa -> whatever the current basis displays: itself if
+           absolute, or less atmospheric if gauge. Still in Pa - convert to
+           the display unit separately via disp()/E.fromBase(). */
+        function pRel(absPa) {
+            return pressureBasis === 'gauge' ? absPa - atmPressureSI() : absPa;
+        }
+
+        /* Reads a basis-aware pressure field (inP1, a section P2 input) and
+           returns absolute Pa, adding atmospheric back on if the field is
+           showing gauge. */
+        function readPabs(el) {
+            const v = readSI(el, 'pressure');
+            if (!isFinite(v)) return v;
+            return pressureBasis === 'gauge' ? v + atmPressureSI() : v;
+        }
+
+        function dispPabs(absPa, dp) {
+            return disp('pressure', pRel(absPa), dp);
+        }
+        function dispPabsU(absPa, dp) {
+            return dispPabs(absPa, dp) + ' ' + pressureRefLabel();
+        }
+
+        /* bara -> barg and so on. A lookup rather than a string-mangle of
+           unitLabel('pressure'), since those labels aren't formatted
+           consistently enough ('bara', 'kPa a', 'kg/cm² a', ...) to trust a
+           blind trailing-letter swap. */
+        const PRESSURE_GAUGE_LABEL = { bara: 'barg', kPaa: 'kPa g', MPaa: 'MPa g', psia: 'psig', kgcm2a: 'kg/cm² g' };
+        function pressureRefLabel() {
+            if (pressureBasis !== 'gauge') return unitLabel('pressure');
+            return PRESSURE_GAUGE_LABEL[units.pressure] || unitLabel('pressure');
         }
 
         /* ---------------------------------------------------------------- */
@@ -1016,7 +1492,13 @@
         const dPfromBase = v => v / pScale();
 
         const SEC_CONV = {
-            P2: { to: v => E.toBase('pressure', units.pressure, v), from: v => E.fromBase('pressure', units.pressure, v) },
+            // A section's discharge pressure is stored as absolute Pa always
+            // (like inP1); .to adds atmospheric back on when the typed value
+            // is gauge, .from subtracts it back off for display.
+            P2: {
+                to: v => { const abs = E.toBase('pressure', units.pressure, v); return pressureBasis === 'gauge' ? abs + atmPressureSI() : abs; },
+                from: v => E.fromBase('pressure', units.pressure, pRel(v))
+            },
             Tcool: { to: v => E.toBase('temperature', units.temperature, v), from: v => E.fromBase('temperature', units.temperature, v) },
             dPcool: { to: dPtoBase, from: dPfromBase }
         };
@@ -1039,7 +1521,7 @@
                     </div>
                     <div class="grid-fields">
                         <div class="field">
-                            <label>Discharge pressure <span class="unit" data-unit="pressure"></span></label>
+                            <label>Discharge pressure <span class="unit" data-unit="pressureRef"></span></label>
                             <input type="number" step="any" data-sec="${i}" data-k="P2" value="${v('P2')}">
                         </div>
                         ${last ? '' : `
@@ -1538,17 +2020,19 @@
             });
             const suction = { label: 'In', P: train.sections[0].inlet.P, T: train.sections[0].inlet.T };
             const seq = [suction].concat(nodes);
-            const pDisp = seq.map(nd => E.fromBase('pressure', units.pressure, nd.P));
+            const pDisp = seq.map(nd => E.fromBase('pressure', units.pressure, pRel(nd.P)));
             const tDisp = seq.map(nd => E.fromBase('temperature', units.temperature, nd.T));
             const tLo = Math.min(...tDisp), tHi = Math.max(...tDisp);
             const tPad = Math.max(5, (tHi - tLo) * 0.15);
             $('chartBuild').innerHTML = svgPlot({
                 w: 720, h: 400,
                 title: 'Pressure and temperature build-up',
-                xlab: 'Station', ylab: 'Pressure (' + unitLabel('pressure') + ')',
+                xlab: 'Station', ylab: 'Pressure (' + pressureRefLabel() + ')',
                 y2lab: 'Temperature (' + unitLabel('temperature') + ')',
                 x0: -0.5, x1: seq.length - 0.5,
-                y0: 0, y1: Math.max(...pDisp) * 1.12,
+                // Gauge basis can go negative for a sub-atmospheric (vacuum)
+                // suction, so the axis floor can't be hardcoded at 0.
+                y0: Math.min(0, Math.min(...pDisp) * 1.1), y1: Math.max(...pDisp) * 1.12,
                 y20: tLo - tPad, y21: tHi + tPad,
                 xticksRaw: seq.map((nd, i) => ({ v: i, label: nd.label })),
                 yfmt: v => fmtNum(v, 1),
@@ -1629,11 +2113,11 @@
             if (compTotal() <= 0) throw new Error('Gas composition must total more than zero.');
 
             const mix = E.makeMixture(composition);
-            const P1 = readSI($('inP1'), 'pressure');
+            const P1 = readPabs($('inP1'));
             const T1 = readSI($('inT1'), 'temperature');
             const mdot = readSI($('inMdot'), 'massFlow');
 
-            if (!(P1 > 0)) throw new Error('Suction pressure must be greater than zero (absolute).');
+            if (!(P1 > 0)) throw new Error('Suction pressure must be greater than zero absolute — check the atmospheric pressure reference if using gauge.');
             if (!(T1 > 0)) throw new Error('Suction temperature is out of range.');
             if (!(mdot > 0)) throw new Error('Mass flow must be greater than zero.');
 
@@ -1901,7 +2385,7 @@
                 <table class="data">
                     <thead><tr>
                         <th>Stage</th>
-                        <th>P in → out (${unitLabel('pressure')})</th>
+                        <th>P in → out (${pressureRefLabel()})</th>
                         <th>T in → out (${unitLabel('temperature')})</th>
                         <th>Z in</th>
                         <th>Q₁ (${unitLabel('volFlow')})</th>
@@ -1914,7 +2398,7 @@
                     ${rows.map(({ s, st }) => `
                         <tr>
                             <td data-l="Stage">${train.sections.length > 1 ? 'S' + s.section + ' · ' : ''}#${st.index}</td>
-                            <td data-l="Pressure">${disp('pressure', st.Pin * 1e5, 2)} → ${disp('pressure', st.Pout * 1e5, 2)}</td>
+                            <td data-l="Pressure">${dispPabs(st.Pin * 1e5, 2)} → ${dispPabs(st.Pout * 1e5, 2)}</td>
                             <td data-l="Temperature">${disp('temperature', st.Tin + 273.15, 1)} → ${disp('temperature', st.Tout + 273.15, 1)}</td>
                             <td data-l="Z in">${st.Zin.toFixed(4)}</td>
                             <td data-l="Q₁">${disp('volFlow', st.Q1, 1)}</td>
@@ -1936,7 +2420,7 @@
                 <table class="data">
                     <thead><tr>
                         <th>Section</th>
-                        <th>P in → out (${unitLabel('pressure')})</th>
+                        <th>P in → out (${pressureRefLabel()})</th>
                         <th>T in → out (${unitLabel('temperature')})</th>
                         <th>Ratio</th><th>Stages</th><th>Speed (rpm)</th>
                         <th>Head (${unitLabel('head')})</th><th>Poly. eff.</th>
@@ -1947,7 +2431,7 @@
                     ${train.sections.map(s => `
                         <tr>
                             <td data-l="Section">${s.section}</td>
-                            <td data-l="Pressure">${disp('pressure', s.inlet.P, 2)} → ${disp('pressure', s.P2, 2)}</td>
+                            <td data-l="Pressure">${dispPabs(s.inlet.P, 2)} → ${dispPabs(s.P2, 2)}</td>
                             <td data-l="Temperature">${disp('temperature', s.inlet.T, 1)} → ${disp('temperature', s.T2, 1)}</td>
                             <td data-l="Ratio">${(s.P2 / s.inlet.P).toFixed(3)}</td>
                             <td data-l="Stages">${s.nStages}</td>
@@ -2094,8 +2578,10 @@
                     ${row('Equation of state', esc(train.modelName))}
                     ${row('Gas', esc(composition.map(c => E.BY_ID[c.id].name + ' ' + (c.molPct / compTotal() * 100).toFixed(2) + '%').join(', ')))}
                     ${row('Molecular weight', inp.mix.MW.toFixed(3) + ' g/mol')}
-                    ${row('Suction', dispU('pressure', first.inlet.P, 3) + ' / ' + dispU('temperature', first.inlet.T, 2))}
-                    ${row('Discharge', dispU('pressure', last.P2, 3) + ' / ' + dispU('temperature', last.T2, 2))}
+                    ${row('Pressure basis', pressureBasis === 'gauge' ? 'Gauge (barg / psig)' : 'Absolute (bara / psia)')}
+                    ${row('Atmospheric pressure', dispU('pressure', atmPressureSI(), 4))}
+                    ${row('Suction', dispPabsU(first.inlet.P, 3) + ' / ' + dispU('temperature', first.inlet.T, 2))}
+                    ${row('Discharge', dispPabsU(last.P2, 3) + ' / ' + dispU('temperature', last.T2, 2))}
                     ${row('Overall pressure ratio', (last.P2 / first.inlet.P).toFixed(3))}
                     ${row('Mass flow', dispU('massFlow', inp.mdot, 1))}
                     ${row('Inlet volume flow', dispU('volFlow', first.Q1, 2))}
@@ -2160,7 +2646,7 @@
         /* State, persistence, import/export                                 */
         /* ---------------------------------------------------------------- */
 
-        const SIMPLE_INPUTS = ['inP1', 'inT1', 'inMdot', 'inModel', 'inArchitecture', 'inImpeller', 'inPsi', 'inPhi',
+        const SIMPLE_INPUTS = ['inP1', 'inAtmPressure', 'inT1', 'inMdot', 'inModel', 'inArchitecture', 'inImpeller', 'inPsi', 'inPhi',
             'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2',
             'inBullSpeedPreset', 'inBullSpeed', 'inPinionLayout',
             'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
@@ -2170,7 +2656,9 @@
             SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
             // version 3: sections also carry per-section stage/speed overrides;
             // the old global inSpeedManual/inCommonShaft fields are retired.
-            return { version: 3, unitSystem, composition, sections, values: vals };
+            // pressureBasis is purely additive - absent on any older save,
+            // which then correctly defaults to 'absolute' (today's behaviour).
+            return { version: 3, unitSystem, pressureBasis, composition, sections, values: vals };
         }
 
         function applyState(s) {
@@ -2180,6 +2668,8 @@
                 units = E.systemUnits(unitSystem);
                 $('unitSystem').value = unitSystem;
             }
+            pressureBasis = (s.pressureBasis === 'gauge') ? 'gauge' : 'absolute';
+            $('inPressureBasis').value = pressureBasis;
             if (Array.isArray(s.composition)) {
                 composition = s.composition.filter(c => E.BY_ID[c.id]).map(c => ({ id: c.id, molPct: Number(c.molPct) || 0 }));
             }
@@ -2316,12 +2806,19 @@
                         $('inBullSpeed').disabled = !custom;
                         if (!custom) $('inBullSpeed').value = el.value;
                     }
+                    if (id === 'inAtmPressure') {
+                        // Sections store P2 as absolute Pa always; only their
+                        // displayed gauge-equivalent needs to move when the
+                        // atmospheric reference changes, same as a unit switch.
+                        renderSections();
+                    }
                     recalc();
                 });
                 el.addEventListener('change', recalc);
             });
 
             $('unitSystem').addEventListener('change', e => switchUnitSystem(e.target.value));
+            $('inPressureBasis').addEventListener('change', e => switchPressureBasis(e.target.value));
 
             $('btnAddComp').addEventListener('click', () => {
                 const id = $('compPicker').value;
@@ -2356,7 +2853,7 @@
 
             $('btnAddSection').addEventListener('click', () => {
                 const lastP = sections[sections.length - 1].P2;
-                const inletP = readSI($('inP1'), 'pressure');
+                const inletP = readPabs($('inP1'));
                 // Insert an intermediate stop at the geometric mean of the
                 // suction and the current final pressure, and push the existing
                 // final pressure out to the new last section.
