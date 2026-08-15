@@ -124,10 +124,31 @@ class AppCore {
     }
 
     // --- 🔐 GOOGLE SIGN-IN ---
-    // Redirect rather than popup: far more reliable on mobile browsers and
-    // in-app webviews, which routinely block popups.
+    // Popup first, redirect second. On an iOS Home Screen web app a full-page
+    // redirect hands the navigation off to Safari and never returns, so
+    // getRedirectResult() would resolve null forever and the user would appear
+    // permanently signed out. The popup stays inside this app's own context.
+    // Redirect remains the fallback for webviews that block popups.
     async signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (e) {
+            console.log('Auth persistence:', e.code || e.message);
+        }
+        try {
+            await this.auth.signInWithPopup(provider);
+            return;
+        } catch (e) {
+            if (e.code === 'auth/account-exists-with-different-credential') {
+                await this.linkPendingCredential(e);
+                return;
+            }
+            // Closing the popup is a deliberate cancel, not a reason to fall
+            // back to a redirect the user did not ask for.
+            if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+            console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
+        }
         try {
             await this.auth.signInWithRedirect(provider);
         } catch (e) {
@@ -135,38 +156,45 @@ class AppCore {
         }
     }
 
-    // Handles the return trip from signInWithGoogle(). Also covers the
-    // one-time case where this Google account's email already has a
-    // password account - Firebase refuses to silently merge the two, so
-    // this links them once the existing password is confirmed, which keeps
-    // the original uid (and all its saved data) intact.
+    // Handles the return trip from a redirect sign-in. A failure here used to be
+    // swallowed into console.log, which made a broken redirect completely
+    // invisible - the symptom that hid the iOS problem for so long.
     async completeGoogleRedirect() {
+        const BENIGN = ['auth/no-auth-event', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
         try {
             await this.auth.getRedirectResult();
         } catch (e) {
             if (e.code === 'auth/account-exists-with-different-credential') {
-                const email = e.email;
-                const pendingCred = e.credential;
-                const methods = email ? await this.auth.fetchSignInMethodsForEmail(email) : [];
-                if (methods.includes('password')) {
-                    const password = prompt(
-                        'You already have an account for ' + email + ' signed in with a password.\n' +
-                        'Enter that password once to link Google sign-in to it:'
-                    );
-                    if (password) {
-                        try {
-                            const cred = await this.auth.signInWithEmailAndPassword(email, password);
-                            await cred.user.linkWithCredential(pendingCred);
-                        } catch (linkErr) {
-                            alert('Could not link Google sign-in: ' + linkErr.message);
-                        }
-                    }
-                } else {
-                    alert('Sign-in failed: ' + e.message);
-                }
-            } else if (e.code) {
+                await this.linkPendingCredential(e);
+            } else if (e.code && BENIGN.indexOf(e.code) === -1) {
                 console.log('Google sign-in:', e.code);
+                alert('Google sign-in did not complete: ' + (e.message || e.code));
             }
+        }
+    }
+
+    // One-time account link: this Google account's email already has a password
+    // account, and Firebase refuses to silently merge the two. Linking once the
+    // existing password is confirmed keeps the original uid - and every case
+    // saved under it - intact. Shared by both the popup and redirect paths.
+    async linkPendingCredential(e) {
+        const email = e.email;
+        const pendingCred = e.credential;
+        const methods = email ? await this.auth.fetchSignInMethodsForEmail(email) : [];
+        if (!methods.includes('password')) {
+            alert('Sign-in failed: ' + e.message);
+            return;
+        }
+        const password = prompt(
+            'You already have an account for ' + email + ' signed in with a password.\n' +
+            'Enter that password once to link Google sign-in to it:'
+        );
+        if (!password) return;
+        try {
+            const cred = await this.auth.signInWithEmailAndPassword(email, password);
+            await cred.user.linkWithCredential(pendingCred);
+        } catch (linkErr) {
+            alert('Could not link Google sign-in: ' + linkErr.message);
         }
     }
 

@@ -2202,7 +2202,15 @@
         simplePolytropicHead: simplePolytropicHead,
 
         baseEtaP: baseEtaP,
+        phiEfficiencyFactor: phiEfficiencyFactor,
         predictEtaP: predictEtaP,
+
+        // Exported so the Help tab can show the EOS internals (A, B, am, bm,
+        // the Z roots) with live numbers instead of the UI re-deriving them
+        // and drifting from what the engine actually solved.
+        cubicMixParams: cubicMixParams,
+        cubicZ: cubicZ,
+
         stageGeometry: stageGeometry,
         stageAtSpeed: stageAtSpeed,
         inletRelativeMach: inletRelativeMach,
