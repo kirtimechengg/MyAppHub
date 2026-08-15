@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="App Hub">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
     <title>Centrifugal Compressor Selector</title>
     <!-- Fonts & Styles -->
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -174,6 +182,28 @@
             text-decoration: none; border-bottom: 1px dashed var(--line);
         }
         .help-toc a:hover { text-decoration: underline; }
+
+        /* Live substituted values inside a .formula block. The parent is
+           white-space:pre, so a display:block child lands on its own line
+           under the equation it belongs to; :empty collapses it away
+           entirely when live values are switched off. */
+        .live { display: block; color: var(--accent); font-weight: 600; }
+        .live:empty { display: none; }
+        .live.na { color: var(--muted); font-weight: 400; font-style: italic; }
+        .drivers {
+            font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem;
+            padding-top: 0.6rem; border-top: 1px dashed var(--line);
+        }
+        .drivers a {
+            color: var(--accent); text-decoration: none; font-weight: 600;
+            border-bottom: 1px dotted var(--accent); cursor: pointer;
+        }
+        .drivers a:hover { text-decoration: none; opacity: 0.75; }
+        @keyframes fieldFlash {
+            0%, 100% { box-shadow: 0 0 0 0 transparent; }
+            25%, 75% { box-shadow: 0 0 0 3px var(--accent-soft); }
+        }
+        .field-flash { animation: fieldFlash 1.2s ease-in-out 2; border-radius: 0.5rem; }
 
         #errorBar {
             position: sticky; top: 4rem; z-index: 40;
@@ -640,6 +670,37 @@
         <!-- ============================ HELP ============================ -->
         <section id="v-help" class="view no-print space-y-5">
             <div class="card p-5">
+                <h2 class="font-bold text-lg mb-2">Live values</h2>
+                <p class="text-sm mb-3" style="color:var(--muted)">
+                    With this on, every formula below is followed by the same equation with your current
+                    numbers substituted in, so you can check each result by eye. Values are shown in
+                    <strong style="color:var(--text)">SI base units</strong> (Pa, K, kg/s, m, m/s, J/kg) —
+                    the units the formulas are written in — so the arithmetic closes exactly, whichever
+                    display units the rest of the tool is set to.
+                </p>
+                <div class="grid-fields" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+                    <div class="field">
+                        <label>Show live values</label>
+                        <select id="inHelpLive">
+                            <option value="on">On</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Section</label>
+                        <select id="inHelpSection"></select>
+                        <span class="hint">Which process section the per-section numbers come from.</span>
+                    </div>
+                    <div class="field">
+                        <label>Stage</label>
+                        <select id="inHelpStage"></select>
+                        <span class="hint">Which impeller the per-stage numbers come from.</span>
+                    </div>
+                </div>
+                <div id="helpLiveNote" class="note" style="margin-top:0.75rem;display:none"></div>
+            </div>
+
+            <div class="card p-5">
                 <h2 class="font-bold text-lg mb-2">Help &amp; formulas</h2>
                 <p class="text-sm mb-4" style="color:var(--muted)">
                     Every number this tool reports is produced by one of the formulas below, using exactly the
@@ -673,8 +734,8 @@
                     already a difference and this setting doesn't touch it. Everywhere else in the engine, pressure
                     is absolute Pa always; gauge/absolute is purely how the number is typed in and displayed.
                 </p>
-                <div class="formula">P_abs = P_gauge + P_atmospheric
-P_gauge = P_abs − P_atmospheric</div>
+                <div class="formula">P_abs = P_gauge + P_atmospheric<span class="live" data-f="pAbs"></span>
+P_gauge = P_abs − P_atmospheric<span class="live" data-f="pGauge"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     Changing the atmospheric pressure reference re-derives the display for values already entered
                     (the same way switching SI ⇄ US units re-displays a value without changing what it physically
@@ -683,22 +744,24 @@ P_gauge = P_abs − P_atmospheric</div>
                     section's discharge pressure is stored once as absolute and re-displayed, so it stays put until
                     you retype it.
                 </p>
+                <div class="drivers" data-drivers="inAtmPressure,inPressureBasis,inP1,sections"></div>
             </div>
 
             <div class="card p-5" id="help-mixture">
                 <h2 class="font-bold text-lg mb-1">2. Gas mixture properties</h2>
                 <p class="text-sm mb-2" style="color:var(--muted)">Shown on the Gas Composition tab, computed once the composition is normalised to mole fractions <span class="symchip">yᵢ</span>.</p>
-                <div class="formula">MW  = Σ yᵢ · MWᵢ                        molecular weight
-Tc  = Σ yᵢ · Tcᵢ    (Kay's rule)      pseudo-critical temperature
-Pc  = Σ yᵢ · Pcᵢ    (Kay's rule)      pseudo-critical pressure
-ω   = Σ yᵢ · ωᵢ     (Kay's rule)      pseudo acentric factor
-Rsp = R / (MW/1000)                   specific gas constant, J/(kg·K)</div>
+                <div class="formula">MW  = Σ yᵢ · MWᵢ                        molecular weight<span class="live" data-f="mw"></span>
+Tc  = Σ yᵢ · Tcᵢ    (Kay's rule)      pseudo-critical temperature<span class="live" data-f="tc"></span>
+Pc  = Σ yᵢ · Pcᵢ    (Kay's rule)      pseudo-critical pressure<span class="live" data-f="pc"></span>
+ω   = Σ yᵢ · ωᵢ     (Kay's rule)      pseudo acentric factor<span class="live" data-f="omega"></span>
+Rsp = R / (MW/1000)                   specific gas constant, J/(kg·K)<span class="live" data-f="rsp"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     Kay's rule (a plain mole-fraction average of the pure-component critical properties) is what
                     feeds the Lee-Kesler model and the reduced-property warning on that tab. Peng-Robinson and SRK
                     don't use a single pseudo-critical point — they mix at the level of the EOS's own <em>a</em>
                     and <em>b</em> parameters, described next.
                 </p>
+                <div class="drivers" data-drivers="composition"></div>
             </div>
 
             <div class="card p-5" id="help-eos">
@@ -719,16 +782,16 @@ Rsp = R / (MW/1000)                   specific gas constant, J/(kg·K)</div>
   aᵢ = Ωa·R²·Tcᵢ²/Pcᵢ      bᵢ = Ωb·R·Tcᵢ/Pcᵢ      α = [1 + m(1 − √(T/Tcᵢ))]²
 
   van der Waals mixing:
-  a_m = ΣΣ yᵢyⱼ(1−kᵢⱼ)√(aᵢαᵢ · aⱼαⱼ)         b_m = Σ yᵢ bᵢ
+  a_m = ΣΣ yᵢyⱼ(1−kᵢⱼ)√(aᵢαᵢ · aⱼαⱼ)         b_m = Σ yᵢ bᵢ<span class="live" data-f="eosAmBm"></span>
 
-  A = a_m·P/(R²T²)    B = b_m·P/(RT)
+  A = a_m·P/(R²T²)    B = b_m·P/(RT)<span class="live" data-f="eosAB"></span>
 
   Cubic in Z:
     SRK:  Z³ − Z² + (A−B−B²)Z − AB = 0
     PR:   Z³ − (1−B)Z² + (A−3B²−2B)Z − (AB−B²−B³) = 0
 
   Solved via the trigonometric/Cardano method (no initial guess, cannot diverge);
-  <span class="symchip">Z</span> is the largest real root with Z &gt; B (the vapour root).</div>
+  <span class="symchip">Z</span> is the largest real root with Z &gt; B (the vapour root).<span class="live" data-f="eosZ"></span></div>
                 <p class="text-sm mb-2" style="color:var(--muted)">
                     Binary interaction parameters <span class="symchip">kᵢⱼ</span> are a sparse table (N₂, CO₂, H₂S
                     and H₂ pairs with the hydrocarbons; everything else defaults to 0), reused unchanged between
@@ -743,27 +806,29 @@ S − S^ig = R·ln(Z−B) +          (da_m/dT)/(b_m(δ₁−δ₂)) · ln[(Z+δ�
                     EOS. Two reference fluids — "simple" (ω=0) and "reference" (n-octane, ω=0.3978) — are each
                     solved from the same modified BWR form for their own Z and departures, then blended:
                 </p>
-                <div class="formula">Z    = Z⁽⁰⁾  + (ω/ω_ref)·(Z⁽ʳ⁾  − Z⁽⁰⁾)
+                <div class="formula">Z    = Z⁽⁰⁾  + (ω/ω_ref)·(Z⁽ʳ⁾  − Z⁽⁰⁾)<span class="live" data-f="lkZ"></span>
 H−H^ig = H⁽⁰⁾ + (ω/ω_ref)·(H⁽ʳ⁾ − H⁽⁰⁾)     (same blend for S−S^ig)</div>
                 <p class="text-sm" style="color:var(--muted)">
                     Reliable for non-polar mixtures of similar-sized molecules; the tool warns if you pick it for a
                     mixture containing water, methanol or ammonia.
                 </p>
+                <div class="drivers" data-drivers="inModel,composition,inP1,inT1"></div>
             </div>
 
             <div class="card p-5" id="help-realgas">
                 <h2 class="font-bold text-lg mb-1">4. Real-gas Cp, Cv, isentropic exponent, speed of sound</h2>
                 <p class="text-sm mb-2" style="color:var(--muted)">Shown on the Gas Composition tab as "Real Cp", "Cp / Cv", "Isentropic volume exponent" and "Acoustic velocity".</p>
-                <div class="formula">Cp = (∂H/∂T)_P                 central difference of H(T,P), ΔT ≈ max(0.02 K, T·10⁻⁵)
+                <div class="formula">Cp = (∂H/∂T)_P                 central difference of H(T,P), ΔT ≈ max(0.02 K, T·10⁻⁵)<span class="live" data-f="cp"></span>
 
-Cp − Cv = −T·(∂v/∂T)²_P / (∂v/∂P)_T        triple-product relation
-kᵥ      = (Cp/Cv) · (−v/P) / (∂v/∂P)_T      isentropic volume exponent, <span class="symchip">kᵥ</span>
-a       = √(kᵥ · P · v / MW)                acoustic velocity, <span class="symchip">a₁</span></div>
+Cp − Cv = −T·(∂v/∂T)²_P / (∂v/∂P)_T        triple-product relation<span class="live" data-f="cpcv"></span>
+kᵥ      = (Cp/Cv) · (−v/P) / (∂v/∂P)_T      isentropic volume exponent, <span class="live" data-f="kv"></span><span class="symchip">kᵥ</span>
+a       = √(kᵥ · P · v / MW)                acoustic velocity, <span class="live" data-f="sonic"></span><span class="symchip">a₁</span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     All three derivatives come from numerically differencing v(T,P), which keeps Peng-Robinson,
                     SRK and Lee-Kesler on exactly the same footing — Lee-Kesler only ever gives Z(T,P), not a
                     P(v,T) form to differentiate analytically, so this is the one method that works for all three.
                 </p>
+                <div class="drivers" data-drivers="inModel,composition,inP1,inT1"></div>
             </div>
 
             <div class="card p-5" id="help-path">
@@ -777,17 +842,17 @@ a       = √(kᵥ · P · v / MW)                acoustic velocity, <span class
   dHp = v·dP            polytropic head increment
   dh  = v·dP / ηp        small-stage definition of polytropic efficiency
   → stepped in ~40 sub-stages; T₂ falls out of the real enthalpy balance,
-    not an ideal-gas exponent shortcut.
+    not an ideal-gas exponent shortcut.<span class="live" data-f="pathHp"></span>
 
 Schultz (cross-check):
-  n  = ln(P₂/P₁) / ln(v₁/v₂)
-  nₛ = ln(P₂/P₁) / ln(v₁/v₂ₛ)                      (v₂ₛ at the isentropic endpoint)
-  f  = (h₂ₛ−h₁) / [(nₛ/(nₛ−1))·(P₂v₂ₛ − P₁v₁)]      Schultz correction factor
-  Hp = f · (n/(n−1)) · (P₂v₂ − P₁v₁)
+  n  = ln(P₂/P₁) / ln(v₁/v₂)<span class="live" data-f="schultzN"></span>
+  nₛ = ln(P₂/P₁) / ln(v₁/v₂ₛ)                      (v₂ₛ at the isentropic endpoint)<span class="live" data-f="schultzNs"></span>
+  f  = (h₂ₛ−h₁) / [(nₛ/(nₛ−1))·(P₂v₂ₛ − P₁v₁)]      Schultz correction factor<span class="live" data-f="schultzF"></span>
+  Hp = f · (n/(n−1)) · (P₂v₂ − P₁v₁)<span class="live" data-f="schultzHp"></span>
 
 Simple single-step polytropic (cross-check):
-  n  = 1 / (1 − (k−1)/(k·ηp))
-  Hp = (n/(n−1)) · Z₁ · Rsp · T₁ · (rp^((n−1)/n) − 1)</div>
+  n  = 1 / (1 − (k−1)/(k·ηp))<span class="live" data-f="simpleN"></span>
+  Hp = (n/(n−1)) · Z₁ · Rsp · T₁ · (rp^((n−1)/n) − 1)<span class="live" data-f="simpleHp"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     <strong style="color:var(--text)">A note on that last line:</strong> the coefficient is
                     <code>n/(n−1)</code>, not <code>n/exp</code> with <code>exp=(n−1)/n</code> — those aren't the
@@ -796,25 +861,27 @@ Simple single-step polytropic (cross-check):
                     three methods here agree to within a percent or two on any duty that isn't strongly non-ideal,
                     which is the whole point of showing all three.
                 </p>
+                <div class="drivers" data-drivers="inP1,inT1,sections,inEtaP,inModel"></div>
             </div>
 
             <div class="card p-5" id="help-eff">
                 <h2 class="font-bold text-lg mb-1">6. Polytropic efficiency prediction</h2>
                 <p class="text-sm mb-2" style="color:var(--muted)">Shown as "Polytropic efficiency" on the Results tab; overridable on the Machine tab.</p>
-                <div class="formula">Qcfm = 0.5885 · Q₁ [m³/h]
-η_base = clamp( 0.61 + 0.03·log₁₀(max(Qcfm,1)),  0.70, 0.85 )
+                <div class="formula">Qcfm = 0.5885 · Q₁ [m³/h]<span class="live" data-f="qcfm"></span>
+η_base = clamp( 0.61 + 0.03·log₁₀(max(Qcfm,1)),  0.70, 0.85 )<span class="live" data-f="etaBase"></span>
 
 φ-penalty (parabolic derate about the best-efficiency point φ=0.075):
-  d = (φ − 0.075) / 0.075
-  f = clamp( 1 − 0.16·d² ,  0.80, 1.0 )
+  d = (φ − 0.075) / 0.075<span class="live" data-f="phiD"></span>
+  f = clamp( 1 − 0.16·d² ,  0.80, 1.0 )<span class="live" data-f="phiF"></span>
 
-ηp = clamp( η_base · f ,  0.68, 0.87 )</div>
+ηp = clamp( η_base · f ,  0.68, 0.87 )<span class="live" data-f="etaP"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     The flow-only base correlation is the same one the hub's earlier CompressorCalc_9 tool uses, so
                     the two agree on the same duty; the φ-penalty is layered on top once a flow coefficient is
                     known, and the whole thing re-solves iteratively since φ itself depends on the stage geometry
                     that depends on ηp.
                 </p>
+                <div class="drivers" data-drivers="inEtaP,inPhi,inMdot,inP1,inT1"></div>
             </div>
 
             <div class="card p-5" id="help-aero">
@@ -823,15 +890,15 @@ Simple single-step polytropic (cross-check):
                     These are exactly the columns in the "Stage by stage" table. All consistent SI (Hp in J/kg, U₂
                     in m/s, D₂ in m, N in rpm, Q₁ in m³/s).
                 </p>
-                <div class="formula"><span class="symchip">ψ</span> = Hp_stage / U₂²                        head (work) coefficient
-<span class="symchip">φ</span> = Q₁ / (¼π·D₂²·U₂)                    flow coefficient
-<span class="symchip">U₂</span> = π·D₂·N / 60                        tip speed
-<span class="symchip">Mu₂</span> = U₂ / a₁                           peripheral Mach number
+                <div class="formula"><span class="symchip">ψ</span> = Hp_stage / U₂²                        head (work) coefficient<span class="live" data-f="aeroPsi"></span>
+<span class="symchip">φ</span> = Q₁ / (¼π·D₂²·U₂)                    flow coefficient<span class="live" data-f="aeroPhi"></span>
+<span class="symchip">U₂</span> = π·D₂·N / 60                        tip speed<span class="live" data-f="aeroU2"></span>
+<span class="symchip">Mu₂</span> = U₂ / a₁                           peripheral Mach number<span class="live" data-f="aeroMu2"></span>
 
 Sizing solve, for a target ψ and φ:
   U₂ = √(Hp_stage / ψ)
-  D₂ = √(4·Q₁ / (π·φ·U₂))
-  N  = 60·U₂ / (π·D₂)
+  D₂ = √(4·Q₁ / (π·φ·U₂))<span class="live" data-f="aeroD2"></span>
+  N  = 60·U₂ / (π·D₂)<span class="live" data-f="aeroN"></span>
 
 Given a fixed N instead (manual speed, or a pinion's shared speed):
   U₂ = √(Hp_stage / ψ)          D₂ = 60·U₂/(π·N)          φ = Q₁ / (¼π·D₂²·U₂)</div>
@@ -840,22 +907,23 @@ Given a fixed N instead (manual speed, or a pinion's shared speed):
                     needs an eye diameter and hub ratio that are really the vendor's to choose — the largest single
                     simplification in this aerodynamic model:
                 </p>
-                <div class="formula">eyeRatio = clamp( 0.40 + 1.9·φ^0.55 ,  0.35, 0.72 )     D₁/D₂ correlated to φ
-D₁ = eyeRatio · D₂                                       eye diameter
+                <div class="formula">eyeRatio = clamp( 0.40 + 1.9·φ^0.55 ,  0.35, 0.72 )     D₁/D₂ correlated to φ<span class="live" data-f="eyeRatio"></span>
+D₁ = eyeRatio · D₂                                       eye diameter<span class="live" data-f="eyeD1"></span>
 hubRatio = 0.30                                          fixed assumption
-A_eye = ¼π·D₁²·(1 − hubRatio²)
-Cx1 = Q₁ / A_eye            U1 = U₂·eyeRatio            W1 = √(Cx1² + U1²)
-M rel = W1 / a₁</div>
+A_eye = ¼π·D₁²·(1 − hubRatio²)<span class="live" data-f="aEye"></span>
+Cx1 = Q₁ / A_eye            U1 = U₂·eyeRatio            W1 = √(Cx1² + U1²)<span class="live" data-f="cx1"></span>
+M rel = W1 / a₁<span class="live" data-f="mrel"></span></div>
+                <div class="drivers" data-drivers="inPsi,inPhi,inImpeller,inMu2,inMrel,inMaxSpeed,inMinD2"></div>
             </div>
 
             <div class="card p-5" id="help-stages">
                 <h2 class="font-bold text-lg mb-1">8. Stage count &amp; speed solve</h2>
                 <p class="text-sm mb-2" style="color:var(--muted)">How "Number of stages" and "Predicted speed" on the Results tab are actually chosen.</p>
-                <div class="formula">Allowable tip speed = min( impeller mechanical limit,  Mu₂max · a₁ )
-ψ = min( target ψ, impeller's own ψ max )
-Head per stage max = ψ · (allowable tip speed)²
+                <div class="formula">Allowable tip speed = min( impeller mechanical limit,  Mu₂max · a₁ )<span class="live" data-f="u2Allow"></span>
+ψ = min( target ψ, impeller's own ψ max )<span class="live" data-f="psiUsed"></span>
+Head per stage max = ψ · (allowable tip speed)²<span class="live" data-f="headPerStage"></span>
 
-Seed stage count = ceil( total polytropic head / head-per-stage max )
+Seed stage count = ceil( total polytropic head / head-per-stage max )<span class="live" data-f="seedStages"></span>
 → march the section at that count, check every stage's Mu₂, M rel, U₂, φ
   against their limits; if any is exceeded, add a stage and re-march
   (up to 20 stages). Left on Auto, this loop is what decides the count.
@@ -867,12 +935,13 @@ and flagged; a manual count just isn't silently overruled.</div>
                 <div class="formula">speedLimited  — the free (auto) solve wanted a speed above the architecture's cap; pinned at the cap
 sizeLimited   — the free solve wanted a diameter below the minimum; pinned at the minimum
 overSpeed     — the FINAL speed (auto or manual) is still above the cap - flagged, not hidden
-underSize     — the FINAL diameter (auto or manual) is still below the minimum - flagged, not hidden</div>
+underSize     — the FINAL diameter (auto or manual) is still below the minimum - flagged, not hidden<span class="live" data-f="limitFlags"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     A manual speed is put through the exact same overSpeed/underSize check as the automatic one —
                     there's no separate "trust the user" code path, so a hand-typed speed that would build an
                     impossible impeller shows the same warning an automatic one would.
                 </p>
+                <div class="drivers" data-drivers="inImpeller,inPsi,inMu2,inMrel,inMaxSpeed,inMinD2,sections"></div>
             </div>
 
             <div class="card p-5" id="help-igc">
@@ -886,10 +955,10 @@ would have cost the most aerodynamically is the one skipped.
 Common pinion speed - the geometric mean of the members' free speeds,
 so the compromise is split evenly in log space rather than favouring
 the faster stage:
-  N_pinion = (N₁ · N₂ · ... )^(1/count)      then clamped to maxSpeed and minD2
+  N_pinion = (N₁ · N₂ · ... )^(1/count)      then clamped to maxSpeed and minD2<span class="live" data-f="pinionSpeed"></span>
 
 Gear ratio:
-  ratio = N_pinion / N_bullGear</div>
+  ratio = N_pinion / N_bullGear<span class="live" data-f="gearRatio"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     Each impeller on a shared pinion is then resized to that common speed via the "fixed N" sizing
                     solve above (§7) — so a paired stage runs off its own aerodynamic optimum, and that cost shows
@@ -897,6 +966,7 @@ Gear ratio:
                     A single mesh above a ~20:1 ratio, or more than 4 pinions on one bull gear, gets flagged as
                     needing an intermediate gear stage or a split into two machines.
                 </p>
+                <div class="drivers" data-drivers="inArchitecture,inBullSpeedPreset,inBullSpeed,inPinionLayout"></div>
             </div>
 
             <div class="card p-5" id="help-frame">
@@ -910,7 +980,7 @@ Gear ratio:
   H₂ partial pressure at discharge ≥ 14 bar (200 psi)  →  vertically split barrel   (API 617)
   else discharge pressure ≥ 60 bara                     →  vertically split barrel
   else discharge ≥ 40 bara AND MW &lt; 12                  →  vertically split barrel
-  else                                                   →  horizontally split
+  else                                                   →  horizontally split<span class="live" data-f="frameCasing"></span>
 
 Suitability warnings (any architecture):
   IGC with H₂ partial pressure ≥ 14 bar, or discharge ≥ 60 bara, or MW &lt; 12
@@ -921,23 +991,25 @@ Suitability warnings (any architecture):
   Q₁ &gt; 200,000 m³/h with ≤ 2 stages   → axial machine may suit better
   &gt; 9 stages in one beam-type body    → tandem or two-body train suggested
   Predicted speed above the architecture's usual ceiling → geared drive implied
-  Predicted speed &lt; 3000 rpm          → direct low-speed motor drive suggested</div>
+  Predicted speed &lt; 3000 rpm          → direct low-speed motor drive suggested<span class="live" data-f="frameChecks"></span></div>
+                <div class="drivers" data-drivers="inArchitecture,sections,composition,inMaxSpeed"></div>
             </div>
 
             <div class="card p-5" id="help-power">
                 <h2 class="font-bold text-lg mb-1">11. Power &amp; driver rating</h2>
-                <div class="formula">Gas power   = ṁ · Hp_total / ηp                          W
-Shaft power = Gas power / η_mech                          η_mech default 0.985
+                <div class="formula">Gas power   = ṁ · Hp_total / ηp                          W<span class="live" data-f="gasPower"></span>
+Shaft power = Gas power / η_mech                          η_mech default 0.985<span class="live" data-f="shaftPower"></span>
 
 Gear loss:
   integrally geared: 1.5% per pinion mesh (charged per pinion, not one flat figure)
   beam/overhung with a gearbox: flat 2%
 Coupling loss: 0.5% (always)
 
-Power at driver = Shaft power · (1 + gear loss) · (1 + coupling loss)
-Driver rating   = Power at driver · (1 + margin)          margin default 10%  (API 617: 110% of max power)
+Power at driver = Shaft power · (1 + gear loss) · (1 + coupling loss)<span class="live" data-f="atDriver"></span>
+Driver rating   = Power at driver · (1 + margin)          margin default 10%  (API 617: 110% of max power)<span class="live" data-f="driverRated"></span>
 
-Standard size: next value ≥ rating from the IEC kW or NEMA hp table.</div>
+Standard size: next value ≥ rating from the IEC kW or NEMA hp table.<span class="live" data-f="driverStd"></span></div>
+                <div class="drivers" data-drivers="inMdot,inEtaP,inEtaMech,inGearbox,inMargin"></div>
             </div>
 
             <div class="card p-5" id="help-rotor">
@@ -947,40 +1019,42 @@ Standard size: next value ≥ rating from the IEC kW or NEMA hp table.</div>
                     doesn't apply to an integrally geared pinion, which is short, stiff and overhung; the pinion
                     table's gear ratio and tip speed are the relevant figures there instead.
                 </p>
-                <div class="formula">pitch = 0.33 · D₂                          impeller pitch, correlated to tip diameter
-bearing span = pitch · stages + 1.6·D₂
-shaft diameter = 0.30 · D₂
-L/D = span / shaft diameter
+                <div class="formula">pitch = 0.33 · D₂                          impeller pitch, correlated to tip diameter<span class="live" data-f="rotorPitch"></span>
+bearing span = pitch · stages + 1.6·D₂<span class="live" data-f="rotorSpan"></span>
+shaft diameter = 0.30 · D₂<span class="live" data-f="rotorDia"></span>
+L/D = span / shaft diameter<span class="live" data-f="rotorLD"></span>
 
 First critical of a bare simply-supported steel shaft
 (sqrt(E/ρ) = 5135 m/s for steel; a 0.55 knockdown for impeller/collar mass):
-  N_critical ≈ 121000 · 0.55 · d / L²           rpm, order of magnitude
+  N_critical ≈ 121000 · 0.55 · d / L²           rpm, order of magnitude<span class="live" data-f="rotorNcrit"></span>
 
-flexibility ratio = operating speed / N_critical
+flexibility ratio = operating speed / N_critical<span class="live" data-f="rotorFlex"></span>
 
 Aero cross-coupling indicator (API 617 Level-I style):
-  Qa = (shaft power[kW] / speed) · stages · (ρ_discharge / ρ_suction)</div>
+  Qa = (shaft power[kW] / speed) · stages · (ρ_discharge / ρ_suction)<span class="live" data-f="rotorQa"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     Flags: L/D &gt; 12 (flexible rotor), flexibility ratio &gt; 2.5 (runs well above the estimated
                     first critical), Qa &gt; 8 (high power/stage-count/density-rise combination — consider a
                     shunt-injected or hole-pattern seal). All of this is order-of-magnitude screening, not a
                     substitute for an API 617 Level I/II lateral and stability analysis.
                 </p>
+                <div class="drivers" data-drivers="inArchitecture,inImpeller,inMinD2"></div>
             </div>
 
             <div class="card p-5" id="help-dew">
                 <h2 class="font-bold text-lg mb-1">13. Dew-point screening</h2>
                 <p class="text-sm mb-2" style="color:var(--muted)">Checked at suction and at every intercooler outlet; warns rather than blocks the calculation.</p>
                 <div class="formula">Wilson K-value, per component:
-  Kᵢ = (Pcᵢ/P) · exp[ 5.373·(1+ωᵢ)·(1 − Tcᵢ/T) ]
+  Kᵢ = (Pcᵢ/P) · exp[ 5.373·(1+ωᵢ)·(1 − Tcᵢ/T) ]<span class="live" data-f="dewK"></span>
 
-dewSum = Σ yᵢ/Kᵢ            condensing if dewSum &gt; 1</div>
+dewSum = Σ yᵢ/Kᵢ            condensing if dewSum &gt; 1<span class="live" data-f="dewSum"></span></div>
                 <p class="text-sm" style="color:var(--muted)">
                     A screening estimate only — no flash is performed and the composition is never changed through
                     the machine. If the suction condition itself is well past its dew point (dewSum &gt; 1.5) the
                     calculation stops outright, since a centrifugal compressor needs dry vapour at inlet; a milder
                     exceedance, or one at an intercooler, is flagged as a warning instead.
                 </p>
+                <div class="drivers" data-drivers="composition,inP1,inT1,sections"></div>
             </div>
 
             <div class="card p-5" id="help-limits">
@@ -997,7 +1071,8 @@ Tip-speed limit by construction (m/s): cast 260 · standard steel 320 · high-st
 Max shaft speed: 20,000 rpm (beam/overhung, closed impellers) · 60,000 rpm (integrally geared pinion)
 Min impeller diameter: 180 mm (closed) · 100 mm (open) — room for shaft, seals and bearings
 
-Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, ~1.5% loss per mesh</div>
+Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, ~1.5% loss per mesh<span class="live" data-f="limitsNow"></span></div>
+                <div class="drivers" data-drivers="inImpeller,inArchitecture,inPsi,inPhi,inMu2,inMrel,inT2max,inMaxSpeed,inMinD2,inEtaMech"></div>
             </div>
         </section>
 
@@ -1013,7 +1088,7 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         // --- FIREBASE CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyBqGx_Skjp_RKxIK-pHRGOlp22uLJdy6WE",
-            authDomain: "my-app-hub-69db8.firebaseapp.com",
+            authDomain: "my-app-hub-69db8.web.app",
             projectId: "my-app-hub-69db8",
             storageBucket: "my-app-hub-69db8.firebasestorage.app",
             messagingSenderId: "709494807607",
@@ -1052,7 +1127,15 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                         this.onLogin(user);
                     } else {
                         this.renderNav();
+                        // Only on the first resolution: this fires again on a
+                        // later sign-out, and re-applying the device copy then
+                        // would yank the case out from under the user.
+                        if (!this._guestHandled && typeof this.onGuest === 'function') {
+                            this._guestHandled = true;
+                            this.onGuest();
+                        }
                     }
+                    this._guestHandled = true;
                 });
             }
 
@@ -1107,10 +1190,31 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             }
 
             // --- 🔐 GOOGLE SIGN-IN ---
-            // Redirect rather than popup: far more reliable on mobile browsers
-            // and in-app webviews, which routinely block popups.
+            // Popup first, redirect second. On an iOS Home Screen web app a full-page
+            // redirect hands the navigation off to Safari and never returns, so
+            // getRedirectResult() would resolve null forever and the user would appear
+            // permanently signed out. The popup stays inside this app's own context.
+            // Redirect remains the fallback for webviews that block popups.
             async signInWithGoogle() {
                 const provider = new firebase.auth.GoogleAuthProvider();
+                try {
+                    await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                } catch (e) {
+                    console.log('Auth persistence:', e.code || e.message);
+                }
+                try {
+                    await this.auth.signInWithPopup(provider);
+                    return;
+                } catch (e) {
+                    if (e.code === 'auth/account-exists-with-different-credential') {
+                        await this.linkPendingCredential(e);
+                        return;
+                    }
+                    // Closing the popup is a deliberate cancel, not a reason to fall
+                    // back to a redirect the user did not ask for.
+                    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+                    console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
+                }
                 try {
                     await this.auth.signInWithRedirect(provider);
                 } catch (e) {
@@ -1118,38 +1222,45 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 }
             }
 
-            // Handles the return trip from signInWithGoogle(). Also covers the
-            // one-time case where this Google account's email already has a
-            // password account - Firebase refuses to silently merge the two,
-            // so this links them once the existing password is confirmed,
-            // which keeps the original uid (and all its saved data) intact.
+            // Handles the return trip from a redirect sign-in. A failure here used to be
+            // swallowed into console.log, which made a broken redirect completely
+            // invisible - the symptom that hid the iOS problem for so long.
             async completeGoogleRedirect() {
+                const BENIGN = ['auth/no-auth-event', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
                 try {
                     await this.auth.getRedirectResult();
                 } catch (e) {
                     if (e.code === 'auth/account-exists-with-different-credential') {
-                        const email = e.email;
-                        const pendingCred = e.credential;
-                        const methods = email ? await this.auth.fetchSignInMethodsForEmail(email) : [];
-                        if (methods.includes('password')) {
-                            const password = prompt(
-                                'You already have an account for ' + email + ' signed in with a password.\n' +
-                                'Enter that password once to link Google sign-in to it:'
-                            );
-                            if (password) {
-                                try {
-                                    const cred = await this.auth.signInWithEmailAndPassword(email, password);
-                                    await cred.user.linkWithCredential(pendingCred);
-                                } catch (linkErr) {
-                                    alert('Could not link Google sign-in: ' + linkErr.message);
-                                }
-                            }
-                        } else {
-                            alert('Sign-in failed: ' + e.message);
-                        }
-                    } else if (e.code) {
+                        await this.linkPendingCredential(e);
+                    } else if (e.code && BENIGN.indexOf(e.code) === -1) {
                         console.log('Google sign-in:', e.code);
+                        alert('Google sign-in did not complete: ' + (e.message || e.code));
                     }
+                }
+            }
+
+            // One-time account link: this Google account's email already has a password
+            // account, and Firebase refuses to silently merge the two. Linking once the
+            // existing password is confirmed keeps the original uid - and every case
+            // saved under it - intact. Shared by both the popup and redirect paths.
+            async linkPendingCredential(e) {
+                const email = e.email;
+                const pendingCred = e.credential;
+                const methods = email ? await this.auth.fetchSignInMethodsForEmail(email) : [];
+                if (!methods.includes('password')) {
+                    alert('Sign-in failed: ' + e.message);
+                    return;
+                }
+                const password = prompt(
+                    'You already have an account for ' + email + ' signed in with a password.\n' +
+                    'Enter that password once to link Google sign-in to it:'
+                );
+                if (!password) return;
+                try {
+                    const cred = await this.auth.signInWithEmailAndPassword(email, password);
+                    await cred.user.linkWithCredential(pendingCred);
+                } catch (linkErr) {
+                    alert('Could not link Google sign-in: ' + linkErr.message);
                 }
             }
 
@@ -2233,6 +2344,7 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 pinions: train.pinions ? train.pinions.length : 0,
                 margin: Number($('inMargin').value)
             });
+            lastDr = dr;   // the Help tab's §11 needs the same numbers
 
             const speedTxt = train.speedRange.lo === train.speedRange.hi
                 ? Math.round(train.speedRange.hi).toLocaleString()
@@ -2616,10 +2728,365 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         }
 
         /* ---------------------------------------------------------------- */
+        /* Help tab - live formula values                                    */
+        /*                                                                   */
+        /* Each formula line in the Help tab carries an empty                 */
+        /* <span class="live" data-f="key">; the bindings below fill it with  */
+        /* the same equation, this time with the current numbers in it.       */
+        /*                                                                   */
+        /* Everything here is in SI base units on purpose. Stage objects mix  */
+        /* units (Pin/Pout are bara, Tin/Tout are °C) and the display layer   */
+        /* converts to whatever the user picked, but the formulas are written */
+        /* in consistent SI - substituting display units would print          */
+        /* arithmetic that visibly does not close. So these deliberately do   */
+        /* NOT go through disp()/dispU().                                     */
+        /* ---------------------------------------------------------------- */
+
+        // Explicit decimals everywhere: fmtNum() with no dp gives 6 significant
+        // figures, which reads as 0.412334 in the middle of an equation.
+        function n(v, dp) {
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            return Number(v).toFixed(dp === undefined ? 4 : dp);
+        }
+        // Compact form for very large or very small magnitudes (a_m, Qa, powers).
+        function ne(v, sig) {
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            const a = Math.abs(v);
+            if (a !== 0 && (a >= 1e5 || a < 1e-3)) return Number(v).toExponential((sig || 4) - 1);
+            return Number(v).toPrecision(sig || 4);
+        }
+
+        const HELP_LIVE = {
+            /* 1. pressure reference ------------------------------------- */
+            pAbs: c => {
+                const atm = atmPressureSI();
+                return `→ P₁ = ${n(pRel(c.inp.P1), 0)} + ${n(atm, 0)} = ${n(c.inp.P1, 0)} Pa absolute` +
+                    (pressureBasis === 'gauge' ? '' : '   (basis is absolute, so nothing is added)');
+            },
+            pGauge: c => {
+                const atm = atmPressureSI();
+                return `→ P₁ = ${n(c.inp.P1, 0)} − ${n(atm, 0)} = ${n(c.inp.P1 - atm, 0)} Pa gauge`;
+            },
+
+            /* 2. mixture -------------------------------------------------- */
+            mw: c => `→ MW = ${n(c.mix.MW, 4)} kg/kmol   over ${c.mix.comps.length} component(s)`,
+            tc: c => `→ Tc = ${n(c.mix.TcKay, 2)} K`,
+            pc: c => `→ Pc = ${ne(c.mix.PcKay, 5)} Pa   (${n(c.mix.PcKay / 1e5, 3)} bar)`,
+            omega: c => `→ ω = ${n(c.mix.omegaKay, 4)}`,
+            rsp: c => `→ Rsp = 8314.462 / ${n(c.mix.MW, 4)} = ${n(c.mix.Rsp, 3)} J/(kg·K)`,
+
+            /* 3. equation of state ---------------------------------------- */
+            eosAmBm: c => {
+                if (c.inp.model === 'LK') return '';
+                const p = E.cubicMixParams(c.mix, c.sec.inlet.T, c.inp.model);
+                return `→ a_m = ${ne(p.am, 5)} Pa·m⁶/mol²    b_m = ${ne(p.bm, 5)} m³/mol` +
+                    `    at T = ${n(c.sec.inlet.T, 2)} K`;
+            },
+            eosAB: c => {
+                if (c.inp.model === 'LK') return '';
+                const z = E.cubicZ(c.mix, c.sec.inlet.T, c.sec.inlet.P, c.inp.model);
+                return `→ A = ${n(z.A, 6)}    B = ${n(z.B, 6)}    at ${n(c.sec.inlet.P, 0)} Pa, ${n(c.sec.inlet.T, 2)} K`;
+            },
+            eosZ: c => {
+                if (c.inp.model === 'LK') return '';
+                return `→ Z₁ = ${n(c.sec.inlet.Z, 6)} at section inlet;  v = ${ne(c.sec.inlet.v, 5)} m³/mol,  ρ = ${n(c.sec.inlet.rho, 4)} kg/m³`;
+            },
+            lkZ: c => c.inp.model === 'LK'
+                ? `→ Z₁ = ${n(c.sec.inlet.Z, 6)} at section inlet;  ω/ω_ref = ${n(c.mix.omegaKay / 0.3978, 4)}`
+                : '',
+
+            /* 4. real-gas properties -------------------------------------- */
+            cp: c => `→ Cp = ${n(c.der.cpMass, 2)} J/(kg·K)   (${n(c.der.cpMolar, 3)} J/(mol·K))`,
+            cpcv: c => `→ Cv = ${n(c.der.cvMass, 2)} J/(kg·K)   Cp/Cv = ${n(c.der.gamma, 5)}`,
+            kv: c => `→ kᵥ = ${n(c.der.kv, 5)}`,
+            sonic: c => `→ a₁ = √(${n(c.der.kv, 4)} · ${n(c.sec.inlet.P, 0)} · ${ne(c.sec.inlet.v, 4)} / ${n(c.mix.M, 6)}) = ${n(c.der.sonic, 2)} m/s`,
+
+            /* 5. compression path ----------------------------------------- */
+            pathHp: c => `→ Hp = ${n(c.sec.path.Hp, 1)} J/kg   ηp = ${n(c.sec.path.etaPoly, 4)}   T₂ = ${n(c.sec.path.T2, 2)} K   (from ${n(c.sec.inlet.P, 0)} → ${n(c.sec.P2, 0)} Pa)`,
+            schultzN: c => `→ n = ${n(c.sec.schultz.n, 5)}`,
+            schultzNs: c => `→ nₛ = ${n(c.sec.schultz.ns, 5)}`,
+            schultzF: c => `→ f = ${n(c.sec.schultz.f, 5)}`,
+            schultzHp: c => {
+                const d = c.sec.schultz.Hp - c.sec.path.Hp;
+                const pct = c.sec.path.Hp ? 100 * d / c.sec.path.Hp : 0;
+                return `→ Hp = ${n(c.sec.schultz.Hp, 1)} J/kg   (${pct >= 0 ? '+' : ''}${n(pct, 2)}% vs the integrated ${n(c.sec.path.Hp, 1)})`;
+            },
+            simpleN: c => {
+                const k = c.der.kv, eta = c.sec.etaPoly;
+                const nn = 1 / (1 - (k - 1) / (k * eta));
+                return `→ n = 1 / (1 − (${n(k, 4)}−1)/(${n(k, 4)}·${n(eta, 4)})) = ${n(nn, 5)}`;
+            },
+            simpleHp: c => {
+                let hp;
+                try {
+                    hp = E.simplePolytropicHead(c.mix, c.sec.inlet.T, c.sec.inlet.P, c.sec.P2,
+                        c.sec.inlet.Z, c.der.kv, c.sec.etaPoly);
+                } catch (e) { return ''; }
+                const d = hp - c.sec.path.Hp;
+                const pct = c.sec.path.Hp ? 100 * d / c.sec.path.Hp : 0;
+                return `→ Hp = ${n(hp, 1)} J/kg   (${pct >= 0 ? '+' : ''}${n(pct, 2)}% vs the integrated ${n(c.sec.path.Hp, 1)})   rp = ${n(c.sec.P2 / c.sec.inlet.P, 4)}`;
+            },
+
+            /* 6. efficiency ----------------------------------------------- */
+            qcfm: c => {
+                const q = 0.5885 * c.sec.Q1 * 3600;
+                return `→ Q₁ = ${n(c.sec.Q1, 4)} m³/s = ${n(c.sec.Q1 * 3600, 1)} m³/h  →  Qcfm = ${n(q, 1)}`;
+            },
+            etaBase: c => `→ η_base = ${n(E.baseEtaP(c.sec.Q1 * 3600), 5)}`,
+            phiD: c => c.st ? `→ d = (${n(c.st.phi, 5)} − 0.075) / 0.075 = ${n((c.st.phi - 0.075) / 0.075, 5)}` : '',
+            phiF: c => c.st ? `→ f = ${n(E.phiEfficiencyFactor(c.st.phi), 5)}` : '',
+            etaP: c => {
+                if (c.sec.etaSource === 'manual') return `→ ηp = ${n(c.sec.etaPoly, 4)}  — entered by hand on the Machine tab, correlation not used`;
+                return `→ ηp = ${n(c.sec.etaPoly, 5)}   (section ${c.sec.section})`;
+            },
+
+            /* 7. stage aerodynamics ---------------------------------------- */
+            aeroPsi: c => c.st
+                ? `→ ψ = ${n(c.st.Hp, 1)} / ${n(c.st.U2, 2)}² = ${n(c.st.Hp / (c.st.U2 * c.st.U2), 5)}   (reported ψ ${n(c.st.psi, 5)})`
+                : '',
+            aeroPhi: c => c.st
+                ? `→ φ = ${n(c.st.Q1, 4)} / (¼π·${n(c.st.D2, 5)}²·${n(c.st.U2, 2)}) = ${n(c.st.Q1 / (0.25 * Math.PI * c.st.D2 * c.st.D2 * c.st.U2), 5)}`
+                : '',
+            aeroU2: c => c.st
+                ? `→ U₂ = π · ${n(c.st.D2, 5)} · ${n(c.st.N, 0)} / 60 = ${n(Math.PI * c.st.D2 * c.st.N / 60, 2)} m/s   (reported ${n(c.st.U2, 2)})`
+                : '',
+            aeroMu2: c => c.st
+                ? `→ Mu₂ = ${n(c.st.U2, 2)} / ${n(c.st.sonic, 2)} = ${n(c.st.Mu2, 4)}`
+                : '',
+            aeroD2: c => c.st ? `→ D₂ = ${n(c.st.D2, 5)} m  (${n(c.st.D2 * 1000, 1)} mm)` : '',
+            aeroN: c => c.st ? `→ N = ${n(c.st.N, 0)} rpm` : '',
+            eyeRatio: c => c.st ? `→ eyeRatio = ${n(c.st.eyeRatio, 5)}` : '',
+            eyeD1: c => c.st ? `→ D₁ = ${n(c.st.eyeRatio, 5)} · ${n(c.st.D2, 5)} = ${n(c.st.D1, 5)} m` : '',
+            aEye: c => {
+                if (!c.st) return '';
+                const a = 0.25 * Math.PI * c.st.D1 * c.st.D1 * (1 - 0.09);
+                return `→ A_eye = ¼π·${n(c.st.D1, 5)}²·(1−0.30²) = ${n(a, 6)} m²`;
+            },
+            cx1: c => {
+                if (!c.st) return '';
+                const a = 0.25 * Math.PI * c.st.D1 * c.st.D1 * (1 - 0.09);
+                const cx = c.st.Q1 / a, u1 = c.st.U2 * c.st.eyeRatio;
+                return `→ Cx1 = ${n(cx, 2)} m/s    U1 = ${n(u1, 2)} m/s    W1 = ${n(Math.hypot(cx, u1), 2)} m/s`;
+            },
+            mrel: c => {
+                if (!c.st) return '';
+                const a = 0.25 * Math.PI * c.st.D1 * c.st.D1 * (1 - 0.09);
+                const cx = c.st.Q1 / a, u1 = c.st.U2 * c.st.eyeRatio;
+                return `→ M rel = ${n(Math.hypot(cx, u1), 2)} / ${n(c.st.sonic, 2)} = ${n(c.st.Mrel, 4)}`;
+            },
+
+            /* 8. stage count & speed --------------------------------------- */
+            u2Allow: c => `→ min( ${n(c.inp.impeller.u2max, 1)} , ${n(c.sec.u2Mach, 1)} ) = ${n(c.sec.u2Allow, 1)} m/s`,
+            psiUsed: c => `→ ψ = ${n(c.sec.psiUsed, 4)}   (target ${n(c.inp.psiTarget, 4)}, impeller max ${n(c.inp.impeller.psiMax, 4)})`,
+            headPerStage: c => `→ ${n(c.sec.psiUsed, 4)} · ${n(c.sec.u2Allow, 1)}² = ${n(c.sec.headPerStageMax, 1)} J/kg`,
+            seedStages: c => {
+                const seed = Math.ceil(c.sec.HpTotal / c.sec.headPerStageMax);
+                return `→ ceil( ${n(c.sec.HpTotal, 1)} / ${n(c.sec.headPerStageMax, 1)} ) = ${seed}` +
+                    `  →  solved ${c.sec.nStages} stage(s)  [${c.sec.stagesSource}]`;
+            },
+            limitFlags: c => {
+                const on = ['speedLimited', 'sizeLimited', 'overSpeed', 'underSize'].filter(k => c.sec[k]);
+                return `→ section ${c.sec.section}: ${on.length ? on.join(', ') : 'none set'}` +
+                    `   —  N = ${n(c.sec.speed, 0)} rpm (cap ${n(c.sec.maxSpeed, 0)}), D₂ = ${n(c.sec.D2, 5)} m (min ${n(c.sec.minD2, 3)}), free solve wanted ${n(c.sec.freeSpeed, 0)}`;
+            },
+
+            /* 9. integrally geared ----------------------------------------- */
+            pinionSpeed: c => {
+                if (!c.train.pinions) return '';
+                return '→ ' + c.train.pinions.map(p =>
+                    `pinion ${p.id}: stage(s) ${p.stages.join('+')} at ${n(p.speed, 0)} rpm`).join('   ');
+            },
+            gearRatio: c => {
+                if (!c.train.pinions) return '';
+                return '→ ' + c.train.pinions.map(p =>
+                    `${p.id}: ${n(p.speed, 0)}/${n(p.bullGearSpeed, 0)} = ${n(p.ratio, 3)}:1`).join('   ');
+            },
+
+            /* 10. frame ---------------------------------------------------- */
+            frameCasing: c => `→ ${c.train.frame.type} — ${c.train.frame.casing}` +
+                (isFinite(c.train.frame.h2PartialPressure_bar)
+                    ? `   (H₂ partial pressure at discharge ${n(c.train.frame.h2PartialPressure_bar, 3)} bar)` : ''),
+            frameChecks: c => {
+                const last = c.train.sections[c.train.sections.length - 1];
+                return `→ discharge ${n(last.P2 / 1e5, 3)} bara,  MW ${n(c.mix.MW, 3)},  Q₁ ${n(c.train.sections[0].Q1 * 3600, 0)} m³/h,` +
+                    `  ${c.train.totalStages} stage(s),  speed ${n(c.train.speedRange.lo, 0)}–${n(c.train.speedRange.hi, 0)} rpm`;
+            },
+
+            /* 11. power ---------------------------------------------------- */
+            // Each section carries its own ηp, so a train with more than one
+            // is a sum of terms, not one division - show it that way rather
+            // than implying a single efficiency applies to the whole machine.
+            gasPower: c => {
+                const parts = c.train.sections.map(s =>
+                    `${n(c.inp.mdot, 4)}·${n(s.HpTotal, 1)}/${n(s.etaPoly, 4)}`);
+                const lhs = parts.length === 1 ? parts[0] : 'Σ [ ' + parts.join(' + ') + ' ]';
+                return `→ ${lhs} = ${n(c.train.gasPower, 1)} W  (${n(c.train.gasPower / 1000, 2)} kW)`;
+            },
+            shaftPower: c => `→ ${n(c.train.shaftPower, 1)} W  (${n(c.train.shaftPower / 1000, 2)} kW)`,
+            atDriver: c => c.dr
+                ? `→ ${n(c.dr.gasSide / 1000, 2)} · (1 + ${n(c.dr.gearLoss, 4)}) · (1 + ${n(c.dr.couplingLoss, 4)}) = ${n(c.dr.atDriver / 1000, 2)} kW`
+                : '',
+            driverRated: c => c.dr
+                ? `→ ${n(c.dr.atDriver / 1000, 2)} · (1 + ${n(c.dr.margin, 3)}) = ${n(c.dr.rated / 1000, 2)} kW`
+                : '',
+            driverStd: c => c.dr ? `→ IEC ${c.dr.iec_kW} kW   /   NEMA ${c.dr.nema_hp} hp` : '',
+
+            /* 12. rotordynamics -------------------------------------------- */
+            rotorPitch: c => c.train.rotor ? `→ pitch = 0.33 · ${n(c.train.sections[0].stages[0].D2, 5)} = ${n(0.33 * c.train.sections[0].stages[0].D2, 5)} m` : '',
+            rotorSpan: c => c.train.rotor ? `→ bearing span = ${n(c.train.rotor.bearingSpan, 4)} m` : '',
+            rotorDia: c => c.train.rotor ? `→ shaft diameter = ${n(c.train.rotor.shaftDia, 5)} m` : '',
+            rotorLD: c => c.train.rotor ? `→ L/D = ${n(c.train.rotor.bearingSpan, 4)} / ${n(c.train.rotor.shaftDia, 5)} = ${n(c.train.rotor.LD, 3)}` : '',
+            rotorNcrit: c => c.train.rotor ? `→ N_critical ≈ ${n(c.train.rotor.firstCriticalEst, 0)} rpm` : '',
+            rotorFlex: c => c.train.rotor ? `→ ${n(c.train.speedRange.hi, 0)} / ${n(c.train.rotor.firstCriticalEst, 0)} = ${n(c.train.rotor.flexRatio, 3)}` : '',
+            rotorQa: c => c.train.rotor ? `→ Qa = ${n(c.train.rotor.crossCouplingIndex, 3)}` : '',
+
+            /* 13. dew point ------------------------------------------------- */
+            dewK: c => c.train.inletDew && c.train.inletDew.heaviest
+                ? `→ worst component at suction: ${c.train.inletDew.heaviest}, K = ${ne(c.train.inletDew.heaviestK, 4)}`
+                : '',
+            dewSum: c => c.train.inletDew
+                ? `→ dewSum = ${n(c.train.inletDew.dewSum, 5)} at suction  —  ${c.train.inletDew.condensing ? 'CONDENSING' : 'dry vapour'}`
+                : '',
+
+            /* 14. limits in force ------------------------------------------ */
+            limitsNow: c => `→ in force now: ψ ${n(c.inp.psiTarget, 3)}, φ ${n(c.inp.phiTarget, 3)}, Mu₂max ${n(c.inp.limits.mu2Max, 3)}, ` +
+                `M rel max ${n(c.inp.limits.mrelMax, 3)}, T₂max ${n(c.inp.limits.t2MaxC, 1)} °C, ` +
+                `U₂max ${n(c.inp.impeller.u2max, 0)} m/s, N max ${n(c.inp.maxSpeed, 0)} rpm, D₂ min ${n(c.inp.minD2, 3)} m`
+        };
+
+        // The two selectors are rebuilt from the current result each render so
+        // they can never point at a section or stage that no longer exists.
+        function syncHelpSelectors(train) {
+            const secSel = $('inHelpSection'), stSel = $('inHelpStage');
+            const wantSec = Number(secSel.value) || 1;
+            secSel.innerHTML = train.sections.map(s =>
+                `<option value="${s.section}">${s.section}</option>`).join('');
+            const secIdx = Math.min(Math.max(wantSec, 1), train.sections.length);
+            secSel.value = String(secIdx);
+
+            const sec = train.sections[secIdx - 1];
+            const wantSt = Number(stSel.value) || 1;
+            stSel.innerHTML = sec.stages.map(s =>
+                `<option value="${s.index}">${s.index}</option>`).join('');
+            stSel.value = String(Math.min(Math.max(wantSt, 1), sec.stages.length));
+            return { sec, st: sec.stages[Number(stSel.value) - 1] || null };
+        }
+
+        function renderHelpLive(train, inp) {
+            const nodes = document.querySelectorAll('#v-help [data-f]');
+            const noteBox = $('helpLiveNote');
+
+            if ($('inHelpLive').value === 'off' || !train) {
+                nodes.forEach(el => { el.textContent = ''; el.classList.remove('na'); });
+                noteBox.style.display = 'none';
+                return;
+            }
+
+            const picked = syncHelpSelectors(train);
+            const ctx = {
+                train, inp, dr: lastDr, mix: inp.mix,
+                sec: picked.sec, st: picked.st, der: picked.sec.inletDerived
+            };
+
+            nodes.forEach(el => {
+                const key = el.getAttribute('data-f');
+                const fn = HELP_LIVE[key];
+                let out = '';
+                try {
+                    out = fn ? (fn(ctx) || '') : '';
+                } catch (e) {
+                    out = '';   // a binding must never take the page down
+                }
+                el.textContent = out ? '  ' + out : '';
+                el.classList.remove('na');
+            });
+
+            // Honesty notes: things this view deliberately cannot show.
+            const notes = [];
+            if (train.pinions) {
+                notes.push('Integrally geared: paired impellers are resized to their pinion’s common speed ' +
+                    'after the march, so a resized stage’s reported ψ comes from the original solve and ' +
+                    'ψ = Hp/U₂² will not close exactly for it. That gap is the real cost of pairing, not a rounding error.');
+            }
+            notes.push('Not shown: the ~40 intermediate points of the integrated path (§5) and the per-component ' +
+                'Wilson K values (§13) are consumed inside the engine and not retained — only the endpoints and ' +
+                'the summed dewSum survive.');
+            noteBox.innerHTML = notes.map(t => `<div>${esc(t)}</div>`).join('');
+            noteBox.style.display = '';
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Help tab - "Driven by" input links                                */
+        /* ---------------------------------------------------------------- */
+
+        const FIELD_LABELS = {
+            inP1: { tab: 'v-process', label: 'Suction pressure' },
+            inT1: { tab: 'v-process', label: 'Suction temperature' },
+            inMdot: { tab: 'v-process', label: 'Mass flow' },
+            inAtmPressure: { tab: 'v-process', label: 'Atmospheric pressure' },
+            inPressureBasis: { tab: 'v-process', label: 'Pressure basis' },
+            inModel: { tab: 'v-machine', label: 'Property model' },
+            inArchitecture: { tab: 'v-machine', label: 'Architecture' },
+            inImpeller: { tab: 'v-machine', label: 'Impeller type' },
+            inPsi: { tab: 'v-machine', label: 'Target ψ' },
+            inPhi: { tab: 'v-machine', label: 'Target φ' },
+            inMu2: { tab: 'v-machine', label: 'Mu₂ max' },
+            inMrel: { tab: 'v-machine', label: 'M rel max' },
+            inT2max: { tab: 'v-machine', label: 'Max discharge temp' },
+            inMaxSpeed: { tab: 'v-machine', label: 'Max speed' },
+            inMinD2: { tab: 'v-machine', label: 'Min impeller diameter' },
+            inBullSpeedPreset: { tab: 'v-machine', label: 'Bull gear preset' },
+            inBullSpeed: { tab: 'v-machine', label: 'Bull gear speed' },
+            inPinionLayout: { tab: 'v-machine', label: 'Pinion layout' },
+            inEtaP: { tab: 'v-machine', label: 'Polytropic efficiency' },
+            inEtaMech: { tab: 'v-machine', label: 'Mechanical efficiency' },
+            inGearbox: { tab: 'v-machine', label: 'Gearbox' },
+            inMargin: { tab: 'v-machine', label: 'Driver margin' },
+            // Pseudo-fields: a whole tab or panel rather than one input.
+            composition: { tab: 'v-gas', label: 'Gas composition', panel: true },
+            sections: { tab: 'v-process', label: 'Section discharge pressures', panel: true }
+        };
+
+        function gotoField(id) {
+            const meta = FIELD_LABELS[id];
+            if (!meta) return;
+            const btn = document.querySelector(`.tab[data-view="${meta.tab}"]`);
+            if (btn) btn.click();
+            const el = meta.panel ? null : $(id);
+            const target = el || $(meta.tab);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (el) {
+                el.classList.remove('field-flash');
+                void el.offsetWidth;          // restart the animation
+                el.classList.add('field-flash');
+                setTimeout(() => el.classList.remove('field-flash'), 3000);
+                if (typeof el.focus === 'function') el.focus({ preventScroll: true });
+            }
+        }
+
+        function renderDrivers() {
+            document.querySelectorAll('#v-help .drivers').forEach(box => {
+                const ids = (box.getAttribute('data-drivers') || '').split(',').filter(Boolean);
+                const links = ids.map(id => {
+                    const meta = FIELD_LABELS[id];
+                    if (!meta) return '';
+                    return `<a data-goto="${esc(id)}">${esc(meta.label)}</a>`;
+                }).filter(Boolean);
+                box.innerHTML = links.length
+                    ? 'Driven by: ' + links.join(' · ')
+                    : '';
+            });
+            document.querySelectorAll('#v-help .drivers a[data-goto]').forEach(a => {
+                a.addEventListener('click', () => gotoField(a.getAttribute('data-goto')));
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
         /* Main calculation                                                  */
         /* ---------------------------------------------------------------- */
 
-        let lastTrain = null, lastInput = null;
+        let lastTrain = null, lastInput = null, lastDr = null;
 
         function recalc() {
             try {
@@ -2631,6 +3098,7 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 clearError();
                 renderResults(train, inp);
                 drawCharts(train, inp);
+                renderHelpLive(train, inp);
                 scheduleSave();
             } catch (e) {
                 showError(e.message || String(e));
@@ -2658,7 +3126,9 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             // the old global inSpeedManual/inCommonShaft fields are retired.
             // pressureBasis is purely additive - absent on any older save,
             // which then correctly defaults to 'absolute' (today's behaviour).
-            return { version: 3, unitSystem, pressureBasis, composition, sections, values: vals };
+            // savedAt lets the on-login merge pick the newer of the cloud copy
+            // and the on-device copy instead of blindly overwriting.
+            return { version: 3, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, values: vals };
         }
 
         function applyState(s) {
@@ -2730,29 +3200,102 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             $('modelNote').textContent = MODEL_NOTES[$('inModel').value];
         }
 
+        /* ---------------------------------------------------------------- */
+        /* Persistence                                                       */
+        /*                                                                   */
+        /* Two layers. The device copy in localStorage is written on every    */
+        /* save whether or not anyone is signed in - without it, a signed-out */
+        /* session kept its whole case in memory only and lost it on reload,  */
+        /* silently. The cloud copy in Firestore is what syncs phone and      */
+        /* laptop, and is written only when signed in.                        */
+        /* ---------------------------------------------------------------- */
+        const LOCAL_KEY = 'compressor_selector_state';
+
+        function saveLocal(state) {
+            try {
+                localStorage.setItem(LOCAL_KEY, JSON.stringify(state));
+                return true;
+            } catch (e) {
+                return false;   // private mode, or quota exhausted
+            }
+        }
+
+        function loadLocal() {
+            try {
+                const raw = localStorage.getItem(LOCAL_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
         let saveTimer = null;
         function scheduleSave() {
-            if (!Core.user) return;
             clearTimeout(saveTimer);
-            $('saveStatus').textContent = 'Saving…';
+            $('saveStatus').textContent = Core.user ? 'Saving…' : '';
             saveTimer = setTimeout(async () => {
+                const state = collectState();
+                const localOk = saveLocal(state);
+                if (!Core.user) {
+                    $('saveStatus').textContent = localOk
+                        ? 'Saved on this device — sign in to sync'
+                        : 'Not saved — this browser blocks local storage';
+                    return;
+                }
                 try {
                     await Core.db.collection('users').doc(Core.user.uid)
                         .collection('app_data').doc(TOOL_ID)
-                        .set(collectState(), { merge: true });
-                    $('saveStatus').textContent = 'Saved ' + new Date().toLocaleTimeString();
+                        .set(state, { merge: true });
+                    $('saveStatus').textContent = 'Synced ' + new Date().toLocaleTimeString();
                 } catch (e) {
-                    $('saveStatus').textContent = 'Save failed — working offline';
+                    $('saveStatus').textContent = localOk
+                        ? 'Saved on this device — cloud sync failed'
+                        : 'Save failed';
                 }
             }, 1500);
         }
 
+        // Auth resolved with nobody signed in: fall back to whatever this
+        // device last held, so a reload is not a silent data loss.
+        Core.onGuest = function () {
+            const local = loadLocal();
+            if (!local) return;
+            applyState(local);
+            recalc();
+            $('saveStatus').textContent = 'Restored from this device — sign in to sync';
+        };
+
+        // On login the cloud copy is usually the one to trust, but not when
+        // this device has newer unsynced work (the exact case after signing in
+        // on a phone that was used signed-out). Newest savedAt wins, and the
+        // status label says which one was applied so it is never a silent
+        // overwrite.
         Core.onLogin = async function () {
+            let cloud = null;
             try {
                 const doc = await Core.db.collection('users').doc(Core.user.uid)
                     .collection('app_data').doc(TOOL_ID).get();
-                if (doc.exists) { applyState(doc.data()); recalc(); }
-            } catch (e) { /* offline: keep the defaults already on screen */ }
+                if (doc.exists) cloud = doc.data();
+            } catch (e) { /* offline: fall through to the device copy */ }
+
+            const local = loadLocal();
+            const cloudAt = (cloud && Number(cloud.savedAt)) || 0;
+            const localAt = (local && Number(local.savedAt)) || 0;
+
+            if (cloud && cloudAt >= localAt) {
+                applyState(cloud);
+                recalc();
+                $('saveStatus').textContent = 'Loaded your synced case';
+            } else if (local) {
+                applyState(local);
+                recalc();
+                // recalc() already queued the push-up via scheduleSave(), which
+                // sets "Saving…" - overwrite that with the reason, and let the
+                // debounced save replace it with "Synced …" when it lands.
+                $('saveStatus').textContent = cloud
+                    ? 'Kept this device’s newer case — syncing it now'
+                    : 'Restored from this device — syncing it now';
+            }
         };
 
         /* ---------------------------------------------------------------- */
@@ -2777,7 +3320,19 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     btn.classList.add('on');
                     $(btn.getAttribute('data-view')).classList.add('on');
                     // Charts need a real width to lay out, so redraw on reveal.
-                    if (btn.getAttribute('data-view') === 'v-charts' && lastTrain) drawCharts(lastTrain, lastInput);
+                    const view = btn.getAttribute('data-view');
+                    if (view === 'v-charts' && lastTrain) drawCharts(lastTrain, lastInput);
+                    // Guards against showing values from a calculation that has
+                    // since been superseded while the tab was hidden.
+                    if (view === 'v-help' && lastTrain) renderHelpLive(lastTrain, lastInput);
+                });
+            });
+
+            // Help tab: live-value controls
+            renderDrivers();
+            ['inHelpLive', 'inHelpSection', 'inHelpStage'].forEach(id => {
+                $(id).addEventListener('change', () => {
+                    if (lastTrain) renderHelpLive(lastTrain, lastInput);
                 });
             });
 
