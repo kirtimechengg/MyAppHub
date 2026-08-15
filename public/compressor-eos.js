@@ -706,12 +706,18 @@
     /* 11. Impeller material / tip-speed limits                               */
     /* ===================================================================== */
 
+    /* mu2Max is the peripheral Mach number the blading is designed around, and
+       it is a property of the impeller, not of the gas. A closed 2D stage on a
+       beam-type rotor is laid out for about 1.05; an open, backswept 3D
+       impeller of the kind an integrally geared machine uses is built for
+       transonic duty and runs comfortably to 1.3. Using one figure for both
+       makes every integrally geared stage look illegal. */
     var IMPELLER_TYPES = [
-        { id: 'cast',    label: 'Cast / high-MW / erosive duty',        u2max: 260, psiMax: 0.62, open: false },
-        { id: 'std',     label: 'Closed steel, standard (17-4PH, 4340)', u2max: 320, psiMax: 0.62, open: false },
-        { id: 'hs',      label: 'Closed steel, high strength',           u2max: 375, psiMax: 0.62, open: false },
-        { id: 'open',    label: 'Open / semi-open (integrally geared)',  u2max: 500, psiMax: 0.75, open: true  },
-        { id: 'ti',      label: 'Titanium',                              u2max: 600, psiMax: 0.75, open: true  }
+        { id: 'cast',    label: 'Cast / high-MW / erosive duty',        u2max: 260, psiMax: 0.62, mu2Max: 1.00, open: false },
+        { id: 'std',     label: 'Closed steel, standard (17-4PH, 4340)', u2max: 320, psiMax: 0.62, mu2Max: 1.05, open: false },
+        { id: 'hs',      label: 'Closed steel, high strength',           u2max: 375, psiMax: 0.62, mu2Max: 1.10, open: false },
+        { id: 'open',    label: 'Open / semi-open (integrally geared)',  u2max: 500, psiMax: 0.75, mu2Max: 1.30, open: true  },
+        { id: 'ti',      label: 'Titanium',                              u2max: 600, psiMax: 0.75, mu2Max: 1.35, open: true  }
     ];
 
     function impellerType(id) {
@@ -720,6 +726,61 @@
         }
         return IMPELLER_TYPES[1];
     }
+
+    /* ===================================================================== */
+    /* 11b. Machine architecture                                              */
+    /* ===================================================================== */
+    /**
+     * The architecture is chosen by the engineer rather than inferred, because
+     * it decides how the machine is built before any aerodynamics happen:
+     *
+     *  beam     - impellers in series on one shaft between two bearings. One
+     *             speed per body. Sections are separate bodies.
+     *  igc      - integrally geared. A bull gear at driver speed drives two to
+     *             four pinions, each carrying one or two overhung impellers,
+     *             with an intercooler after every stage. Each pinion runs at its
+     *             own speed, which is what lets every stage sit near its own
+     *             best flow coefficient.
+     *  overhung - a single impeller overhung on one shaft end.
+     *
+     * stagesPerSection pins how many impellers a section may hold (null = free).
+     */
+    var ARCHITECTURES = {
+        beam: {
+            id: 'beam', label: 'Beam-type (between bearings)', impeller: 'std',
+            maxSpeed: 20000, minD2: 0.180, stagesPerSection: null,
+            intercooled: false, geared: false,
+            note: 'Impellers in series on one shaft. One speed for the whole body, so the flow coefficient falls stage by stage as the gas densifies.'
+        },
+        igc: {
+            id: 'igc', label: 'Integrally geared (multi-shaft)', impeller: 'open',
+            maxSpeed: 60000, minD2: 0.100, stagesPerSection: 1,
+            intercooled: true, geared: true,
+            note: 'A bull gear driving two to four pinions, one or two overhung impellers each, intercooled after every stage. Each pinion picks its own speed, so every stage can sit near its best flow coefficient — the reason this arrangement beats a beam-type machine on power for air, nitrogen and CO₂ duty.'
+        },
+        overhung: {
+            id: 'overhung', label: 'Single-stage overhung', impeller: 'std',
+            maxSpeed: 20000, minD2: 0.180, stagesPerSection: 1,
+            intercooled: false, geared: false,
+            note: 'One impeller overhung on a shaft end. The cheapest arrangement where a single stage carries the whole duty.'
+        }
+    };
+
+    function architecture(id) {
+        return ARCHITECTURES[id] || ARCHITECTURES.beam;
+    }
+
+    /* Practical gear-train limits for an integrally geared machine. A single
+       mesh between a low-speed bull gear (driver speed, often 1500-3600 rpm)
+       and a high-speed pinion (up to tens of thousands of rpm) commonly runs
+       15-20:1 in real machines; a ratio above that is the point a second,
+       intermediate gear stage is usually needed. */
+    var IGC_LIMITS = {
+        maxPinions: 4,
+        maxStagesPerPinion: 2,
+        maxGearRatio: 20,
+        meshLoss: 0.015          // per pinion mesh, screening figure
+    };
 
     /* ===================================================================== */
     /* 12. Stage aerodynamics                                                 */
@@ -837,7 +898,18 @@
             throw new Error('Could not work out a stage count for this duty — check the suction conditions, ' +
                             'the pressure ratio and the gas composition.');
         }
-        var nStages = Math.max(1, Math.ceil(stageRatio));
+        // An architecture may pin the impeller count - an integrally geared
+        // stage or an overhung machine is one impeller by construction.
+        var arch = architecture(opts.architecture);
+        var pinned = arch.stagesPerSection;
+
+        var stagesManual = null;
+        if (pinned) stagesManual = pinned;
+        else if (opts.stagesMode === 'manual' && opts.stagesManual > 0) {
+            stagesManual = Math.max(1, Math.round(opts.stagesManual));
+        }
+
+        var nStages = stagesManual || Math.max(1, Math.ceil(stageRatio));
         var result = null;
 
         for (var iter = 0; iter < 15; iter++) {
@@ -853,6 +925,11 @@
                     continue;
                 }
             }
+
+            // A fixed stage count is the engineer's decision: the limits are
+            // still reported per stage, but the count is not grown to satisfy
+            // them. Growing it would silently discard what was asked for.
+            if (stagesManual) break;
 
             var violates = result.stages.some(function (s) {
                 return s.Mu2 > lim.mu2Max * 1.0001 ||
@@ -897,9 +974,54 @@
             etaSource: opts.etaPManual ? 'manual' : 'correlation',
             speedLimited: result.speedLimited,
             sizeLimited: result.sizeLimited,
+            overSpeed: result.overSpeed,
+            underSize: result.underSize,
+            freeSpeed: result.freeSpeed,
+            speedSource: result.speedSource,
+            stagesSource: stagesManual ? (pinned ? 'architecture' : 'manual') : 'auto',
+            D2: result.D2,
             maxSpeed: result.maxSpeed,
             minD2: result.minD2
         };
+    }
+
+    /**
+     * Solve a section, and when an override is in play solve it a second time
+     * with the overrides stripped so the UI can show what the automatic
+     * selection would have picked. The reference solve is only paid for when
+     * something is actually overridden.
+     */
+    function runSectionWithReference(opts) {
+        var actual = runSection(opts);
+        var overridden = (opts.stagesMode === 'manual' && opts.stagesManual > 0) ||
+                         (opts.speedMode === 'manual' && opts.speedManual > 0);
+        if (!overridden) {
+            actual.auto = null;
+            return actual;
+        }
+        var bare = Object.assign({}, opts);
+        delete bare.stagesMode; delete bare.stagesManual;
+        delete bare.speedMode; delete bare.speedManual;
+        try {
+            var ref = runSection(bare);
+            actual.auto = {
+                nStages: ref.nStages,
+                speed: ref.speed,
+                D2: ref.stages[0].D2,
+                etaPoly: ref.etaPoly,
+                T2: ref.T2,
+                gasPower: ref.gasPower,
+                phiLo: Math.min.apply(null, ref.stages.map(function (s) { return s.phi; })),
+                phiHi: Math.max.apply(null, ref.stages.map(function (s) { return s.phi; })),
+                mu2Max: Math.max.apply(null, ref.stages.map(function (s) { return s.Mu2; }))
+            };
+        } catch (e) {
+            // The automatic solve can fail on a duty the manual one handles;
+            // that is not a reason to lose the answer the engineer asked for.
+            actual.auto = null;
+            actual.autoError = e.message;
+        }
+        return actual;
     }
 
     /**
@@ -923,32 +1045,43 @@
         // coefficient is the starting point, but the answer is then squeezed
         // between the maximum shaft speed and the minimum practical impeller
         // diameter - whichever binds, the flow coefficient gives way.
-        var U2first = Math.sqrt(HpStage / psi);
         var phiTarget = clamp(opts.phiTarget || lim.phiTarget, lim.phiMin, lim.phiMax);
         var maxSpeed = opts.maxSpeed || (imp.open ? lim.maxSpeedOpen : lim.maxSpeedClosed);
         var minD2 = opts.minD2 || (imp.open ? lim.minD2Open : lim.minD2Closed);
 
         var geo = stageGeometry(HpStage, Q1, psi, phiTarget);
+        var freeSpeed = geo.N;              // what the aerodynamics alone would pick
         var N = geo.N;
         var D2 = geo.D2;
         var speedLimited = false, sizeLimited = false;
 
         if (opts.speedManual) {
+            // A hand-entered speed is honoured exactly - but it is still
+            // checked below, which is the whole point of the manual mode.
             N = opts.speedManual;
-            D2 = 60 * U2first / (Math.PI * N);
+            D2 = stageAtSpeed(HpStage, Q1, psi, N).D2;
         } else {
             if (N > maxSpeed) {
                 N = maxSpeed;
-                D2 = 60 * U2first / (Math.PI * N);
+                D2 = stageAtSpeed(HpStage, Q1, psi, N).D2;
                 speedLimited = true;
             }
             if (D2 < minD2) {
+                // Clamping the diameter pushes the speed back up, which can put
+                // it above the cap again. Both constraints then genuinely apply,
+                // so neither flag is cleared - the old code cleared speedLimited
+                // here and hid the conflict.
                 D2 = minD2;
-                N = 60 * U2first / (Math.PI * D2);
+                N = 60 * Math.sqrt(HpStage / psi) / (Math.PI * D2);
                 sizeLimited = true;
-                speedLimited = false;
             }
         }
+
+        // Diagnostics are evaluated unconditionally, in every mode. A manual
+        // speed used to bypass these entirely and could return an impossible
+        // machine with nothing raised.
+        var overSpeed = N > maxSpeed * 1.0001;
+        var underSize = D2 < minD2 * 0.9999;
 
         var stages = [];
         var T = T1, P = P1, h = st1.h;
@@ -1002,8 +1135,13 @@
             outlet: outlet,
             speedLimited: speedLimited,
             sizeLimited: sizeLimited,
+            overSpeed: overSpeed,
+            underSize: underSize,
+            freeSpeed: freeSpeed,
             maxSpeed: maxSpeed,
-            minD2: minD2
+            minD2: minD2,
+            D2: D2,
+            speedSource: opts.speedManual ? 'manual' : (speedLimited || sizeLimited ? 'limited' : 'auto')
         };
     }
 
@@ -1076,20 +1214,28 @@
         // On a common shaft every section runs at the same speed, so the first
         // section sets it and the rest inherit. Separate bodies or the pinions
         // of an integrally geared machine are each free to find their own.
+        // A per-section manual speed always wins over the shared one.
         var sharedSpeed = opts.speedManual || null;
 
         for (var i = 0; i < opts.sections.length; i++) {
             var sec = opts.sections[i];
-            var res = runSection({
+            var secSpeed = (sec.speedMode === 'manual' && sec.speedManual > 0)
+                ? sec.speedManual
+                : sharedSpeed;
+            var res = runSectionWithReference({
                 mix: mix, model: model,
                 T1: T, P1: P, P2: sec.P2,
                 mdot: mdot,
                 limits: lim, impeller: imp,
+                architecture: opts.architecture,
                 psiTarget: opts.psiTarget,
                 phiTarget: opts.phiTarget,
                 etaPManual: opts.etaPManual,
                 etaMech: opts.etaMech,
-                speedManual: sharedSpeed,
+                speedMode: secSpeed ? 'manual' : 'auto',
+                speedManual: secSpeed,
+                stagesMode: sec.stagesMode,
+                stagesManual: sec.stagesManual,
                 maxSpeed: opts.maxSpeed,
                 minD2: opts.minD2,
                 pathSteps: opts.pathSteps
@@ -1118,20 +1264,49 @@
             out.push(res);
         }
 
+        var arch = architecture(opts.architecture);
+
+        // An integrally geared machine has a gear train: group the stages onto
+        // pinions, give each pinion one speed, and resize its impellers to it.
+        var pinions = null;
+        if (arch.geared) {
+            pinions = assignPinions(out, opts, lim, imp);
+            // Regrouping changes each stage's speed and diameter, so the power
+            // roll-up has to be taken again from the resized sections.
+            totalGasPower = 0; totalShaftPower = 0;
+            for (var k = 0; k < out.length; k++) {
+                totalGasPower += out[k].gasPower;
+                totalShaftPower += out[k].shaftPower;
+            }
+        }
+
+        // Speed is a range once sections differ - reporting section 1's speed
+        // for the whole train was wrong for a two-body train and meaningless
+        // for an integrally geared one, where every pinion differs by design.
+        var speeds = out.map(function (s) { return s.speed; });
+        var speedRange = { lo: Math.min.apply(null, speeds), hi: Math.max.apply(null, speeds), list: speeds };
+
         var frame = selectFrame({
             mix: mix,
+            architecture: arch,
             Q1: out[0].Q1,
+            Psuc: out[0].inlet.P,
             Pdis: out[out.length - 1].P2,
             totalStages: totalStages,
-            speed: out[0].speed,
+            speedRange: speedRange,
             nSections: opts.sections.length,
             impeller: imp,
+            pinions: pinions,
             shaftPower: totalShaftPower
         });
 
-        var rotor = rotordynamicScreen({
+        // The beam-rotor screening model - bearing span from stage count, a
+        // flexibility ratio - describes a shaft between two bearings. An
+        // integrally geared pinion is short, stiff and overhung, so that model
+        // says nothing useful about it and is not run.
+        var rotor = arch.geared ? null : rotordynamicScreen({
             totalStages: totalStages,
-            speed: out[0].speed,
+            speed: speedRange.hi,
             D2: out[0].stages[0].D2,
             shaftPower: totalShaftPower,
             rhoDis: out[out.length - 1].outlet.rho,
@@ -1145,10 +1320,211 @@
             shaftPower: totalShaftPower,
             frame: frame,
             rotor: rotor,
+            pinions: pinions,
+            architecture: arch,
+            speedRange: speedRange,
             inletDew: inletDew,
             model: model,
             modelName: MODELS[model]
         };
+    }
+
+    /* ===================================================================== */
+    /* 14b. Integrally geared machines - pinions and the gear train           */
+    /* ===================================================================== */
+    /**
+     * Group the sections (one impeller each on an integrally geared machine)
+     * onto pinions, settle a common speed for each pinion, and resize the
+     * impellers it carries to that speed.
+     *
+     * Two impellers on one pinion must turn at the same speed, so at most one
+     * of them can sit at its own aerodynamic optimum. That is the real cost of
+     * pairing, and it shows up here as a flow coefficient pushed off target -
+     * which is exactly what the results table should reveal rather than hide.
+     *
+     * layout: 'auto' (pairs, the usual arrangement) | 'single' (one impeller
+     * per pinion) | 'custom' (explicit groups of 1-based section indices).
+     */
+    function assignPinions(sections, opts, lim, imp) {
+        var layout = opts.pinionLayout || 'auto';
+        var bullSpeed = opts.bullGearSpeed || 1800;      // rpm at the driver
+        var n = sections.length;
+        var groups;
+
+        if (layout === 'custom' && Array.isArray(opts.pinionGroups) && opts.pinionGroups.length) {
+            groups = normalisePinionGroups(opts.pinionGroups, n);
+        } else if (layout === 'single') {
+            groups = sections.map(function (s, i) { return [i]; });
+        } else {
+            groups = autoPairPinions(sections);
+        }
+
+        var maxSpeed = opts.maxSpeed || lim.maxSpeedOpen;
+        var minD2 = opts.minD2 || lim.minD2Open;
+        var out = [];
+
+        groups.forEach(function (idxs, gi) {
+            // Common speed: the geometric mean of the members' free optimum
+            // speeds, which splits the compromise evenly in log space rather
+            // than favouring the faster stage.
+            var prod = 1;
+            idxs.forEach(function (i) { prod *= Math.max(sections[i].freeSpeed || sections[i].speed, 1); });
+            var N = Math.pow(prod, 1 / idxs.length);
+
+            if (N > maxSpeed) N = maxSpeed;
+
+            // Respect the minimum impeller diameter across every member.
+            idxs.forEach(function (i) {
+                var st = sections[i].stages[0];
+                var d = stageAtSpeed(st.Hp, st.Q1, st.psi, N).D2;
+                if (d < minD2) N = Math.min(N, 60 * Math.sqrt(st.Hp / st.psi) / (Math.PI * minD2));
+            });
+
+            var members = idxs.map(function (i) {
+                return resizeSectionToSpeed(sections[i], N, opts, lim, imp);
+            });
+
+            var ratio = N / bullSpeed;
+            out.push({
+                id: String.fromCharCode(65 + gi),           // A, B, C, ...
+                stages: idxs.map(function (i) { return i + 1; }),
+                speed: N,
+                ratio: ratio,
+                bullGearSpeed: bullSpeed,
+                U2max: Math.max.apply(null, members.map(function (m) { return m.U2; })),
+                phiLo: Math.min.apply(null, members.map(function (m) { return m.phi; })),
+                phiHi: Math.max.apply(null, members.map(function (m) { return m.phi; })),
+                mu2Max: Math.max.apply(null, members.map(function (m) { return m.Mu2; })),
+                power: idxs.reduce(function (a, i) { return a + sections[i].gasPower; }, 0),
+                ratioHigh: ratio > IGC_LIMITS.maxGearRatio,
+                overSpeed: N > maxSpeed * 1.0001,
+                members: members
+            });
+        });
+
+        return out;
+    }
+
+    /**
+     * Pair consecutive stages onto pinions. With an odd stage count one pinion
+     * carries a single impeller; it goes to the stage whose free optimum speed
+     * is furthest from its neighbour's, since that is the pairing that would
+     * have cost the most aerodynamically.
+     */
+    function autoPairPinions(sections) {
+        var n = sections.length;
+        if (n <= 1) return [[0]];
+
+        var speeds = sections.map(function (s) { return s.freeSpeed || s.speed; });
+        var solo = -1;
+        if (n % 2 === 1) {
+            var worst = -Infinity;
+            for (var i = 0; i < n; i++) {
+                var d = Infinity;
+                if (i > 0) d = Math.min(d, Math.abs(Math.log(speeds[i] / speeds[i - 1])));
+                if (i < n - 1) d = Math.min(d, Math.abs(Math.log(speeds[i] / speeds[i + 1])));
+                if (d > worst) { worst = d; solo = i; }
+            }
+        }
+
+        var groups = [], j = 0;
+        while (j < n) {
+            if (j === solo) { groups.push([j]); j += 1; }
+            else if (j + 1 < n && j + 1 !== solo) { groups.push([j, j + 1]); j += 2; }
+            else { groups.push([j]); j += 1; }
+        }
+        return groups;
+    }
+
+    /** Validate and clean explicit pinion groups: consecutive, complete, <= 2 each. */
+    function normalisePinionGroups(groups, n) {
+        var seen = {}, out = [];
+        groups.forEach(function (g) {
+            var idxs = (g || []).map(function (v) { return Number(v) - 1; })
+                                .filter(function (v) { return v >= 0 && v < n && !seen[v]; });
+            idxs.sort(function (a, b) { return a - b; });
+            idxs = idxs.slice(0, IGC_LIMITS.maxStagesPerPinion);
+            idxs.forEach(function (v) { seen[v] = true; });
+            if (idxs.length) out.push(idxs);
+        });
+        // Anything the caller left out gets its own pinion, so no stage is lost.
+        for (var i = 0; i < n; i++) if (!seen[i]) out.push([i]);
+        out.sort(function (a, b) { return a[0] - b[0]; });
+        return out;
+    }
+
+    /**
+     * Re-evaluate a one-impeller section at an imposed speed. The head and the
+     * inlet state are unchanged, so only the geometry and the Mach numbers move.
+     */
+    function resizeSectionToSpeed(sec, N, opts, lim, imp) {
+        var st = sec.stages[0];
+        var g = stageAtSpeed(st.Hp, st.Q1, st.psi, N);
+        var eye = inletRelativeMach(st.Q1, g.U2, g.D2, st.sonic);
+
+        st.N = N;
+        st.U2 = g.U2;
+        st.D2 = g.D2;
+        st.phi = g.phi;
+        st.Mu2 = g.U2 / st.sonic;
+        st.Mrel = eye.Mrel;
+        st.eyeRatio = eye.eyeRatio;
+        st.D1 = eye.D1;
+        st.blading = g.phi < 0.05 ? '2D' : '3D';
+        st.ok = st.Mu2 <= lim.mu2Max && st.Mrel <= lim.mrelMax &&
+                g.phi >= lim.phiMin && g.phi <= lim.phiMax && g.U2 <= imp.u2max;
+
+        sec.speed = N;
+        sec.D2 = g.D2;
+        return st;
+    }
+
+    /* ===================================================================== */
+    /* 14c. Stage-count trade-off sweep                                       */
+    /* ===================================================================== */
+    /**
+     * Re-solve one section at a range of impeller counts so the consequence of
+     * adding or removing a stage is visible before committing to it. No new
+     * physics - it just calls the same march at each forced count.
+     */
+    function stageSweep(opts, lo, hi) {
+        var rows = [];
+        for (var n = Math.max(1, lo); n <= hi; n++) {
+            try {
+                var res = runSection(Object.assign({}, opts, {
+                    stagesMode: 'manual', stagesManual: n
+                }));
+                var phis = res.stages.map(function (s) { return s.phi; });
+                var mu2s = res.stages.map(function (s) { return s.Mu2; });
+                var mrels = res.stages.map(function (s) { return s.Mrel; });
+                var limits = [];
+                if (res.overSpeed) limits.push('over max speed');
+                if (res.underSize) limits.push('under min diameter');
+                if (Math.max.apply(null, mu2s) > (opts.limits || DEFAULTS).mu2Max) limits.push('Mu₂');
+                if (Math.max.apply(null, mrels) > (opts.limits || DEFAULTS).mrelMax) limits.push('M rel');
+                if (Math.min.apply(null, phis) < (opts.limits || DEFAULTS).phiMin) limits.push('φ low');
+                if (Math.max.apply(null, phis) > (opts.limits || DEFAULTS).phiMax) limits.push('φ high');
+                if (res.t2Exceeded) limits.push('T₂');
+                rows.push({
+                    nStages: n,
+                    speed: res.speed,
+                    D2: res.stages[0].D2,
+                    phiLo: Math.min.apply(null, phis),
+                    phiHi: Math.max.apply(null, phis),
+                    mu2Max: Math.max.apply(null, mu2s),
+                    mrelMax: Math.max.apply(null, mrels),
+                    etaPoly: res.etaPoly,
+                    T2: res.T2,
+                    gasPower: res.gasPower,
+                    HpTotal: res.HpTotal,
+                    limits: limits,
+                    ok: limits.length === 0
+                });
+            } catch (e) {
+                rows.push({ nStages: n, error: e.message, ok: false, limits: ['no solution'] });
+            }
+        }
+        return rows;
     }
 
     /* ===================================================================== */
@@ -1192,58 +1568,108 @@
         }
         var pH2_bar = yH2 * Pdis_bar;
 
-        if (o.impeller.open && o.nSections >= 2) {
-            type = 'Integrally geared multi-shaft';
-            casing = 'Individual stage casings on a common bull gear';
-            reasons.push('Open impellers with intercooling between stages - the classic integrally geared arrangement.');
-            reasons.push('Pinion speeds are set per stage, so each stage can sit at its own best flow coefficient.');
-        } else if (o.totalStages === 1 && Pdis_bar < 20) {
+        // The architecture is now the engineer's choice rather than something
+        // inferred from the impeller type and section count. What is still
+        // derived is the casing that architecture needs, and whether the duty
+        // actually suits the architecture that was picked.
+        var arch = o.architecture || ARCHITECTURES.beam;
+        var speedHi = o.speedRange ? o.speedRange.hi : 0;
+        var speedLo = o.speedRange ? o.speedRange.lo : 0;
+        var suitability = [];
+
+        if (arch.id === 'igc') {
+            type = 'Integrally geared (multi-shaft)';
+            casing = (o.pinions ? o.pinions.length : 1) +
+                     ' pinion casing(s) on a common bull gear';
+            reasons.push('Overhung impellers on gear-driven pinions with an intercooler after every stage.');
+            reasons.push('Each pinion runs at its own speed, so a stage can sit near its best flow coefficient instead of inheriting one shaft speed.');
+            if (o.pinions) {
+                var ratios = o.pinions.map(function (p) { return p.ratio; });
+                reasons.push('Gear ratios ' + Math.min.apply(null, ratios).toFixed(2) + '–' +
+                             Math.max.apply(null, ratios).toFixed(2) + ':1 off a ' +
+                             Math.round(o.pinions[0].bullGearSpeed).toLocaleString() + ' rpm bull gear.');
+            }
+            // Where an integrally geared machine is the wrong answer.
+            if (pH2_bar >= 14) {
+                suitability.push('Hydrogen partial pressure at discharge is ' + pH2_bar.toFixed(1) +
+                    ' bar. API 617 wants a vertically split barrel above ~14 bar (200 psi), which an integrally geared machine cannot give — a beam-type barrel is the safer choice.');
+            }
+            if (Pdis_bar >= 60) {
+                suitability.push('Discharge pressure ' + Pdis_bar.toFixed(1) +
+                    ' bara is high for an integrally geared machine; the overhung casings and shaft-end seals become the limit. A beam-type barrel is the usual answer above ~60 bara.');
+            }
+            if (MW < 12) {
+                suitability.push('Light gas (MW ' + MW.toFixed(1) +
+                    ') means very high head per stage and a lot of shaft-end seal leakage area — check sealing carefully, or consider a beam-type machine.');
+            }
+            if (o.pinions && o.pinions.length > IGC_LIMITS.maxPinions) {
+                suitability.push(o.pinions.length + ' pinions is beyond the ~' + IGC_LIMITS.maxPinions +
+                    ' a single bull gear normally carries — split the duty across two machines.');
+            }
+        } else if (arch.id === 'overhung') {
             type = 'Single-stage overhung';
             casing = 'Overhung, radially split';
-            reasons.push('One stage at modest discharge pressure - an overhung machine is the cheapest arrangement.');
-        } else if (pH2_bar >= 14) {
-            type = 'Beam-type (between-bearings) multistage';
-            casing = 'Vertically split barrel';
-            reasons.push('Hydrogen partial pressure at discharge is ' + pH2_bar.toFixed(1) +
-                         ' bar, at or above the ~14 bar (200 psi) API 617 threshold for a barrel casing.');
-        } else if (Pdis_bar >= 60) {
-            type = 'Beam-type (between-bearings) multistage';
-            casing = 'Vertically split barrel';
-            reasons.push('Discharge pressure ' + Pdis_bar.toFixed(1) + ' bara is above the ~60 bara point where barrel casings take over.');
-        } else if (Pdis_bar >= 40 && MW < 12) {
-            type = 'Beam-type (between-bearings) multistage';
-            casing = 'Vertically split barrel';
-            reasons.push('Light gas (MW ' + MW.toFixed(1) + ') at ' + Pdis_bar.toFixed(1) +
-                         ' bara - sealing a horizontally split joint gets difficult.');
+            reasons.push('One impeller overhung on a shaft end — the cheapest arrangement when a single stage carries the duty.');
+            if (o.totalStages > 1) {
+                suitability.push('This duty needs ' + o.totalStages +
+                    ' impellers, which an overhung machine cannot carry. Switch to a beam-type or integrally geared architecture.');
+            }
+            if (Pdis_bar >= 20) {
+                suitability.push('Discharge pressure ' + Pdis_bar.toFixed(1) +
+                    ' bara is high for an overhung machine — the overhung moment and the single dry-gas seal become the limit.');
+            }
         } else {
             type = 'Beam-type (between-bearings) multistage';
-            casing = 'Horizontally split';
-            reasons.push('Discharge pressure ' + Pdis_bar.toFixed(1) + ' bara and MW ' + MW.toFixed(1) +
-                         ' are comfortably inside the horizontally split range.');
+            if (pH2_bar >= 14) {
+                casing = 'Vertically split barrel';
+                reasons.push('Hydrogen partial pressure at discharge is ' + pH2_bar.toFixed(1) +
+                             ' bar, at or above the ~14 bar (200 psi) API 617 threshold for a barrel casing.');
+            } else if (Pdis_bar >= 60) {
+                casing = 'Vertically split barrel';
+                reasons.push('Discharge pressure ' + Pdis_bar.toFixed(1) + ' bara is above the ~60 bara point where barrel casings take over.');
+            } else if (Pdis_bar >= 40 && MW < 12) {
+                casing = 'Vertically split barrel';
+                reasons.push('Light gas (MW ' + MW.toFixed(1) + ') at ' + Pdis_bar.toFixed(1) +
+                             ' bara - sealing a horizontally split joint gets difficult.');
+            } else {
+                casing = 'Horizontally split';
+                reasons.push('Discharge pressure ' + Pdis_bar.toFixed(1) + ' bara and MW ' + MW.toFixed(1) +
+                             ' are comfortably inside the horizontally split range.');
+            }
+            if (o.nSections > 1) {
+                reasons.push(o.nSections + ' sections with intercooling — normally separate bodies, or one body with an external cooling loop.');
+            }
         }
 
         if (o.Q1 * 3600 > 200000 && o.totalStages <= 2) {
             reasons.push('Inlet volume flow above 200,000 m³/h with very little head - an axial machine may suit this duty better than a centrifugal.');
         }
-        if (o.totalStages > DEFAULTS.maxStagesPerBody) {
+        if (arch.id === 'beam' && o.totalStages > DEFAULTS.maxStagesPerBody) {
             reasons.push('At ' + o.totalStages + ' stages the machine exceeds the ~' + DEFAULTS.maxStagesPerBody +
                          ' impellers normally put in one body - expect a tandem or two-body train.');
         }
 
-        var speedNote = null;
-        if (o.speed > 20000 && !o.impeller.open) {
-            speedNote = 'Predicted speed ' + Math.round(o.speed) + ' rpm is above the usual beam-type ceiling (~20,000 rpm) - a geared or integrally geared machine is implied.';
-        } else if (o.speed < 3000) {
-            speedNote = 'Predicted speed ' + Math.round(o.speed) + ' rpm is low for a centrifugal - check the head split, or consider a direct 2-pole/4-pole motor drive.';
+        var speedTxt = (speedLo === speedHi)
+            ? Math.round(speedHi).toLocaleString() + ' rpm'
+            : Math.round(speedLo).toLocaleString() + '–' + Math.round(speedHi).toLocaleString() + ' rpm';
+        if (arch.id !== 'igc' && speedHi > arch.maxSpeed) {
+            reasons.push('Predicted speed ' + speedTxt + ' is above the usual ' +
+                         Math.round(arch.maxSpeed).toLocaleString() + ' rpm ceiling for this architecture - a geared or integrally geared machine is implied.');
+        } else if (speedHi > 0 && speedHi < 3000) {
+            reasons.push('Predicted speed ' + speedTxt + ' is low for a centrifugal - check the head split, or consider a direct 2-pole/4-pole motor drive.');
         }
-        if (speedNote) reasons.push(speedNote);
 
         return {
             type: type,
             casing: casing,
             reasons: reasons,
+            suitability: suitability,
+            architecture: arch.id,
+            speedText: speedTxt,
             h2PartialPressure_bar: pH2_bar,
-            gearRequired: o.speed > 3600
+            // An integrally geared machine has its gear built in, so no separate
+            // gearbox is charged for it in the power train.
+            gearRequired: arch.id !== 'igc' && speedHi > 3600
         };
     }
 
@@ -1315,7 +1741,11 @@
     function driverRating(shaftPower_W, opts) {
         var o = opts || {};
         var p = shaftPower_W;
-        var gearLoss = o.gearbox ? 0.02 : 0;
+        // An integrally geared machine pays a mesh loss per pinion rather than
+        // one flat gearbox loss, since every pinion is its own gear mesh.
+        var gearLoss = o.pinions > 0
+            ? IGC_LIMITS.meshLoss * o.pinions
+            : (o.gearbox ? 0.02 : 0);
         var couplingLoss = 0.005;
         var atDriver = p * (1 + gearLoss) * (1 + couplingLoss);
         // API 617 asks the driver to be rated for 110% of the maximum power.
@@ -1633,6 +2063,108 @@
         check('Train: gas power = ṁ·Hp/ηp',
               s0.gasPower, (20000 / 3600) * s0.HpTotal / s0.etaPoly, 1, 'W');
 
+        // 14. Manual stage count is honoured exactly, and the heads still sum.
+        var manualStages = runSection({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+            stagesMode: 'manual', stagesManual: 6
+        });
+        check('Manual stage count is honoured', manualStages.nStages, 6, 0, '');
+        var manualHeadSum = manualStages.stages.reduce(function (a, st) { return a + st.Hp; }, 0);
+        check('Manual stage count: heads still sum to section head',
+              manualHeadSum, manualStages.HpTotal, manualStages.HpTotal * 1e-6, 'J/kg');
+
+        // 15. Manual speed is honoured exactly, and D2 = 60U2/(piN) still closes.
+        var manualSpeed = runSection({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+            speedMode: 'manual', speedManual: 15000
+        });
+        check('Manual speed is honoured', manualSpeed.speed, 15000, 1e-6, 'rpm');
+        var st0 = manualSpeed.stages[0];
+        check('Manual speed: D₂ closes with U₂ = πDN/60',
+              Math.PI * st0.D2 * manualSpeed.speed / 60, st0.U2, 1e-6, 'm/s');
+
+        // 16. A duty whose free optimum exceeds maxSpeed is capped and flagged;
+        //     a duty within it is untouched. Uses a deliberately low maxSpeed so
+        //     the free solve is known to exceed it.
+        var speedCapped = runSection({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+            maxSpeed: 8000
+        });
+        check('Speed cap: speedLimited set and speed pinned at the cap',
+              speedCapped.speedLimited ? speedCapped.speed : -1, 8000, 1e-6, '');
+        check('Speed cap: overSpeed is false once capped', speedCapped.overSpeed ? 1 : 0, 0, 0, '');
+
+        // 17. A manual speed ABOVE the cap must raise overSpeed - the case that
+        //     silently passed through with no flag before this change.
+        var overSpeedCase = runSection({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+            maxSpeed: 8000, speedMode: 'manual', speedManual: 30000
+        });
+        check('Manual speed above the cap sets overSpeed', overSpeedCase.overSpeed ? 1 : 0, 1, 0,
+              'This case used to pass through with no flag at all.');
+
+        // 18. A duty clamped by minD2 sets sizeLimited and returns exactly minD2.
+        var sizeCapped = runSection({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+            minD2: 0.60
+        });
+        check('Size cap: sizeLimited set and D₂ pinned at the minimum',
+              sizeCapped.sizeLimited ? sizeCapped.stages[0].D2 : -1, 0.60, 1e-6, 'm');
+
+        // 19. IGC pinion pairing: paired stages share exactly one speed, the
+        //     ratio is N_pinion / N_bullGear, and an odd stage count yields the
+        //     expected pinion count under auto pairing.
+        var igcAir = makeMixture(PRESETS['Air']);
+        var igcTrain = runTrain({
+            mix: igcAir, model: 'PR', T1: 293.15, P1: 1e5, mdot: 50000 / 3600,
+            architecture: 'igc', impeller: impellerType('open'),
+            limits: Object.assign({}, DEFAULTS, { mu2Max: impellerType('open').mu2Max }),
+            bullGearSpeed: 1800, pinionLayout: 'auto',
+            sections: [
+                { P2: 2.11e5, Tcool_K: 313.15, dPcool_Pa: 0.15e5 },
+                { P2: 4.47e5, Tcool_K: 313.15, dPcool_Pa: 0.15e5 },
+                { P2: 9.46e5, Tcool_K: 313.15, dPcool_Pa: 0.15e5 },
+                { P2: 20e5 }
+            ]
+        });
+        check('IGC: 4 stages auto-pair into 2 pinions', igcTrain.pinions.length, 2, 0, '');
+        var pinionA = igcTrain.pinions[0];
+        var speedsInPinionA = pinionA.stages.map(function (idx) { return igcTrain.sections[idx - 1].speed; });
+        check('IGC: paired stages share exactly one speed',
+              Math.max.apply(null, speedsInPinionA) - Math.min.apply(null, speedsInPinionA), 0, 1e-6, 'rpm');
+        check('IGC: gear ratio = N_pinion / N_bullGear',
+              pinionA.ratio, pinionA.speed / pinionA.bullGearSpeed, 1e-9, '');
+
+        var igc5 = runTrain({
+            mix: igcAir, model: 'PR', T1: 293.15, P1: 1e5, mdot: 50000 / 3600,
+            architecture: 'igc', impeller: impellerType('open'),
+            limits: Object.assign({}, DEFAULTS, { mu2Max: impellerType('open').mu2Max }),
+            bullGearSpeed: 1800,
+            sections: [
+                { P2: 1.7e5, Tcool_K: 313.15, dPcool_Pa: 0.1e5 },
+                { P2: 2.9e5, Tcool_K: 313.15, dPcool_Pa: 0.1e5 },
+                { P2: 4.9e5, Tcool_K: 313.15, dPcool_Pa: 0.1e5 },
+                { P2: 8.4e5, Tcool_K: 313.15, dPcool_Pa: 0.1e5 },
+                { P2: 20e5 }
+            ]
+        });
+        check('IGC: 5 stages auto-pair into 3 pinions', igc5.pinions.length, 3, 0, 'ceil(5/2)');
+
+        // 20. stageSweep is monotonic: more stages -> smaller D2 at the same
+        //     head-per-stage target -> lower Mu2, since U2 falls with head/stage.
+        var sweep = stageSweep({
+            mix: ng, model: 'PR', T1: 313.15, P1: 30e5, mdot: 20000 / 3600,
+            limits: DEFAULTS, impeller: impellerType('std')
+        }, 3, 7);
+        var sweepOk = sweep.filter(function (r) { return r.ok !== false || isFinite(r.mu2Max); })
+                            .filter(function (r) { return isFinite(r.mu2Max); });
+        var sweepMonotonic = sweepOk.every(function (r, i) {
+            return i === 0 || r.mu2Max <= sweepOk[i - 1].mu2Max + 1e-9;
+        });
+        check('Stage sweep: Mu₂ falls monotonically as stage count rises',
+              sweepMonotonic ? 1 : 0, 1, 0,
+              sweep.map(function (r) { return r.nStages + ':' + (isFinite(r.mu2Max) ? r.mu2Max.toFixed(3) : r.error || '?'); }).join(', '));
+
         return out;
     }
 
@@ -1649,12 +2181,15 @@
         MODELS: MODELS,
         DEFAULTS: DEFAULTS,
         IMPELLER_TYPES: IMPELLER_TYPES,
+        ARCHITECTURES: ARCHITECTURES,
+        IGC_LIMITS: IGC_LIMITS,
         UNITS: UNITS,
 
         makeMixture: makeMixture,
         getKij: getKij,
         kijKey: kijKey,
         impellerType: impellerType,
+        architecture: architecture,
 
         state: state,
         derived: derived,
@@ -1673,7 +2208,11 @@
         inletRelativeMach: inletRelativeMach,
 
         runSection: runSection,
+        runSectionWithReference: runSectionWithReference,
         runTrain: runTrain,
+        assignPinions: assignPinions,
+        autoPairPinions: autoPairPinions,
+        stageSweep: stageSweep,
         dewPointWarning: dewPointWarning,
         selectFrame: selectFrame,
         rotordynamicScreen: rotordynamicScreen,

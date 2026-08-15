@@ -314,6 +314,49 @@
             </div>
 
             <div class="card p-5">
+                <h2 class="font-bold text-lg mb-4">Machine architecture</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Architecture</label>
+                        <select id="inArchitecture">
+                            <option value="beam">Beam-type (between bearings)</option>
+                            <option value="igc">Integrally geared (multi-shaft)</option>
+                            <option value="overhung">Single-stage overhung</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="note mt-4" id="architectureNote"></div>
+            </div>
+
+            <div class="card p-5" id="igcPanel" style="display:none">
+                <h2 class="font-bold text-lg mb-4">Gear train</h2>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Bull gear / driver speed <span class="unit">rpm</span></label>
+                        <select id="inBullSpeedPreset">
+                            <option value="1500">1500 (4-pole, 50 Hz)</option>
+                            <option value="1800" selected>1800 (4-pole, 60 Hz)</option>
+                            <option value="3000">3000 (2-pole, 50 Hz)</option>
+                            <option value="3600">3600 (2-pole, 60 Hz)</option>
+                            <option value="custom">Custom…</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Custom bull gear speed <span class="unit">rpm</span></label>
+                        <input type="number" id="inBullSpeed" value="1800" step="10" disabled>
+                    </div>
+                    <div class="field">
+                        <label>Pinion layout</label>
+                        <select id="inPinionLayout">
+                            <option value="auto">Auto-pair (2 impellers per pinion)</option>
+                            <option value="single">One impeller per pinion</option>
+                        </select>
+                        <span class="hint">Impellers sharing a pinion share exactly one speed — the aerodynamic cost of pairing.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
                 <h2 class="font-bold text-lg mb-4">Impeller and aerodynamic limits</h2>
                 <div class="grid-fields">
                     <div class="field">
@@ -334,6 +377,7 @@
                     <div class="field">
                         <label>Max peripheral Mach Mu₂</label>
                         <input type="number" id="inMu2" value="1.05" step="0.05">
+                        <span class="hint" id="mu2Hint">Closed 2D stage: ~1.05. Open 3D stage: ~1.30.</span>
                     </div>
                     <div class="field">
                         <label>Max inlet relative Mach</label>
@@ -353,26 +397,17 @@
                     <div class="field">
                         <label>Max shaft speed <span class="unit">rpm</span></label>
                         <input type="number" id="inMaxSpeed" value="20000" step="500">
-                        <span class="hint">Caps the aerodynamic speed solve.</span>
+                        <span class="hint">Caps the aerodynamic speed solve where a section is set to Auto.</span>
                     </div>
                     <div class="field">
                         <label>Min impeller diameter <span class="unit" data-unit="length"></span></label>
                         <input type="number" id="inMinD2" value="180" step="any">
                         <span class="hint">Room for shaft, seals and bearings.</span>
                     </div>
-                    <div class="field">
-                        <label>Fixed speed override <span class="unit">rpm</span></label>
-                        <input type="number" id="inSpeedManual" value="" step="100" placeholder="auto">
-                        <span class="hint">Leave blank to let the tool predict it.</span>
-                    </div>
-                    <div class="field">
-                        <label>Common shaft across sections</label>
-                        <select id="inCommonShaft">
-                            <option value="0">No — separate bodies / pinions</option>
-                            <option value="1">Yes — one shaft, one speed</option>
-                        </select>
-                    </div>
                 </div>
+                <p class="text-xs mt-3" style="color:var(--muted)">
+                    Per-section speed and stage-count overrides live on the Process Data tab, next to each section.
+                </p>
             </div>
 
             <div class="card p-5">
@@ -388,7 +423,7 @@
                         <input type="number" id="inEtaMech" value="0.985" step="0.005" min="0.9" max="1">
                         <span class="hint">Bearing and seal losses.</span>
                     </div>
-                    <div class="field">
+                    <div class="field" id="gearboxField">
                         <label>Gearbox in the train</label>
                         <select id="inGearbox">
                             <option value="0">No</option>
@@ -418,6 +453,12 @@
 
             <div id="warnBox" class="space-y-2"></div>
 
+            <div class="card p-5" id="pinionCard" style="display:none">
+                <h2 class="font-bold text-lg mb-1">Gear train — pinions</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Each pinion carries one or two impellers at one common speed.</p>
+                <div id="pinionTable"></div>
+            </div>
+
             <div class="card p-5">
                 <h2 class="font-bold text-lg mb-3">Stage by stage</h2>
                 <div id="stageTable"></div>
@@ -426,6 +467,15 @@
             <div class="card p-5">
                 <h2 class="font-bold text-lg mb-3">Section summary</h2>
                 <div id="sectionTable"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Stage-count trade-off</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Section 1 re-solved at nearby impeller counts. Click a row to apply that count. Only meaningful
+                    when section 1's stage count is left on Auto.
+                </p>
+                <div id="tradeoffTable"></div>
             </div>
 
             <div class="card p-5">
@@ -465,6 +515,11 @@
                 <h2 class="font-bold text-lg mb-1">Build-up through the machine</h2>
                 <p class="text-xs mb-3" style="color:var(--muted)">Pressure as bars on the left axis, temperature as a line on the right axis. Intercoolers show as drops.</p>
                 <div class="chart-wrap" id="chartBuild"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Speed sweep</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Section 1 re-solved at each stage count: speed on the left axis, peripheral Mach on the right, against their limits.</p>
+                <div class="chart-wrap" id="chartSweep"></div>
             </div>
         </section>
 
@@ -510,6 +565,14 @@
                     second body is needed.</p>
                     <p><strong style="color:var(--text)">Frame rules are simplified.</strong> They encode common practice and the API 617 hydrogen
                     partial-pressure rule for barrel casings. Vendor frame ranges differ substantially.</p>
+                    <p><strong style="color:var(--text)">Speed and stage overrides skip the auto-adjustment loop.</strong> With a section left on Auto,
+                    the stage count grows until every limit is met. Setting it manually fixes the count exactly as
+                    entered — the limits are still checked and flagged, but the tool will not silently add stages
+                    to make an out-of-limits case look clean.</p>
+                    <p><strong style="color:var(--text)">Integrally geared pinion pairing.</strong> Two impellers sharing a pinion are forced to run at one
+                    common speed — the geometric mean of what each would want on its own — so at most one of them
+                    sits at its true aerodynamic optimum. That compromise is real and is shown in the reported flow
+                    coefficients, not hidden. Gear ratios and pinion counts are screening rules, not vendor gearbox data.</p>
                     <p><strong style="color:var(--text)">No phase equilibrium.</strong> Condensation at an intercooler is flagged from a Wilson K-value
                     dew-point estimate only. No flash is performed and the composition is held constant through
                     the machine — a real knockout drum would change it.</p>
@@ -878,8 +941,15 @@
         /* Sections are held in SI internally - Pa, K, and Pa of pressure drop -
            and converted only for display. Holding them in display units meant a
            unit switch could rewrite the inputs while leaving the state behind,
-           so every read has to go through the same conversion the render does. */
-        let sections = [{ P2: 90e5, Tcool: 313.15, dPcool: 0.5e5 }];
+           so every read has to go through the same conversion the render does.
+           stagesMode/speedMode default to 'auto'; stagesManual/speedManual only
+           matter when their mode is 'manual'. speedManual is a plain rpm value -
+           there is no unit system for shaft speed. */
+        let sections = [{
+            P2: 90e5, Tcool: 313.15, dPcool: 0.5e5,
+            stagesMode: 'auto', stagesManual: 4,
+            speedMode: 'auto', speedManual: 10000
+        }];
 
         /* A pressure drop is a difference, so only the scale factor applies. */
         function pScale() {
@@ -896,12 +966,20 @@
 
         function renderSections() {
             const wrap = $('sectionRows');
+            const isIgc = $('inArchitecture').value === 'igc';
+            const stageWord = isIgc ? 'impeller' : 'stages';
+
             wrap.innerHTML = sections.map((s, i) => {
                 const last = i === sections.length - 1;
                 const v = k => fmtNum(SEC_CONV[k].from(s[k]));
+                const stagesManual = s.stagesManual == null ? 4 : s.stagesManual;
+                const speedManual = s.speedManual == null ? 10000 : s.speedManual;
                 return `
                 <div class="p-3 rounded-xl" style="background:var(--surface-2);border:1px solid var(--line)">
-                    <div class="text-xs font-bold mb-2" style="color:var(--accent)">SECTION ${i + 1}${last ? ' (final)' : ''}</div>
+                    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <div class="text-xs font-bold" style="color:var(--accent)">SECTION ${i + 1}${last ? ' (final)' : ''}${isIgc ? ' — 1 impeller' : ''}</div>
+                        <div data-badge="${i}"></div>
+                    </div>
                     <div class="grid-fields">
                         <div class="field">
                             <label>Discharge pressure <span class="unit" data-unit="pressure"></span></label>
@@ -918,10 +996,55 @@
                             <span class="hint">Pressure drop across the cooler.</span>
                         </div>`}
                     </div>
+                    <div class="grid-fields mt-3 pt-3" style="border-top:1px dashed var(--line)">
+                        ${isIgc ? '' : `
+                        <div class="field">
+                            <label>Stages</label>
+                            <div class="flex gap-2 items-center">
+                                <select data-sec="${i}" data-k="stagesMode" style="flex:0 0 auto;width:auto">
+                                    <option value="auto" ${s.stagesMode !== 'manual' ? 'selected' : ''}>Auto</option>
+                                    <option value="manual" ${s.stagesMode === 'manual' ? 'selected' : ''}>Manual</option>
+                                </select>
+                                <input type="number" step="1" min="1" max="20" data-sec="${i}" data-k="stagesManual"
+                                    value="${stagesManual}" ${s.stagesMode === 'manual' ? '' : 'disabled'} style="max-width:90px">
+                            </div>
+                            <span class="hint" data-autoref="${i}-stages">&nbsp;</span>
+                        </div>`}
+                        <div class="field">
+                            <label>Speed</label>
+                            <div class="flex gap-2 items-center">
+                                <select data-sec="${i}" data-k="speedMode" style="flex:0 0 auto;width:auto">
+                                    <option value="auto" ${s.speedMode !== 'manual' ? 'selected' : ''}>Auto</option>
+                                    <option value="manual" ${s.speedMode === 'manual' ? 'selected' : ''}>Manual</option>
+                                </select>
+                                <input type="number" step="100" min="1" data-sec="${i}" data-k="speedManual"
+                                    value="${speedManual}" ${s.speedMode === 'manual' ? '' : 'disabled'} style="max-width:110px">
+                                <span class="text-xs" style="color:var(--muted)">rpm</span>
+                            </div>
+                            <span class="hint" data-autoref="${i}-speed">&nbsp;</span>
+                        </div>
+                    </div>
                 </div>`;
             }).join('');
 
-            wrap.querySelectorAll('input[data-sec]').forEach(inp => {
+            wrap.querySelectorAll('select[data-sec][data-k="stagesMode"], select[data-sec][data-k="speedMode"]').forEach(sel => {
+                sel.addEventListener('change', () => {
+                    const i = Number(sel.getAttribute('data-sec'));
+                    const k = sel.getAttribute('data-k');
+                    sections[i][k] = sel.value;
+                    renderSections();
+                    recalc();
+                });
+            });
+            wrap.querySelectorAll('input[data-k="stagesManual"], input[data-k="speedManual"]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const i = Number(inp.getAttribute('data-sec'));
+                    const k = inp.getAttribute('data-k');
+                    sections[i][k] = Number(inp.value);
+                    recalc();
+                });
+            });
+            wrap.querySelectorAll('input[data-sec][data-k="P2"], input[data-sec][data-k="Tcool"], input[data-sec][data-k="dPcool"]').forEach(inp => {
                 inp.addEventListener('input', () => {
                     const i = Number(inp.getAttribute('data-sec'));
                     const k = inp.getAttribute('data-k');
@@ -930,6 +1053,34 @@
                 });
             });
             refreshUnitLabels();
+        }
+
+        /**
+         * After a recalc, show what auto would have picked next to any
+         * overridden section, and a per-section limits badge.
+         */
+        function updateSectionOverrideUI(train) {
+            train.sections.forEach((s, i) => {
+                const stagesEl = document.querySelector(`[data-autoref="${i}-stages"]`);
+                if (stagesEl) {
+                    stagesEl.textContent = s.auto ? `Auto would give ${s.auto.nStages} stages at ${Math.round(s.auto.speed).toLocaleString()} rpm.` : ' ';
+                }
+                const speedEl = document.querySelector(`[data-autoref="${i}-speed"]`);
+                if (speedEl) {
+                    speedEl.textContent = s.auto ? `Auto would give ${Math.round(s.auto.speed).toLocaleString()} rpm at ${s.auto.nStages} stages.` : ' ';
+                }
+                const badge = document.querySelector(`[data-badge="${i}"]`);
+                if (!badge) return;
+                const problems = [];
+                if (s.overSpeed) problems.push('over max speed');
+                if (s.underSize) problems.push('under min diameter');
+                if (s.t2Exceeded) problems.push('T₂ over limit');
+                const stagesBad = s.stages.some(st => !st.ok);
+                if (stagesBad) problems.push('stage limits');
+                badge.innerHTML = problems.length
+                    ? `<span class="pill bad">${esc(problems.join(', '))}</span>`
+                    : `<span class="pill ok">OK</span>`;
+            });
         }
 
         /* ---------------------------------------------------------------- */
@@ -947,6 +1098,55 @@
             const t = E.impellerType($('inImpeller').value);
             $('impellerHint').textContent =
                 'Tip speed limit ' + t.u2max + ' m/s, max ψ ' + t.psiMax.toFixed(2) + '.';
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Architecture                                                      */
+        /* ---------------------------------------------------------------- */
+
+        /* Remembers the defaults an architecture last applied, so switching
+           architecture updates fields the engineer hasn't touched but leaves a
+           deliberate hand-typed value alone - the same problem the impeller
+           handler already had to solve. */
+        let archAppliedDefaults = { maxSpeed: null, minD2: null, mu2: null };
+
+        /** Toggles that must follow the architecture selection either way. */
+        function refreshArchitectureUI() {
+            const archId = $('inArchitecture').value;
+            const arch = E.ARCHITECTURES[archId];
+            $('igcPanel').style.display = archId === 'igc' ? '' : 'none';
+            $('gearboxField').style.display = archId === 'igc' ? 'none' : '';
+            $('pinionCard').style.display = archId === 'igc' ? '' : 'none';
+            $('architectureNote').textContent = arch.note;
+            renderSections();
+        }
+
+        /**
+         * Full defaulting, used when the engineer actually changes the
+         * architecture control: applies its impeller, speed and Mach defaults.
+         * Loading a saved case must NOT call this - it would overwrite whatever
+         * impeller/limits the case actually saved with generic architecture
+         * defaults. Use refreshArchitectureUI() there instead.
+         */
+        function applyArchitectureDefaults() {
+            const archId = $('inArchitecture').value;
+            const arch = E.ARCHITECTURES[archId];
+            const imp = E.impellerType(arch.impeller);
+
+            if ($('inMaxSpeed').value === '' || Number($('inMaxSpeed').value) === archAppliedDefaults.maxSpeed) {
+                $('inMaxSpeed').value = arch.maxSpeed;
+            }
+            if ($('inMinD2').value === '' || Math.abs(readSI($('inMinD2'), 'length') - archAppliedDefaults.minD2) < 1e-9) {
+                writeSI($('inMinD2'), 'length', arch.minD2, 0);
+            }
+            if ($('inMu2').value === '' || Number($('inMu2').value) === archAppliedDefaults.mu2) {
+                $('inMu2').value = imp.mu2Max;
+            }
+            archAppliedDefaults = { maxSpeed: arch.maxSpeed, minD2: arch.minD2, mu2: imp.mu2Max };
+
+            $('inImpeller').value = arch.impeller;
+            updateImpellerHint();
+            refreshArchitectureUI();
         }
 
         const MODEL_NOTES = {
@@ -1158,7 +1358,7 @@
         /* Charts                                                            */
         /* ---------------------------------------------------------------- */
 
-        function drawCharts(train) {
+        function drawCharts(train, inp) {
             const p = pal();
             const lim = currentLimits();
             const allStages = [];
@@ -1305,6 +1505,51 @@
                     { label: 'Temperature', color: p.warn }
                 ]
             });
+
+            /* --- 5. Speed sweep, first section --- */
+            if (!inp || inp.architecture === 'igc' || !inp.sections || !inp.sections.length) {
+                $('chartSweep').innerHTML = `<p class="text-sm" style="color:var(--muted)">
+                    ${inp && inp.architecture === 'igc'
+                        ? 'Each section is one impeller on an integrally geared machine, so a stage-count sweep does not apply.'
+                        : 'Run a calculation to see the speed sweep.'}</p>`;
+            } else {
+                let sweep = [];
+                try {
+                    sweep = E.stageSweep(Object.assign({}, inp, { P2: inp.sections[0].P2 }), 2, 9)
+                        .filter(r => !r.error);
+                } catch (e) { sweep = []; }
+
+                if (sweep.length) {
+                    const speedMax = Math.max(...sweep.map(r => r.speed)) * 1.1;
+                    const mu2Max = Math.max(lim.mu2Max, ...sweep.map(r => r.mu2Max)) * 1.15;
+                    const secOverride = inp.sections[0];
+                    const currentN = (secOverride.stagesMode === 'manual' && secOverride.stagesManual) || null;
+                    $('chartSweep').innerHTML = svgPlot({
+                        w: 720, h: 380,
+                        title: 'Speed and Mach against stage count — section 1',
+                        xlab: 'Stages', ylab: 'Speed (rpm)', y2lab: 'Peripheral Mach Mu₂',
+                        x0: sweep[0].nStages - 0.5, x1: sweep[sweep.length - 1].nStages + 0.5,
+                        y0: 0, y1: speedMax, y20: 0, y21: mu2Max,
+                        xticksRaw: sweep.map(r => ({ v: r.nStages, label: String(r.nStages) })),
+                        yfmt: v => Math.round(v).toLocaleString(),
+                        y2fmt: v => v.toFixed(2),
+                        series: [
+                            { pts: sweep.map(r => [r.nStages, r.speed]), stroke: p.accent, width: 2.5, marker: true, label: 'Speed' },
+                            { pts: sweep.map(r => [r.nStages, r.mu2Max]), stroke: p.warn, width: 2, dash: '5 3', marker: true, axis: 'y2', label: 'Mu₂' }
+                        ],
+                        hlines: [
+                            { y: lim.mu2Max, axis: 'y2', color: p.bad, dash: '3 3', label: 'Mu₂ limit' }
+                        ],
+                        points: currentN ? sweep.filter(r => r.nStages === currentN).map(r => ({ x: r.nStages, y: r.speed, label: 'Current', ok: r.ok })) : [],
+                        legend: [
+                            { label: 'Speed', color: p.accent },
+                            { label: 'Mu₂', color: p.warn, dash: '5 3' }
+                        ]
+                    });
+                } else {
+                    $('chartSweep').innerHTML = `<p class="text-sm" style="color:var(--muted)">Could not compute the sweep for this duty.</p>`;
+                }
+            }
         }
 
         /* ---------------------------------------------------------------- */
@@ -1335,11 +1580,24 @@
             if (!(T1 > 0)) throw new Error('Suction temperature is out of range.');
             if (!(mdot > 0)) throw new Error('Mass flow must be greater than zero.');
 
+            const archId = $('inArchitecture').value;
+            const isIgc = archId === 'igc';
+
             const secs = sections.map((s, i) => {
                 const o = { P2: s.P2 };
                 if (i < sections.length - 1) {
                     o.Tcool_K = s.Tcool;
                     o.dPcool_Pa = s.dPcool;
+                }
+                // IGC pins one impeller per section in the engine already; the
+                // stage override only applies where the architecture leaves it free.
+                if (!isIgc && s.stagesMode === 'manual' && s.stagesManual > 0) {
+                    o.stagesMode = 'manual';
+                    o.stagesManual = Math.round(s.stagesManual);
+                }
+                if (s.speedMode === 'manual' && s.speedManual > 0) {
+                    o.speedMode = 'manual';
+                    o.speedManual = s.speedManual;
                 }
                 return o;
             });
@@ -1357,24 +1615,28 @@
             if (etaManual != null && !(etaManual > 0.3 && etaManual < 1)) {
                 throw new Error('Polytropic efficiency must be between 0.3 and 1, or blank for automatic.');
             }
-            const speedManual = $('inSpeedManual').value === '' ? null : Number($('inSpeedManual').value);
-            if (speedManual != null && !(speedManual > 0)) throw new Error('Fixed speed must be greater than zero.');
+
+            const bullSpeed = $('inBullSpeedPreset').value === 'custom'
+                ? Number($('inBullSpeed').value)
+                : Number($('inBullSpeedPreset').value);
+            if (isIgc && !(bullSpeed > 0)) throw new Error('Bull gear speed must be greater than zero.');
 
             return {
                 mix: mix,
                 model: $('inModel').value,
                 T1: T1, P1: P1, mdot: mdot,
                 sections: secs,
+                architecture: archId,
                 impeller: E.impellerType($('inImpeller').value),
                 limits: currentLimits(),
                 psiTarget: Number($('inPsi').value) || undefined,
                 phiTarget: Number($('inPhi').value) || undefined,
                 etaPManual: etaManual || undefined,
                 etaMech: Number($('inEtaMech').value) || undefined,
-                speedManual: speedManual || undefined,
                 maxSpeed: Number($('inMaxSpeed').value) || undefined,
                 minD2: readSI($('inMinD2'), 'length') || undefined,
-                commonShaft: $('inCommonShaft').value === '1'
+                bullGearSpeed: isIgc ? bullSpeed : undefined,
+                pinionLayout: isIgc ? $('inPinionLayout').value : undefined
             };
         }
 
@@ -1427,11 +1689,13 @@
             const last = train.sections[train.sections.length - 1];
             const dr = E.driverRating(train.shaftPower, {
                 gearbox: $('inGearbox').value === '1' || train.frame.gearRequired,
+                pinions: train.pinions ? train.pinions.length : 0,
                 margin: Number($('inMargin').value)
             });
 
-            const speeds = train.sections.map(s => Math.round(s.speed));
-            const speedTxt = speeds.every(v => v === speeds[0]) ? speeds[0].toLocaleString() : speeds.map(v => v.toLocaleString()).join(' / ');
+            const speedTxt = train.speedRange.lo === train.speedRange.hi
+                ? Math.round(train.speedRange.hi).toLocaleString()
+                : Math.round(train.speedRange.lo).toLocaleString() + '–' + Math.round(train.speedRange.hi).toLocaleString();
             // Inches need a decimal place to say anything useful; millimetres do not.
             const dDp = unitSystem === 'US' ? 2 : 0;
             const diams = train.sections.map(s => disp('length', s.stages[0].D2, dDp));
@@ -1439,7 +1703,7 @@
 
             $('kpiMain').innerHTML =
                 kpi(train.totalStages, '', 'Number of stages') +
-                kpi(speedTxt, 'rpm', 'Predicted speed') +
+                kpi(speedTxt, 'rpm', train.speedRange.lo === train.speedRange.hi ? 'Predicted speed' : 'Speed range') +
                 kpi(diamTxt, unitLabel('length'), 'Impeller diameter D₂') +
                 kpi(train.sections.length, '', 'Sections') +
                 kpi(disp('power', train.gasPower, 1), unitLabel('power'), 'Gas (hydraulic) power') +
@@ -1452,7 +1716,9 @@
                 kpi(disp('power', dr.rated, 1), unitLabel('power'), 'Driver rating required') +
                 kpi(unitSystem === 'US' ? dr.nema_hp.toLocaleString() : dr.iec_kW.toLocaleString(),
                     unitSystem === 'US' ? 'hp' : 'kW',
-                    unitSystem === 'US' ? 'Next NEMA motor size' : 'Next IEC motor size');
+                    unitSystem === 'US' ? 'Next NEMA motor size' : 'Next IEC motor size') +
+                (train.pinions ? kpi(train.pinions.length, '', 'Pinions') : '') +
+                (train.pinions ? kpi(Math.min(...train.pinions.map(p => p.ratio)).toFixed(1) + '–' + Math.max(...train.pinions.map(p => p.ratio)).toFixed(1), ':1', 'Gear ratio range') : '');
 
             /* Frame */
             $('frameOut').innerHTML = `
@@ -1463,7 +1729,40 @@
                 <ul class="reasons text-sm" style="color:var(--muted)">
                     ${train.frame.reasons.map(r => `<li>• ${esc(r)}</li>`).join('')}
                 </ul>
+                ${train.frame.suitability.length ? `
+                <div class="mt-3 space-y-2">
+                    ${train.frame.suitability.map(r => `<div class="note bad">${esc(r)}</div>`).join('')}
+                </div>` : ''}
                 ${train.frame.h2PartialPressure_bar > 0.01 ? `<p class="text-xs mt-3" style="color:var(--muted)">Hydrogen partial pressure at discharge: <strong>${train.frame.h2PartialPressure_bar.toFixed(2)} bar</strong> (API 617 barrel-casing threshold is about 14 bar).</p>` : ''}`;
+
+            /* Pinion table (integrally geared only) */
+            if (train.pinions) {
+                $('pinionCard').style.display = '';
+                $('pinionTable').innerHTML = `
+                    <table class="data">
+                        <thead><tr>
+                            <th>Pinion</th><th>Stages</th><th>Speed (rpm)</th><th>Ratio</th>
+                            <th>U₂ max (${unitLabel('velocity')})</th><th>φ range</th><th>Mu₂ max</th>
+                            <th>Power (${unitLabel('power')})</th><th>Status</th>
+                        </tr></thead>
+                        <tbody>
+                        ${train.pinions.map(p => `
+                            <tr>
+                                <td data-l="Pinion">${p.id}</td>
+                                <td data-l="Stages">${p.stages.join(', ')}</td>
+                                <td data-l="Speed">${Math.round(p.speed).toLocaleString()}</td>
+                                <td data-l="Ratio">${p.ratio.toFixed(2)}:1</td>
+                                <td data-l="U₂ max">${disp('velocity', p.U2max, 1)}</td>
+                                <td data-l="φ range">${p.phiLo.toFixed(4)}–${p.phiHi.toFixed(4)}</td>
+                                <td data-l="Mu₂ max">${p.mu2Max.toFixed(3)}</td>
+                                <td data-l="Power">${disp('power', p.power, 1)}</td>
+                                <td data-l="Status"><span class="pill ${p.ratioHigh || p.overSpeed ? 'bad' : 'ok'}">${p.ratioHigh ? 'Ratio high' : (p.overSpeed ? 'Over speed' : 'OK')}</span></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            } else {
+                $('pinionCard').style.display = 'none';
+            }
 
             /* Warnings */
             const warns = [];
@@ -1486,6 +1785,18 @@
                     warns.push(['warn', 'Section ' + s.section + ' is limited by the minimum impeller diameter (' +
                         dispU('length', s.minD2, 0) + '), which sets the speed rather than aerodynamics.']);
                 }
+                if (s.overSpeed) {
+                    warns.push(['bad', 'Section ' + s.section + ' speed ' + Math.round(s.speed).toLocaleString() +
+                        ' rpm is above the ' + Math.round(s.maxSpeed).toLocaleString() +
+                        ' rpm limit for this architecture' + (s.speedSource === 'manual' ? ' — this was set manually' : '') +
+                        '. This machine cannot be built as specified.']);
+                }
+                if (s.underSize) {
+                    warns.push(['bad', 'Section ' + s.section + ' impeller diameter ' + dispU('length', s.D2, 1) +
+                        ' is below the practical minimum ' + dispU('length', s.minD2, 0) +
+                        (s.speedSource === 'manual' ? ' at the manually set speed' : '') +
+                        ' — there is no room for the shaft, seals and bearings.']);
+                }
                 const phis = s.stages.map(x => x.phi);
                 const spread = Math.max(...phis) / Math.min(...phis);
                 if (spread > 3) {
@@ -1503,13 +1814,28 @@
                         s.cooler.dewWarning.heaviest + '). A knockout drum is needed; this tool does not flash the stream or change the composition.']);
                 }
             });
-            if (train.totalStages > E.DEFAULTS.maxStagesPerBody) {
+            if (train.architecture.id !== 'igc' && train.totalStages > E.DEFAULTS.maxStagesPerBody) {
                 warns.push(['warn', train.totalStages + ' impellers is more than the ~' + E.DEFAULTS.maxStagesPerBody +
                     ' normally put in one body — expect a tandem arrangement or a two-body train.']);
+            }
+            if (train.pinions) {
+                train.pinions.forEach(p => {
+                    if (p.ratioHigh) {
+                        warns.push(['warn', 'Pinion ' + p.id + ' gear ratio ' + p.ratio.toFixed(1) +
+                            ':1 is above the ~' + E.IGC_LIMITS.maxGearRatio +
+                            ':1 a single mesh normally carries — an intermediate gear stage or a different bull gear speed is needed.']);
+                    }
+                });
+                if (train.pinions.length > E.IGC_LIMITS.maxPinions) {
+                    warns.push(['warn', train.pinions.length + ' pinions is more than the ~' + E.IGC_LIMITS.maxPinions +
+                        ' a single bull gear normally carries — split the duty across two machines.']);
+                }
             }
             $('warnBox').innerHTML = warns.length
                 ? warns.map(w => `<div class="note ${w[0]}">${esc(w[1])}</div>`).join('')
                 : '<div class="note">All stages are inside the flow, head, Mach, tip-speed and temperature limits set on the Machine tab.</div>';
+
+            updateSectionOverrideUI(train);
 
             /* Stage table */
             const rows = [];
@@ -1610,21 +1936,92 @@
                     </tbody>
                 </table>`;
 
-            /* Rotordynamics */
-            $('rotorOut').innerHTML = `
-                <div class="kpi-grid mb-4">
-                    ${kpi(disp('length', train.rotor.bearingSpan, 0), unitLabel('length'), 'Est. bearing span')}
-                    ${kpi(disp('length', train.rotor.shaftDia, 0), unitLabel('length'), 'Est. shaft diameter')}
-                    ${kpi(train.rotor.LD.toFixed(1), '', 'Span / diameter')}
-                    ${kpi(Math.round(train.rotor.firstCriticalEst).toLocaleString(), 'rpm', 'Est. first critical')}
-                    ${kpi(train.rotor.flexRatio.toFixed(2), '', 'Flexibility ratio')}
-                </div>
-                <ul class="reasons text-sm" style="color:var(--muted)">
-                    ${train.rotor.flags.map(f => `<li>• ${esc(f)}</li>`).join('')}
-                </ul>
-                <p class="text-xs mt-3" style="color:var(--muted)"><em>${esc(train.rotor.disclaimer)}</em></p>`;
+            /* Rotordynamics - the beam-rotor model does not describe an
+               overhung, gear-driven pinion, so it is not run for IGC. */
+            if (train.rotor) {
+                $('rotorOut').innerHTML = `
+                    <div class="kpi-grid mb-4">
+                        ${kpi(disp('length', train.rotor.bearingSpan, 0), unitLabel('length'), 'Est. bearing span')}
+                        ${kpi(disp('length', train.rotor.shaftDia, 0), unitLabel('length'), 'Est. shaft diameter')}
+                        ${kpi(train.rotor.LD.toFixed(1), '', 'Span / diameter')}
+                        ${kpi(Math.round(train.rotor.firstCriticalEst).toLocaleString(), 'rpm', 'Est. first critical')}
+                        ${kpi(train.rotor.flexRatio.toFixed(2), '', 'Flexibility ratio')}
+                    </div>
+                    <ul class="reasons text-sm" style="color:var(--muted)">
+                        ${train.rotor.flags.map(f => `<li>• ${esc(f)}</li>`).join('')}
+                    </ul>
+                    <p class="text-xs mt-3" style="color:var(--muted)"><em>${esc(train.rotor.disclaimer)}</em></p>`;
+            } else {
+                $('rotorOut').innerHTML = `<p class="text-sm" style="color:var(--muted)">
+                    The beam-rotor screening model (bearing span, flexibility ratio) describes a shaft between
+                    two bearings and does not apply to an integrally geared pinion, which is short, stiff and
+                    overhung. See the gear-train table above for the mechanical figures relevant to this
+                    architecture instead.</p>`;
+            }
 
+            renderTradeoff(inp);
             renderDatasheet(train, inp, dr);
+        }
+
+        /**
+         * Re-solve section 1 at nearby stage counts so the consequence of
+         * adding or removing an impeller is visible before committing to it.
+         */
+        function renderTradeoff(inp) {
+            if (!inp.sections.length) { $('tradeoffTable').innerHTML = ''; return; }
+            if (inp.architecture === 'igc') {
+                $('tradeoffTable').innerHTML = `<p class="text-sm" style="color:var(--muted)">
+                    Each section is one impeller on an integrally geared machine, so a stage-count sweep does not
+                    apply — add or remove sections on the Process Data tab to change the impeller count instead.</p>`;
+                return;
+            }
+            const sec = inp.sections[0];
+            const sweepOpts = Object.assign({}, inp, { P2: sec.P2, sections: undefined });
+            let rows;
+            try {
+                rows = E.stageSweep(sweepOpts, 2, 9);
+            } catch (e) {
+                $('tradeoffTable').innerHTML = `<div class="note bad">${esc(e.message)}</div>`;
+                return;
+            }
+            const currentN = (sec.stagesMode === 'manual' && sec.stagesManual) || null;
+
+            $('tradeoffTable').innerHTML = `
+                <table class="data">
+                    <thead><tr>
+                        <th>Stages</th><th>Speed (rpm)</th><th>D₂ (${unitLabel('length')})</th>
+                        <th>φ range</th><th>Mu₂ max</th><th>η poly</th>
+                        <th>T₂ (${unitLabel('temperature')})</th><th>Power (${unitLabel('power')})</th><th>Status</th>
+                    </tr></thead>
+                    <tbody>
+                    ${rows.map(r => {
+                        if (r.error) return `<tr style="opacity:0.55"><td data-l="Stages">${r.nStages}</td><td colspan="8" data-l="Result">${esc(r.error)}</td></tr>`;
+                        const isCurrent = currentN ? r.nStages === currentN : false;
+                        return `
+                        <tr data-tradeoff-n="${r.nStages}" style="cursor:pointer;${isCurrent ? 'background:var(--accent-soft)' : ''}">
+                            <td data-l="Stages">${r.nStages}${isCurrent ? ' ←' : ''}</td>
+                            <td data-l="Speed">${Math.round(r.speed).toLocaleString()}</td>
+                            <td data-l="D₂">${disp('length', r.D2, 1)}</td>
+                            <td data-l="φ range">${r.phiLo.toFixed(4)}–${r.phiHi.toFixed(4)}</td>
+                            <td data-l="Mu₂ max">${r.mu2Max.toFixed(3)}</td>
+                            <td data-l="η poly">${r.etaPoly.toFixed(3)}</td>
+                            <td data-l="T₂">${disp('temperature', r.T2, 1)}</td>
+                            <td data-l="Power">${disp('power', r.gasPower, 1)}</td>
+                            <td data-l="Status"><span class="pill ${r.ok ? 'ok' : 'warn'}">${r.ok ? 'OK' : esc(r.limits.join(', '))}</span></td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table>`;
+
+            $('tradeoffTable').querySelectorAll('tr[data-tradeoff-n]').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const n = Number(tr.getAttribute('data-tradeoff-n'));
+                    sections[0].stagesMode = 'manual';
+                    sections[0].stagesManual = n;
+                    renderSections();
+                    recalc();
+                });
+            });
         }
 
         function renderDatasheet(train, inp, dr) {
@@ -1636,6 +2033,7 @@
                     <thead><tr><th>Item</th><th>Value</th></tr></thead>
                     <tbody>
                     ${row('Case', esc($('inCaseName').value || 'Untitled case'))}
+                    ${row('Architecture', esc(train.frame.type))}
                     ${row('Equation of state', esc(train.modelName))}
                     ${row('Gas', esc(composition.map(c => E.BY_ID[c.id].name + ' ' + (c.molPct / compTotal() * 100).toFixed(2) + '%').join(', ')))}
                     ${row('Molecular weight', inp.mix.MW.toFixed(3) + ' g/mol')}
@@ -1665,6 +2063,11 @@
                     ${row('Standard motor size', unitSystem === 'US' ? dr.nema_hp.toLocaleString() + ' hp (NEMA)' : dr.iec_kW.toLocaleString() + ' kW (IEC)')}
                     ${row('Compressor type', esc(train.frame.type))}
                     ${row('Casing', esc(train.frame.casing))}
+                    ${train.pinions ? row('Pinions', train.pinions.length + ' (' +
+                        train.pinions.map(p => p.id + ': ' + p.stages.join('+') + ' @ ' + Math.round(p.speed).toLocaleString() + ' rpm').join(', ') + ')') : ''}
+                    ${train.pinions ? row('Gear ratio range', Math.min(...train.pinions.map(p => p.ratio)).toFixed(2) + '–' +
+                        Math.max(...train.pinions.map(p => p.ratio)).toFixed(2) + ':1 off a ' +
+                        Math.round(train.pinions[0].bullGearSpeed).toLocaleString() + ' rpm bull gear') : ''}
                     </tbody>
                 </table>`;
         }
@@ -1684,7 +2087,7 @@
                 lastTrain = train;
                 clearError();
                 renderResults(train, inp);
-                drawCharts(train);
+                drawCharts(train, inp);
                 scheduleSave();
             } catch (e) {
                 showError(e.message || String(e));
@@ -1693,22 +2096,24 @@
         }
 
         window.onThemeChange = function () {
-            if (lastTrain) { try { drawCharts(lastTrain); } catch (e) { /* charts redraw on next calc */ } }
+            if (lastTrain) { try { drawCharts(lastTrain, lastInput); } catch (e) { /* charts redraw on next calc */ } }
         };
 
         /* ---------------------------------------------------------------- */
         /* State, persistence, import/export                                 */
         /* ---------------------------------------------------------------- */
 
-        const SIMPLE_INPUTS = ['inP1', 'inT1', 'inMdot', 'inModel', 'inImpeller', 'inPsi', 'inPhi',
-            'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2', 'inSpeedManual', 'inCommonShaft',
+        const SIMPLE_INPUTS = ['inP1', 'inT1', 'inMdot', 'inModel', 'inArchitecture', 'inImpeller', 'inPsi', 'inPhi',
+            'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2',
+            'inBullSpeedPreset', 'inBullSpeed', 'inPinionLayout',
             'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
 
         function collectState() {
             const vals = {};
             SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
-            // version 2: sections are stored in SI, not display units.
-            return { version: 2, unitSystem, composition, sections, values: vals };
+            // version 3: sections also carry per-section stage/speed overrides;
+            // the old global inSpeedManual/inCommonShaft fields are retired.
+            return { version: 3, unitSystem, composition, sections, values: vals };
         }
 
         function applyState(s) {
@@ -1724,27 +2129,57 @@
             if (Array.isArray(s.sections) && s.sections.length) {
                 // Version 1 stored sections in whatever units were on screen at
                 // the time; version 2 stores SI. Convert a v1 file on the way in
-                // using the unit system it was saved under.
+                // using the unit system it was saved under. Version 3 adds the
+                // per-section override fields, defaulted to auto for anything
+                // saved before they existed.
                 const legacy = !s.version || s.version < 2;
                 const su = legacy ? E.systemUnits(s.unitSystem === 'US' ? 'US' : 'SI') : null;
                 const pS = legacy ? (E.toBase('pressure', su.pressure, 1) - E.toBase('pressure', su.pressure, 0)) : 1;
-                sections = s.sections.map(x => legacy ? ({
+                sections = s.sections.map(x => Object.assign(legacy ? {
                     P2: E.toBase('pressure', su.pressure, Number(x.P2) || 0),
                     Tcool: E.toBase('temperature', su.temperature, Number(x.Tcool) || 40),
                     dPcool: (Number(x.dPcool) || 0) * pS
-                }) : ({
+                } : {
                     P2: Number(x.P2) || 0,
                     Tcool: Number(x.Tcool) || 313.15,
                     dPcool: Number(x.dPcool) || 0
+                }, {
+                    stagesMode: x.stagesMode === 'manual' ? 'manual' : 'auto',
+                    stagesManual: Number(x.stagesManual) || 4,
+                    speedMode: x.speedMode === 'manual' ? 'manual' : 'auto',
+                    speedManual: Number(x.speedManual) || 10000
                 }));
+
+                // A pre-v3 file's global fixed-speed override becomes a manual
+                // speed on section 1 (every section if the old common-shaft
+                // toggle was on), so the saved intent survives the migration.
+                if ((s.version || 1) < 3 && s.values) {
+                    const oldSpeed = Number(s.values.inSpeedManual);
+                    if (oldSpeed > 0) {
+                        const common = s.values.inCommonShaft === '1';
+                        sections.forEach((sec, i) => {
+                            if (i === 0 || common) { sec.speedMode = 'manual'; sec.speedManual = oldSpeed; }
+                        });
+                    }
+                }
             }
             if (s.values) {
                 Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
             }
             refreshUnitLabels();
             renderComposition();
+            refreshArchitectureUI();
             renderSections();
             updateImpellerHint();
+
+            // Track whatever the loaded case actually has, so an architecture
+            // switch made after loading only overwrites fields the engineer
+            // hasn't touched since - not the values the file just set.
+            archAppliedDefaults = {
+                maxSpeed: Number($('inMaxSpeed').value) || null,
+                minD2: readSI($('inMinD2'), 'length'),
+                mu2: Number($('inMu2').value) || null
+            };
             $('modelNote').textContent = MODEL_NOTES[$('inModel').value];
         }
 
@@ -1780,6 +2215,7 @@
         function init() {
             buildComponentPicker();
             buildImpellerSelect();
+            applyArchitectureDefaults();
             composition = E.PRESETS['Lean natural gas'].map(c => ({ id: c.id, molPct: c.molPct }));
             renderComposition();
             renderSections();
@@ -1794,7 +2230,7 @@
                     btn.classList.add('on');
                     $(btn.getAttribute('data-view')).classList.add('on');
                     // Charts need a real width to lay out, so redraw on reveal.
-                    if (btn.getAttribute('data-view') === 'v-charts' && lastTrain) drawCharts(lastTrain);
+                    if (btn.getAttribute('data-view') === 'v-charts' && lastTrain) drawCharts(lastTrain, lastInput);
                 });
             });
 
@@ -1803,13 +2239,26 @@
                 const el = $(id);
                 if (!el) return;
                 el.addEventListener('input', () => {
+                    if (id === 'inArchitecture') {
+                        applyArchitectureDefaults();
+                    }
                     if (id === 'inImpeller') {
                         updateImpellerHint();
                         const t = E.impellerType(el.value);
-                        $('inMaxSpeed').value = t.open ? E.DEFAULTS.maxSpeedOpen : E.DEFAULTS.maxSpeedClosed;
-                        writeSI($('inMinD2'), 'length', t.open ? E.DEFAULTS.minD2Open : E.DEFAULTS.minD2Closed, 0);
+                        // Only follow the impeller's own Mach limit when the field
+                        // is still at whatever default was last applied - a
+                        // deliberate hand-typed value is left alone.
+                        if ($('inMu2').value === '' || Number($('inMu2').value) === archAppliedDefaults.mu2) {
+                            $('inMu2').value = t.mu2Max;
+                            archAppliedDefaults.mu2 = t.mu2Max;
+                        }
                     }
                     if (id === 'inModel') $('modelNote').textContent = MODEL_NOTES[el.value];
+                    if (id === 'inBullSpeedPreset') {
+                        const custom = el.value === 'custom';
+                        $('inBullSpeed').disabled = !custom;
+                        if (!custom) $('inBullSpeed').value = el.value;
+                    }
                     recalc();
                 });
                 el.addEventListener('change', recalc);
