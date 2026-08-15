@@ -1120,6 +1120,7 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
 
             setupAuth() {
                 this.auth.onAuthStateChanged(user => {
+                    const wasSignedIn = !!this.user;
                     this.user = user;
                     if (user) {
                         this.connectGlobalStore();
@@ -1127,10 +1128,15 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                         this.onLogin(user);
                     } else {
                         this.renderNav();
-                        // Only on the first resolution: this fires again on a
-                        // later sign-out, and re-applying the device copy then
-                        // would yank the case out from under the user.
-                        if (!this._guestHandled && typeof this.onGuest === 'function') {
+                        if (wasSignedIn && typeof this.onSignOut === 'function') {
+                            // A real sign-out, not the first resolution: drop
+                            // any live listener rather than leaving it running
+                            // (and about to be denied) against a signed-out client.
+                            this.onSignOut();
+                        } else if (!this._guestHandled && typeof this.onGuest === 'function') {
+                            // Only on the first resolution: re-applying the
+                            // device copy on every later sign-out would yank
+                            // the case out from under the user.
                             this._guestHandled = true;
                             this.onGuest();
                         }
@@ -3088,18 +3094,40 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
 
         let lastTrain = null, lastInput = null, lastDr = null;
 
+        function recalcCore() {
+            const inp = buildInput();
+            lastInput = inp;
+            renderMixProps(inp);
+            const train = E.runTrain(inp);
+            lastTrain = train;
+            clearError();
+            renderResults(train, inp);
+            drawCharts(train, inp);
+            renderHelpLive(train, inp);
+            return train;
+        }
+
+        // Recalculates and persists the result - use this whenever the user
+        // has actually changed something.
         function recalc() {
             try {
-                const inp = buildInput();
-                lastInput = inp;
-                renderMixProps(inp);
-                const train = E.runTrain(inp);
-                lastTrain = train;
-                clearError();
-                renderResults(train, inp);
-                drawCharts(train, inp);
-                renderHelpLive(train, inp);
+                recalcCore();
                 scheduleSave();
+            } catch (e) {
+                showError(e.message || String(e));
+                console.error(e);
+            }
+        }
+
+        // Recalculates without saving - use this when merely *displaying*
+        // state that is already the source of truth (a case just restored
+        // from the cloud, this device, or a sync update from elsewhere).
+        // Without this, every restore would re-stamp savedAt and write it
+        // straight back, which is how a harmless re-display used to end up
+        // racing a genuine edit made on another device.
+        function recalcQuiet() {
+            try {
+                recalcCore();
             } catch (e) {
                 showError(e.message || String(e));
                 console.error(e);
@@ -3230,6 +3258,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         }
 
         let saveTimer = null;
+        // caseSyncUnsub: the live listener's unsubscribe, so a re-login or
+        // sign-out can detach the old one before attaching a new one.
+        // lastSyncedAt: a watermark of the savedAt this tab last wrote or
+        // applied, so the live listener can tell "a genuine update from
+        // another device" apart from the echo of its own write.
+        let caseSyncUnsub = null, lastSyncedAt = 0;
+
         function scheduleSave() {
             clearTimeout(saveTimer);
             $('saveStatus').textContent = Core.user ? 'Saving…' : '';
@@ -3246,6 +3281,9 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     await Core.db.collection('users').doc(Core.user.uid)
                         .collection('app_data').doc(TOOL_ID)
                         .set(state, { merge: true });
+                    // Written before the live listener's own echo of this write
+                    // arrives, so that echo is recognized and skipped below.
+                    lastSyncedAt = state.savedAt;
                     $('saveStatus').textContent = 'Synced ' + new Date().toLocaleTimeString();
                 } catch (e) {
                     $('saveStatus').textContent = localOk
@@ -3256,46 +3294,77 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         }
 
         // Auth resolved with nobody signed in: fall back to whatever this
-        // device last held, so a reload is not a silent data loss.
+        // device last held, so a reload is not a silent data loss. Just
+        // displaying it - nothing changed, so no need to write it back.
         Core.onGuest = function () {
             const local = loadLocal();
             if (!local) return;
             applyState(local);
-            recalc();
+            recalcQuiet();
             $('saveStatus').textContent = 'Restored from this device — sign in to sync';
         };
 
-        // On login the cloud copy is usually the one to trust, but not when
-        // this device has newer unsynced work (the exact case after signing in
-        // on a phone that was used signed-out). Newest savedAt wins, and the
-        // status label says which one was applied so it is never a silent
-        // overwrite.
-        Core.onLogin = async function () {
-            let cloud = null;
-            try {
-                const doc = await Core.db.collection('users').doc(Core.user.uid)
-                    .collection('app_data').doc(TOOL_ID).get();
-                if (doc.exists) cloud = doc.data();
-            } catch (e) { /* offline: fall through to the device copy */ }
+        // A real sign-out: detach the live listener before Firestore starts
+        // denying it (no auth = no read access under the security rules),
+        // and drop the watermark so a later sign-in bootstraps cleanly.
+        Core.onSignOut = function () {
+            if (caseSyncUnsub) { caseSyncUnsub(); caseSyncUnsub = null; }
+            lastSyncedAt = 0;
+            $('saveStatus').textContent = 'Signed out — saving on this device only';
+        };
 
-            const local = loadLocal();
-            const cloudAt = (cloud && Number(cloud.savedAt)) || 0;
-            const localAt = (local && Number(local.savedAt)) || 0;
+        // Live sync, not a one-shot fetch: a case saved on one device used to
+        // be invisible on another until that other device happened to be
+        // reloaded, and even then a stale local copy could race ahead of a
+        // genuine remote edit. A standing onSnapshot listener - the same
+        // pattern connectGlobalStore() already uses for theme - means every
+        // signed-in tab hears about a change within moments, without a
+        // reload. The first snapshot doubles as the sign-in bootstrap
+        // (newest savedAt wins, exactly as before); every snapshot after
+        // that is a live update from elsewhere.
+        Core.onLogin = function () {
+            if (caseSyncUnsub) caseSyncUnsub();   // re-login / account switch
+            let bootstrapped = false;
+            caseSyncUnsub = Core.db.collection('users').doc(Core.user.uid)
+                .collection('app_data').doc(TOOL_ID)
+                .onSnapshot(doc => {
+                    const cloud = doc.exists ? doc.data() : null;
 
-            if (cloud && cloudAt >= localAt) {
-                applyState(cloud);
-                recalc();
-                $('saveStatus').textContent = 'Loaded your synced case';
-            } else if (local) {
-                applyState(local);
-                recalc();
-                // recalc() already queued the push-up via scheduleSave(), which
-                // sets "Saving…" - overwrite that with the reason, and let the
-                // debounced save replace it with "Synced …" when it lands.
-                $('saveStatus').textContent = cloud
-                    ? 'Kept this device’s newer case — syncing it now'
-                    : 'Restored from this device — syncing it now';
-            }
+                    if (!bootstrapped) {
+                        bootstrapped = true;
+                        const local = loadLocal();
+                        const cloudAt = (cloud && Number(cloud.savedAt)) || 0;
+                        const localAt = (local && Number(local.savedAt)) || 0;
+
+                        if (cloud && cloudAt >= localAt) {
+                            lastSyncedAt = cloudAt;
+                            applyState(cloud);
+                            recalcQuiet();
+                            $('saveStatus').textContent = 'Loaded your synced case';
+                        } else if (local) {
+                            applyState(local);
+                            recalc();   // this device is newer - push it up
+                            $('saveStatus').textContent = cloud
+                                ? 'Kept this device’s newer case — syncing it now'
+                                : 'Restored from this device — syncing it now';
+                        }
+                        return;
+                    }
+
+                    // Steady state: a change from another device, browser or
+                    // tab. remoteAt <= lastSyncedAt covers two cases at once -
+                    // this is the echo of our own write, or a duplicate/stale
+                    // snapshot - either way there is nothing new to apply.
+                    if (!cloud) return;
+                    const remoteAt = Number(cloud.savedAt) || 0;
+                    if (remoteAt <= lastSyncedAt) return;
+                    lastSyncedAt = remoteAt;
+                    applyState(cloud);
+                    recalcQuiet();   // displaying it, not editing it - no write-back
+                    $('saveStatus').textContent = 'Updated just now from another device';
+                }, err => {
+                    console.log('Case sync:', err.code || err.message);
+                });
         };
 
         /* ---------------------------------------------------------------- */
@@ -3417,7 +3486,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 sections.push({
                     P2: lastP,
                     Tcool: sections[0].Tcool != null ? sections[0].Tcool : 313.15,
-                    dPcool: sections[0].dPcool != null ? sections[0].dPcool : 0.5e5
+                    dPcool: sections[0].dPcool != null ? sections[0].dPcool : 0.5e5,
+                    // Explicit, matching the initial `sections` array's shape,
+                    // so every exported section is uniform - a new section is
+                    // auto either way, this just avoids relying on "missing
+                    // key" and "'auto'" meaning the same thing everywhere.
+                    stagesMode: 'auto', stagesManual: 4,
+                    speedMode: 'auto', speedManual: 10000
                 });
                 renderSections();
                 recalc();
@@ -3452,6 +3527,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 r.onload = () => {
                     try {
                         applyState(JSON.parse(r.result));
+                        // Persist explicitly rather than relying on recalc()'s
+                        // internal save: if the imported case fails to
+                        // calculate (recalc() catches that and shows the
+                        // error), its scheduleSave() call is never reached,
+                        // and the just-imported fields would otherwise be
+                        // lost again on the next reload.
+                        scheduleSave();
                         recalc();
                     } catch (err) {
                         showError('Could not read that file: ' + err.message);
@@ -3480,7 +3562,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     </table>`;
             });
 
-            recalc();
+            // Quiet: this is the untouched default preset computing for the
+            // first time, not a user edit - saving it here would broadcast a
+            // spurious "case changed" to every other signed-in tab the moment
+            // this one loads, racing ahead of whatever that tab is showing.
+            // The user's first real edit (any input's own listener, below)
+            // saves normally.
+            recalcQuiet();
 
             if (/[?&]selftest=1/.test(window.location.search)) {
                 document.querySelector('.tab[data-view="v-report"]').click();
