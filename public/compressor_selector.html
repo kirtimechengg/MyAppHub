@@ -205,6 +205,20 @@
         }
         .field-flash { animation: fieldFlash 1.2s ease-in-out 2; border-radius: 0.5rem; }
 
+        .dropzone {
+            border: 2px dashed var(--line); border-radius: 0.75rem; padding: 1.5rem;
+            text-align: center; color: var(--muted); font-size: 0.85rem; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+        .ref-row { display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem; border: 1px solid var(--line); border-radius: 0.6rem; background: var(--surface-2); }
+        .ref-thumb { width: 56px; height: 56px; border-radius: 0.4rem; object-fit: cover; flex-shrink: 0; background: var(--surface); }
+        .ref-thumb-missing {
+            width: 56px; height: 56px; border-radius: 0.4rem; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--surface); border: 1px dashed var(--line); font-size: 1.3rem; color: var(--muted);
+        }
+
         #errorBar {
             position: sticky; top: 4rem; z-index: 40;
             background: var(--bad-soft); color: var(--bad);
@@ -268,6 +282,7 @@
             <button class="tab" data-view="v-charts">Charts</button>
             <button class="tab" data-view="v-report">Report</button>
             <button class="tab" data-view="v-help">Help &amp; Formulas</button>
+            <button class="tab" data-view="v-reference">Reference</button>
         </div>
 
         <!-- ============================ PROCESS ============================ -->
@@ -340,6 +355,11 @@
                         <button id="btnNormalise" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Normalise to 100%</button>
                         <button id="btnClearComp" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--bad-soft);color:var(--bad)">Clear</button>
                     </div>
+                </div>
+
+                <div class="field mb-3 no-print">
+                    <label>Search gases</label>
+                    <input type="search" id="compSearch" placeholder="Search by name or formula, e.g. xylene or C6…">
                 </div>
 
                 <div class="flex gap-2 mb-4 flex-wrap items-end no-print">
@@ -1076,6 +1096,41 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             </div>
         </section>
 
+        <!-- ============================ REFERENCE ============================ -->
+        <section id="v-reference" class="view no-print space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-2">Reference material</h2>
+                <p class="text-sm mb-3" style="color:var(--muted)">
+                    Snapshots and links you want alongside this calculation — a photo of a textbook table, a
+                    vendor curve, a standard's clause.
+                </p>
+                <div class="note mb-4">
+                    Images are saved on this device only (not in the cloud) — they won't appear on your other
+                    devices or in an exported case file, only the caption and order will. Hyperlinks are plain
+                    text, so they sync and export normally like everything else on this page.
+                </div>
+
+                <label class="dropzone mb-4" id="refDropzone" for="refFileInput">
+                    <div id="refDropzoneText">Drag &amp; drop an image here, or click to choose a file</div>
+                    <input type="file" id="refFileInput" accept="image/*" multiple style="display:none">
+                </label>
+
+                <div class="flex gap-2 mb-4 flex-wrap items-end no-print">
+                    <div class="field" style="min-width:220px;flex:1">
+                        <label>Add a hyperlink</label>
+                        <input type="url" id="refLinkUrl" placeholder="https://…">
+                    </div>
+                    <div class="field" style="min-width:180px;flex:1">
+                        <label>Label (optional)</label>
+                        <input type="text" id="refLinkLabel" placeholder="e.g. API 617, 8th ed.">
+                    </div>
+                    <button id="btnAddRefLink" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent);color:#fff">Add link</button>
+                </div>
+
+                <div id="refList" class="space-y-2"></div>
+            </div>
+        </section>
+
     </main>
 
     <!-- 3. REQUIRED SCRIPTS (Do not remove) -->
@@ -1513,17 +1568,28 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
 
         let composition = [];   // [{id, molPct}]
 
-        function buildComponentPicker() {
+        // term filters by name/formula/id (case-insensitive substring); the
+        // previously-selected value is kept selected across a re-filter when
+        // it's still in the filtered set, so typing doesn't lose your place.
+        function buildComponentPicker(term) {
             const sel = $('compPicker');
+            const prev = sel.value;
+            const q = (term || '').trim().toLowerCase();
+            const matches = q
+                ? E.COMPONENTS.filter(c => (c.name + ' ' + c.formula + ' ' + c.id).toLowerCase().includes(q))
+                : E.COMPONENTS;
+
             const groups = {};
-            E.COMPONENTS.forEach(c => {
+            matches.forEach(c => {
                 (groups[c.group] = groups[c.group] || []).push(c);
             });
             sel.innerHTML = Object.keys(groups).map(g =>
                 `<optgroup label="${g}">` +
                 groups[g].map(c => `<option value="${c.id}">${c.name} (${c.formula}) — MW ${c.MW.toFixed(2)}</option>`).join('') +
                 `</optgroup>`
-            ).join('');
+            ).join('') || '<option value="" disabled>No matches</option>';
+
+            if (matches.some(c => c.id === prev)) sel.value = prev;
 
             const ps = $('presetSelect');
             ps.innerHTML = '<option value="">Load a preset…</option>' +
@@ -1600,6 +1666,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             stagesMode: 'auto', stagesManual: 4,
             speedMode: 'auto', speedManual: 10000
         }];
+
+        // Reference tab. Metadata only - image bytes never live here, only in
+        // this device's IndexedDB (see the RefStore wrapper below), so this
+        // array is small and safe to put straight into collectState().
+        //   image: {id, type:'image', caption, addedAt, imgKey}
+        //   link:  {id, type:'link',  caption, url, addedAt}
+        let references = [];
 
         /* A pressure drop is a difference, so only the scale factor applies. */
         function pScale() {
@@ -3089,6 +3162,167 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         }
 
         /* ---------------------------------------------------------------- */
+        /* Reference tab - image bytes live only in this device's IndexedDB;   */
+        /* `references` (the array collectState() sees) holds metadata only,  */
+        /* so the list itself - captions, order, hyperlinks - syncs and       */
+        /* exports normally while the pixels stay local by design.            */
+        /* ---------------------------------------------------------------- */
+
+        const RefStore = (() => {
+            const DB_NAME = 'compressor_selector_refs', STORE = 'images';
+            let dbPromise = null;
+            function open() {
+                if (dbPromise) return dbPromise;
+                dbPromise = new Promise((resolve, reject) => {
+                    if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
+                    const req = indexedDB.open(DB_NAME, 1);
+                    req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                return dbPromise;
+            }
+            async function put(key, blob) {
+                const db = await open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE, 'readwrite');
+                    tx.objectStore(STORE).put(blob, key);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+            async function get(key) {
+                const db = await open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE, 'readonly');
+                    const req = tx.objectStore(STORE).get(key);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+            async function del(key) {
+                const db = await open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE, 'readwrite');
+                    tx.objectStore(STORE).delete(key);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+            return { put, get, del };
+        })();
+
+        // Downscales to a max 1600px edge and re-encodes as JPEG, so a raw
+        // phone photo (often several MB) doesn't sit around bloating this
+        // browser's storage or slowing down the thumbnail render.
+        function downscaleImage(file, maxEdge, quality) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+                    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+                    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(url);
+                    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode image')), 'image/jpeg', quality);
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+                img.src = url;
+            });
+        }
+
+        function refId() {
+            return 'ref_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        }
+
+        async function addImageReference(file) {
+            if (!file.type.startsWith('image/')) { showError(file.name + ' is not an image.'); return; }
+            try {
+                const blob = await downscaleImage(file, 1600, 0.82);
+                const imgKey = refId();
+                await RefStore.put(imgKey, blob);
+                references.push({ id: refId(), type: 'image', caption: file.name.replace(/\.[^.]+$/, ''), addedAt: Date.now(), imgKey });
+                renderReferences();
+                recalc();
+            } catch (e) {
+                showError('Could not add that image: ' + e.message);
+            }
+        }
+
+        function renderReferences() {
+            const wrap = $('refList');
+            if (!references.length) {
+                wrap.innerHTML = '<p class="text-sm" style="color:var(--muted)">No reference material yet — drop an image above or add a link.</p>';
+                return;
+            }
+            wrap.innerHTML = references.map(r => `
+                <div class="ref-row" data-ref="${esc(r.id)}">
+                    ${r.type === 'image'
+                        ? `<img class="ref-thumb" data-thumb="${esc(r.id)}" alt="">`
+                        : `<div class="ref-thumb-missing">🔗</div>`}
+                    <div class="flex-1 min-w-0">
+                        <input type="text" class="text-sm font-semibold" data-caption="${esc(r.id)}" value="${esc(r.caption || '')}" style="width:100%;border:none;background:transparent;padding:0.2rem 0" aria-label="Caption">
+                        ${r.type === 'link'
+                            ? `<a href="${esc(r.url)}" target="_blank" rel="noopener" class="text-xs truncate" style="color:var(--accent);display:block">${esc(r.url)}</a>`
+                            : `<div class="text-xs" style="color:var(--muted)">Image — saved on this device</div>`}
+                    </div>
+                    <button class="no-print px-2 py-1 rounded" data-del-ref="${esc(r.id)}" style="color:var(--bad)" title="Remove">✕</button>
+                </div>`).join('');
+
+            wrap.querySelectorAll('input[data-caption]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const r = references.find(x => x.id === inp.getAttribute('data-caption'));
+                    if (r) { r.caption = inp.value; recalc(); }
+                });
+            });
+            wrap.querySelectorAll('button[data-del-ref]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-del-ref');
+                    const r = references.find(x => x.id === id);
+                    references = references.filter(x => x.id !== id);
+                    renderReferences();
+                    recalc();
+                    if (r && r.type === 'image' && r.imgKey) { try { await RefStore.del(r.imgKey); } catch (e) { /* best effort */ } }
+                });
+            });
+
+            // Thumbnails load async (IndexedDB read) and independently of the
+            // rest of the render, so a missing image never blocks the list.
+            wrap.querySelectorAll('img[data-thumb]').forEach(async img => {
+                const id = img.getAttribute('data-thumb');
+                const r = references.find(x => x.id === id);
+                if (!r) return;
+                try {
+                    const blob = await RefStore.get(r.imgKey);
+                    if (!blob) throw new Error('not on this device');
+                    img.src = URL.createObjectURL(blob);
+                } catch (e) {
+                    // Different device, or this browser's storage was cleared.
+                    // Swap the whole slot for a "not here" placeholder with a
+                    // re-upload affordance rather than leaving a broken <img>.
+                    const holder = document.createElement('label');
+                    holder.className = 'ref-thumb-missing';
+                    holder.title = 'Not on this device — click to re-upload';
+                    holder.style.cursor = 'pointer';
+                    holder.innerHTML = '🖼<input type="file" accept="image/*" style="display:none">';
+                    holder.querySelector('input').addEventListener('change', async e => {
+                        const f = e.target.files && e.target.files[0];
+                        if (!f || !f.type.startsWith('image/')) return;
+                        try {
+                            const blob = await downscaleImage(f, 1600, 0.82);
+                            await RefStore.put(r.imgKey, blob);
+                            renderReferences();
+                        } catch (err) { showError('Could not add that image: ' + err.message); }
+                    });
+                    img.replaceWith(holder);
+                }
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
         /* Main calculation                                                  */
         /* ---------------------------------------------------------------- */
 
@@ -3156,7 +3390,12 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             // which then correctly defaults to 'absolute' (today's behaviour).
             // savedAt lets the on-login merge pick the newer of the cloud copy
             // and the on-device copy instead of blindly overwriting.
-            return { version: 3, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, values: vals };
+            // version 4: adds references (Reference tab). Image entries carry
+            // only {id, type, caption, addedAt, imgKey} here - the actual
+            // bytes live in this device's IndexedDB, never in this object, so
+            // they never touch Firestore's 1MB document cap or an exported
+            // JSON file.
+            return { version: 4, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -3208,6 +3447,19 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     }
                 }
             }
+            if (Array.isArray(s.references)) {
+                // Image entries missing an imgKey (e.g. a very old export
+                // written before this existed - shouldn't happen given the
+                // Array.isArray guard defaults to [], but a hand-edited file
+                // could) are dropped rather than shown as permanently broken.
+                references = s.references
+                    .filter(r => r && (r.type === 'link' ? r.url : r.imgKey))
+                    .map(r => r.type === 'link'
+                        ? { id: r.id || refId(), type: 'link', caption: r.caption || r.url, url: r.url, addedAt: r.addedAt || Date.now() }
+                        : { id: r.id || refId(), type: 'image', caption: r.caption || '', imgKey: r.imgKey, addedAt: r.addedAt || Date.now() });
+            } else {
+                references = [];
+            }
             if (s.values) {
                 Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
             }
@@ -3215,6 +3467,7 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             renderComposition();
             refreshArchitectureUI();
             renderSections();
+            renderReferences();
             updateImpellerHint();
 
             // Track whatever the loaded case actually has, so an architecture
@@ -3373,11 +3626,13 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
 
         function init() {
             buildComponentPicker();
+            $('compSearch').addEventListener('input', e => buildComponentPicker(e.target.value));
             buildImpellerSelect();
             applyArchitectureDefaults();
             composition = E.PRESETS['Lean natural gas'].map(c => ({ id: c.id, molPct: c.molPct }));
             renderComposition();
             renderSections();
+            renderReferences();
             refreshUnitLabels();
             $('modelNote').textContent = MODEL_NOTES.PR;
 
@@ -3474,6 +3729,45 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 e.target.value = '';
                 recalc();
             });
+
+            // Reference tab: drop zone, file picker, and hyperlink form.
+            (() => {
+                const zone = $('refDropzone');
+                const input = $('refFileInput');
+                const addFiles = files => { Array.from(files || []).forEach(f => addImageReference(f)); };
+
+                input.addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+                ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => {
+                    e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover');
+                }));
+                ['dragleave', 'dragend'].forEach(evt => zone.addEventListener(evt, e => {
+                    e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover');
+                }));
+                zone.addEventListener('drop', e => {
+                    e.preventDefault(); e.stopPropagation();
+                    zone.classList.remove('dragover');
+                    addFiles(e.dataTransfer && e.dataTransfer.files);
+                });
+                // The dropzone label already forwards a plain click to the
+                // hidden input via its `for` attribute; nothing extra needed.
+
+                $('btnAddRefLink').addEventListener('click', () => {
+                    const url = $('refLinkUrl').value.trim();
+                    if (!url) return;
+                    let parsed;
+                    try { parsed = new URL(url); } catch (e) { showError('That does not look like a valid URL.'); return; }
+                    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                        showError('Links must start with http:// or https://');
+                        return;
+                    }
+                    const label = $('refLinkLabel').value.trim() || url;
+                    references.push({ id: refId(), type: 'link', caption: label, url: parsed.href, addedAt: Date.now() });
+                    $('refLinkUrl').value = '';
+                    $('refLinkLabel').value = '';
+                    renderReferences();
+                    recalc();
+                });
+            })();
 
             $('btnAddSection').addEventListener('click', () => {
                 const lastP = sections[sections.length - 1].P2;

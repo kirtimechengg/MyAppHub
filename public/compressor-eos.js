@@ -47,12 +47,27 @@
         { id: 'nC8',   name: 'n-Octane',         formula: 'C8H18',  MW: 114.231, Tc: 568.70, Pc: 24.90,  omega: 0.399,  Tb: 398.82, cp: [-6.096,  7.712e-1, -4.195e-4,  8.855e-8], group: 'Hydrocarbon' },
         { id: 'nC9',   name: 'n-Nonane',         formula: 'C9H20',  MW: 128.258, Tc: 594.60, Pc: 22.90,  omega: 0.445,  Tb: 423.97, cp: [-8.374,  8.729e-1, -4.823e-4,  1.031e-7], group: 'Hydrocarbon' },
         { id: 'nC10',  name: 'n-Decane',         formula: 'C10H22', MW: 142.285, Tc: 617.70, Pc: 21.10,  omega: 0.489,  Tb: 447.30, cp: [-7.913,  9.609e-1, -5.288e-4,  1.131e-7], group: 'Hydrocarbon' },
+        // 2-Methylpentane is a branched isomer of n-Hexane (id nC6, same
+        // formula/MW). Its ideal-gas Cp(T) is governed by degrees of
+        // freedom, not connectivity, so it's essentially identical to
+        // n-Hexane's - the cp array below is reused from nC6 rather than
+        // independently sourced.
+        { id: 'iC6',   name: '2-Methylpentane',  formula: 'C6H14',  MW: 86.177,  Tc: 497.50, Pc: 30.40,  omega: 0.2797, Tb: 333.41, cp: [-4.413,  5.820e-1, -3.119e-4,  6.494e-8], group: 'Hydrocarbon' },
+        // Quadratic (no cubic term), same style already used for He/Ar above.
+        { id: 'cC6',   name: 'Cyclohexane',      formula: 'C6H12',  MW: 84.161,  Tc: 553.60, Pc: 40.75,  omega: 0.2096, Tb: 353.87, cp: [-32.220, 5.047e-1, -1.643e-4,  0       ], group: 'Hydrocarbon' },
 
         { id: 'C2=',   name: 'Ethylene',         formula: 'C2H4',   MW: 28.054,  Tc: 282.34, Pc: 50.41,  omega: 0.087,  Tb: 169.42, cp: [ 3.806,  1.566e-1, -8.348e-5,  1.755e-8], group: 'Olefin / Aromatic' },
         { id: 'C3=',   name: 'Propylene',        formula: 'C3H6',   MW: 42.081,  Tc: 364.90, Pc: 46.00,  omega: 0.142,  Tb: 225.46, cp: [ 3.710,  2.345e-1, -1.160e-4,  2.205e-8], group: 'Olefin / Aromatic' },
         { id: 'C4=',   name: '1-Butene',         formula: 'C4H8',   MW: 56.107,  Tc: 419.50, Pc: 40.20,  omega: 0.194,  Tb: 266.90, cp: [-2.994,  3.532e-1, -1.990e-4,  4.463e-8], group: 'Olefin / Aromatic' },
         { id: 'BZ',    name: 'Benzene',          formula: 'C6H6',   MW: 78.114,  Tc: 562.05, Pc: 48.95,  omega: 0.210,  Tb: 353.24, cp: [-33.917, 4.743e-1, -3.017e-4,  7.130e-8], group: 'Olefin / Aromatic' },
         { id: 'TOL',   name: 'Toluene',          formula: 'C7H8',   MW: 92.141,  Tc: 591.75, Pc: 41.08,  omega: 0.264,  Tb: 383.79, cp: [-24.355, 5.125e-1, -2.765e-4,  4.911e-8], group: 'Olefin / Aromatic' },
+        // Both xylene isomers share this cp array: like the paraffins above,
+        // isomers' ideal-gas Cp(T) is essentially identical, and this one is
+        // itself Toluene's cp plus one CH2-equivalent increment (the same
+        // increment the nC6->nC7 step already carries), not an independently
+        // sourced fit.
+        { id: 'oXYL',  name: 'o-Xylene',         formula: 'C8H10',  MW: 106.165, Tc: 630.30, Pc: 37.30,  omega: 0.312,  Tb: 417.58, cp: [-25.088, 6.067e-1, -3.297e-4,  6.075e-8], group: 'Olefin / Aromatic' },
+        { id: 'pXYL',  name: 'p-Xylene',         formula: 'C8H10',  MW: 106.165, Tc: 616.20, Pc: 35.10,  omega: 0.324,  Tb: 411.51, cp: [-25.088, 6.067e-1, -3.297e-4,  6.075e-8], group: 'Olefin / Aromatic' },
 
         { id: 'N2',    name: 'Nitrogen',         formula: 'N2',     MW: 28.014,  Tc: 126.20, Pc: 33.98,  omega: 0.037,  Tb: 77.35,  cp: [31.150, -1.357e-2,  2.680e-5, -1.168e-8], group: 'Inert / Acid gas' },
         { id: 'CO2',   name: 'Carbon dioxide',   formula: 'CO2',    MW: 44.010,  Tc: 304.12, Pc: 73.74,  omega: 0.225,  Tb: 194.70, cp: [19.795,  7.343e-2, -5.602e-5,  1.715e-8], group: 'Inert / Acid gas' },
@@ -65,7 +80,20 @@
         { id: 'Ar',    name: 'Argon',            formula: 'Ar',     MW: 39.948,  Tc: 150.86, Pc: 48.98,  omega: -0.002, Tb: 87.30,  cp: [20.786,  0,         0,         0       ], group: 'Inert / Acid gas' },
         { id: 'NH3',   name: 'Ammonia',          formula: 'NH3',    MW: 17.031,  Tc: 405.50, Pc: 113.53, omega: 0.253,  Tb: 239.82, cp: [27.315,  2.383e-2,  1.707e-5, -1.185e-8], group: 'Polar / Other' },
         { id: 'SO2',   name: 'Sulfur dioxide',   formula: 'SO2',    MW: 64.065,  Tc: 430.80, Pc: 78.84,  omega: 0.245,  Tb: 263.13, cp: [23.852,  6.699e-2, -4.961e-5,  1.328e-8], group: 'Polar / Other' },
-        { id: 'MeOH',  name: 'Methanol',         formula: 'CH4O',   MW: 32.042,  Tc: 512.64, Pc: 80.97,  omega: 0.565,  Tb: 337.69, cp: [21.152,  7.092e-2,  2.587e-5, -2.852e-8], group: 'Polar / Other' }
+        { id: 'MeOH',  name: 'Methanol',         formula: 'CH4O',   MW: 32.042,  Tc: 512.64, Pc: 80.97,  omega: 0.565,  Tb: 337.69, cp: [21.152,  7.092e-2,  2.587e-5, -2.852e-8], group: 'Polar / Other' },
+
+        // Hypothetical 901/902/903: not real chemicals - performance-test-
+        // code placeholder components defined only by molecular weight.
+        // Every property below is a straight MW-weighted linear interpolation
+        // between this database's own bracketing n-paraffin entries above
+        // (e.g. 901 at MW 96.00 sits 70% of the way from nC6 to nC7, so every
+        // property is that same 70/30 blend of those two rows) - an
+        // engineering estimate, not literature data. Treated as paraffin-like
+        // because that is the standard assumption for an undefined heavy-end
+        // hydrocarbon test component.
+        { id: 'HYP901', name: 'Hypothetical 901', formula: '-', MW: 96.00,  Tc: 530.43, Pc: 28.25, omega: 0.3350, Tb: 362.67, cp: [-4.926, 6.480e-1, -3.492e-4, 7.309e-8], group: 'Hypothetical (MW-estimated)' },
+        { id: 'HYP902', name: 'Hypothetical 902', formula: '-', MW: 106.9,  Tc: 553.80, Pc: 26.21, omega: 0.3734, Tb: 384.58, cp: [-5.599, 7.216e-1, -3.911e-4, 8.229e-8], group: 'Hypothetical (MW-estimated)' },
+        { id: 'HYP903', name: 'Hypothetical 903', formula: '-', MW: 120.1,  Tc: 579.54, Pc: 24.06, omega: 0.4183, Tb: 409.34, cp: [-7.049, 8.138e-1, -4.458e-4, 9.464e-8], group: 'Hypothetical (MW-estimated)' }
     ];
 
     var BY_ID = {};
