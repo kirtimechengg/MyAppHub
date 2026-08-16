@@ -122,6 +122,10 @@
         .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
         .view { display: none; }
         .view.on { display: block; }
+        #v-charts.on { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+        @media (min-width: 1024px) {
+            #v-charts.on { grid-template-columns: 1fr 1fr; }
+        }
 
         /* Tables */
         table.data { width: 100%; border-collapse: collapse; font-size: 0.83rem; font-variant-numeric: tabular-nums; }
@@ -251,7 +255,7 @@
     <div id="global-nav"></div>
 
     <!-- 2. PAGE CONTENT -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+    <main class="flex-1 w-full mx-auto px-4 py-8">
 
         <div class="flex items-center gap-3 mb-2 flex-wrap no-print">
             <a href="index.html" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition">← Back</a>
@@ -597,7 +601,7 @@
         </section>
 
         <!-- ============================ CHARTS ============================ -->
-        <section id="v-charts" class="view space-y-5">
+        <section id="v-charts" class="view grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div class="card p-5">
                 <h2 class="font-bold text-lg mb-1">Stage selection map</h2>
                 <p class="text-xs mb-3" style="color:var(--muted)">Flow coefficient against head coefficient, with the usable envelope and the best-efficiency core.</p>
