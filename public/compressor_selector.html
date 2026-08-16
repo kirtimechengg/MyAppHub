@@ -507,9 +507,18 @@
                 <h2 class="font-bold text-lg mb-4">Efficiency and power train</h2>
                 <div class="grid-fields">
                     <div class="field">
+                        <label>Efficiency correlation</label>
+                        <select id="inEtaModel">
+                            <option value="builtin">Built-in (flow-based + φ penalty)</option>
+                            <option value="aungier-vaned">Aungier — vaned diffuser</option>
+                            <option value="aungier-vaneless">Aungier — vaneless diffuser</option>
+                        </select>
+                        <span class="hint">Which correlation predicts ηp. Ignored if you type a value below.</span>
+                    </div>
+                    <div class="field">
                         <label>Polytropic efficiency</label>
                         <input type="number" id="inEtaP" value="" step="0.01" min="0.5" max="0.92" placeholder="auto">
-                        <span class="hint">Blank uses the flow-based correlation.</span>
+                        <span class="hint">Blank uses the correlation selected above.</span>
                     </div>
                     <div class="field">
                         <label>Mechanical efficiency</label>
@@ -622,6 +631,33 @@
                     limit — a point outside the band is worth a second look, not necessarily wrong.
                 </p>
                 <div class="chart-wrap" id="chartHeadBand"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Tip speed — fleet experience</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Each stage's tip speed against the surveyed band (closed impellers), from the same survey of 60+
+                    actual compressor sections. Screening only — the mechanical and Mach limits on the Machine tab
+                    are the hard constraints.
+                </p>
+                <div class="chart-wrap" id="chartTipBand"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Aungier polytropic efficiency characteristic</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Aungier's vaned and vaneless diffuser curves with this machine's stages overlaid, so the
+                    predicted efficiency can be compared against a published characteristic. Selectable as the
+                    driving correlation on the Machine tab; otherwise this is reference only.
+                </p>
+                <div class="chart-wrap" id="chartAungierEta"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Aungier impeller axial length ratio</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    L/D₂ = 0.014 + 0.023·(D₂/D₁) + 1.58·φ — impeller axial length as a fraction of tip diameter.
+                    The curve uses each stage's own eye ratio, so it tracks the geometry actually solved rather than
+                    assuming a fixed one.
+                </p>
+                <div class="chart-wrap" id="chartAungierLD"></div>
             </div>
         </section>
 
@@ -1114,7 +1150,25 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                 <div class="formula">Average head per stage = Hp_section / nStages
 Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf/lbm)
   from a survey of 60+ actual compressor sections across multiple equipment suppliers
-  open/semi-open impellers legitimately run above this band — the survey covers closed impellers only<span class="live" data-f="headBand"></span></div>
+  open/semi-open impellers legitimately run above this band — the survey covers closed impellers only<span class="live" data-f="headBand"></span>
+
+Tip speed, same survey, closed impellers: 198.1 – 274.3 m/s   (650 – 900 ft/sec)
+  checked per stage, not per section — every impeller has its own U₂<span class="live" data-f="tipBand"></span></div>
+
+                <p class="text-sm mb-1 mt-4" style="color:var(--muted)">
+                    Two published Aungier correlations are also carried, both plotted on the Charts tab. The
+                    efficiency one can drive the calculation if you select it on the Machine tab; the length ratio
+                    is reference only.
+                </p>
+                <div class="formula">Aungier polytropic efficiency = f(φ) for a vaned or vaneless diffuser
+  digitised from the published characteristic and linearly interpolated (good to ~±0.01,
+  not an algebraic restatement of Aungier's own equations)
+  depends on φ alone — no machine-size term, which is why very low φ falls away so steeply<span class="live" data-f="aungierEta"></span>
+
+Aungier impeller axial length:
+  L/D₂ = 0.014 + 0.023·(D₂/D₁) + 1.58·φ
+  the published figure fixes the eye ratio and draws one straight line; here D₁/D₂ comes
+  from the stage actually solved, so it tracks real geometry<span class="live" data-f="aungierLD"></span></div>
             </div>
         </section>
 
@@ -2353,6 +2407,93 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
                     { label: 'Outside the fleet band', color: p.bad }
                 ]
             });
+
+            /* --- 7. Tip speed against the surveyed fleet band --- */
+            const tsb = E.EMPIRICAL_BANDS.tipSpeed;
+            const tsLo = disp('velocity', tsb.lo), tsHi = disp('velocity', tsb.hi);
+            const tsMax = Math.max(tsHi * 1.15, ...allStages.map(s => disp('velocity', s.st.U2) * 1.15));
+            $('chartTipBand').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Impeller tip speed against flow coefficient — fleet band, closed impellers',
+                xlab: 'Flow coefficient  φ',
+                ylab: 'Tip speed U₂ (' + unitLabel('velocity') + ')',
+                x0: 0, x1: phiMaxBand, y0: 0, y1: tsMax,
+                xfmt: v => v.toFixed(3),
+                rects: [
+                    { x0: 0, x1: phiMaxBand, y0: tsLo, y1: tsHi, fill: p.accent, opacity: 0.10, label: 'Fleet band — closed impellers', labelColor: p.muted }
+                ],
+                hlines: [
+                    { y: tsHi, color: p.bad, dash: '5 4', label: 'Fleet max (' + fmtNum(tsHi, 0) + ' ' + unitLabel('velocity') + ')' },
+                    { y: tsLo, color: p.bad, dash: '5 4', label: 'Fleet min (' + fmtNum(tsLo, 0) + ' ' + unitLabel('velocity') + ')' }
+                ],
+                points: allStages.map(s => ({
+                    x: s.st.phi, y: disp('velocity', s.st.U2),
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    ok: inp.impeller.open ? true : (s.st.U2 >= tsb.lo && s.st.U2 <= tsb.hi)
+                })),
+                legend: [
+                    { label: 'Inside the fleet band', color: p.ok },
+                    { label: 'Outside the fleet band', color: p.bad }
+                ]
+            });
+
+            /* --- 8. Aungier polytropic efficiency characteristic --- */
+            // Sampled densely at the low-phi end, where the curve falls away
+            // steeply and a coarse sweep would visibly cut the corner.
+            const aungierPhis = [];
+            for (let v = 0.0025; v <= 0.2001; v += (v < 0.02 ? 0.0025 : 0.005)) aungierPhis.push(v);
+            const etaModelNow = $('inEtaModel').value;
+            $('chartAungierEta').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Aungier polytropic efficiency against flow coefficient',
+                xlab: 'Flow coefficient  φ', ylab: 'Polytropic efficiency  ηp',
+                x0: 0, x1: 0.20, y0: 0.20, y1: 0.90,
+                xfmt: v => v.toFixed(2), yfmt: v => v.toFixed(2),
+                series: [
+                    { pts: aungierPhis.map(v => [v, E.aungierEtaP(v, 'vaned')]), stroke: p.bad, width: 2.5 },
+                    { pts: aungierPhis.map(v => [v, E.aungierEtaP(v, 'vaneless')]), stroke: p.bad, width: 2, dash: '6 4' }
+                ],
+                points: allStages.map(s => ({
+                    x: s.st.phi, y: train.sections[s.sec - 1].etaPoly,
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    color: p.accent
+                })),
+                legend: [
+                    { label: 'Aungier vaned diffuser', color: p.bad },
+                    { label: 'Aungier vaneless diffuser', color: p.bad, dash: '6 4' },
+                    { label: 'This machine (' + (etaModelNow === 'builtin' ? 'built-in correlation' : 'Aungier') + ')', color: p.accent }
+                ]
+            });
+
+            /* --- 9. Aungier impeller axial length ratio --- */
+            // Two reference lines bracket the eye ratios this tool actually
+            // produces (the eyeRatio correlation is clamped to 0.35-0.72), so
+            // a stage's point should always land between them.
+            const ldPhis = [];
+            for (let v = 0; v <= 0.1601; v += 0.005) ldPhis.push(v);
+            const ldVals = allStages.map(s => E.aungierAxialLengthRatio(s.st.phi, s.st.eyeRatio));
+            $('chartAungierLD').innerHTML = svgPlot({
+                w: 720, h: 380,
+                title: 'Impeller axial length-to-diameter ratio against flow coefficient',
+                xlab: 'Flow coefficient  φ', ylab: 'Axial length ratio  L/D₂',
+                x0: 0, x1: Math.max(0.16, phiMaxBand), y0: 0.05,
+                y1: Math.max(0.35, ...ldVals.map(v => v * 1.15)),
+                xfmt: v => v.toFixed(2), yfmt: v => v.toFixed(2),
+                series: [
+                    { pts: ldPhis.map(v => [v, E.aungierAxialLengthRatio(v, 0.35)]), stroke: p.bad, width: 2.5 },
+                    { pts: ldPhis.map(v => [v, E.aungierAxialLengthRatio(v, 0.72)]), stroke: p.warn, width: 2, dash: '6 4' }
+                ],
+                points: allStages.map((s, i) => ({
+                    x: s.st.phi, y: ldVals[i],
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    color: p.accent
+                })),
+                legend: [
+                    { label: 'Narrow eye (D₁/D₂ = 0.35)', color: p.bad },
+                    { label: 'Wide eye (D₁/D₂ = 0.72)', color: p.warn, dash: '6 4' },
+                    { label: 'This machine', color: p.accent }
+                ]
+            });
         }
 
         /* ---------------------------------------------------------------- */
@@ -2435,6 +2576,7 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
                 psiTarget: Number($('inPsi').value) || undefined,
                 phiTarget: Number($('inPhi').value) || undefined,
                 etaPManual: etaManual || undefined,
+                etaModel: $('inEtaModel').value,
                 etaMech: Number($('inEtaMech').value) || undefined,
                 maxSpeed: Number($('inMaxSpeed').value) || undefined,
                 minD2: readSI($('inMinD2'), 'length') || undefined,
@@ -2618,6 +2760,21 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
                 // is worth a second look, not necessarily wrong. Only
                 // meaningful for closed impellers - the survey it's drawn
                 // from doesn't cover open/semi-open designs.
+                if (!inp.impeller.open) {
+                    const tsb = E.EMPIRICAL_BANDS.tipSpeed;
+                    const hot = s.stages.filter(st => st.U2 > tsb.hi).map(st => st.index);
+                    const cold = s.stages.filter(st => st.U2 < tsb.lo).map(st => st.index);
+                    if (hot.length) {
+                        warns.push(['warn', 'Section ' + s.section + ' stage' + (hot.length > 1 ? 's ' : ' ') + hot.join(', ') +
+                            ' tip speed is above the surveyed fleet band (' + dispU('velocity', tsb.hi, 1) + ' max, ' + tsb.source +
+                            ', closed impellers) — highly loaded for a closed impeller, worth confirming against vendor data.']);
+                    }
+                    if (cold.length) {
+                        warns.push(['warn', 'Section ' + s.section + ' stage' + (cold.length > 1 ? 's ' : ' ') + cold.join(', ') +
+                            ' tip speed is below the surveyed fleet band (' + dispU('velocity', tsb.lo, 1) + ' min, ' + tsb.source +
+                            ') — lightly loaded, so the machine may be using more stages than it needs.']);
+                    }
+                }
                 if (!inp.impeller.open) {
                     const band = E.EMPIRICAL_BANDS.headPerStage;
                     const avgHp = s.HpTotal / s.nStages;
@@ -3130,6 +3287,30 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
                 }
                 const verdict = avgHp > band.hi ? 'ABOVE the band' : (avgHp < band.lo ? 'BELOW the band' : 'inside the band');
                 return `→ section ${c.sec.section}: ${n(c.sec.HpTotal, 1)} / ${c.sec.nStages} = ${n(avgHp, 1)} J/kg  —  ${verdict}`;
+            },
+            tipBand: c => {
+                const b = E.EMPIRICAL_BANDS.tipSpeed;
+                if (!c.st) return '';
+                if (c.inp.impeller.open) {
+                    return `→ section ${c.sec.section} stage ${c.st.index}: U₂ = ${n(c.st.U2, 1)} m/s` +
+                        `  —  band not applied (open impeller, outside the surveyed population)`;
+                }
+                const v = c.st.U2 > b.hi ? 'ABOVE the band' : (c.st.U2 < b.lo ? 'BELOW the band' : 'inside the band');
+                return `→ section ${c.sec.section} stage ${c.st.index}: U₂ = ${n(c.st.U2, 1)} m/s  —  ${v}`;
+            },
+            aungierEta: c => {
+                if (!c.st) return '';
+                const vaned = E.aungierEtaP(c.st.phi, 'vaned');
+                const vaneless = E.aungierEtaP(c.st.phi, 'vaneless');
+                const driving = c.inp.etaModel && c.inp.etaModel !== 'builtin';
+                return `→ at φ = ${n(c.st.phi, 5)}:  vaned ${n(vaned, 4)},  vaneless ${n(vaneless, 4)}` +
+                    `   —  this case uses ${driving ? c.inp.etaModel : 'the built-in correlation'}, ηp = ${n(c.sec.etaPoly, 4)}`;
+            },
+            aungierLD: c => {
+                if (!c.st) return '';
+                const ld = E.aungierAxialLengthRatio(c.st.phi, c.st.eyeRatio);
+                return `→ 0.014 + 0.023/${n(c.st.eyeRatio, 4)} + 1.58·${n(c.st.phi, 5)} = ${n(ld, 4)}` +
+                    `   —  L = ${n(ld * c.st.D2, 4)} m at D₂ = ${n(c.st.D2, 4)} m`;
             }
         };
 
@@ -3495,7 +3676,7 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
         const SIMPLE_INPUTS = ['inP1', 'inAtmPressure', 'inT1', 'inMdot', 'inModel', 'inArchitecture', 'inImpeller', 'inPsi', 'inPhi',
             'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2',
             'inBullSpeedPreset', 'inBullSpeed', 'inPinionLayout',
-            'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
+            'inEtaModel', 'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
 
         function collectState() {
             const vals = {};
