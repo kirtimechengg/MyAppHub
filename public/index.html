@@ -40,7 +40,16 @@
                 <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.55 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
                 Sign in with Google
             </button>
-            <button onclick="login()" class="w-full py-2.5 mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">Sign in with email instead</button>
+            <button id="btnShowEmailLogin" onclick="toggleEmailLogin()" class="w-full py-2.5 mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">Sign in with email instead</button>
+            <!-- window.prompt()/alert() are silent no-ops in an iOS Home Screen
+                 web app (no browser chrome to host them), so this is a real
+                 inline form rather than the prompt()-based flow it replaces -
+                 the only way email sign-in can work in every context. -->
+            <form id="emailLoginForm" onsubmit="return submitEmailLogin(event)" class="hidden mt-3 space-y-2 text-left">
+                <input type="email" id="emailLoginEmail" placeholder="Email" required autocomplete="email" class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <input type="password" id="emailLoginPass" placeholder="Password" required autocomplete="current-password" class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <button type="submit" class="w-full py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-600 transition">Sign in</button>
+            </form>
             <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
         </div>
 
@@ -54,9 +63,16 @@
                         <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">Dashboard</h1>
                         <p class="text-slate-500 dark:text-slate-400">Your integrated engineering workspace</p>
                     </div>
-                    <button onclick="toggleAppManager()" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <span class="text-lg">⚙️</span> Manage Apps
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm">
+                            <button onclick="setViewMode('thumbnail')" data-mode-btn="thumbnail" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="Thumbnails">🔳</button>
+                            <button onclick="setViewMode('list')" data-mode-btn="list" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="List">☰</button>
+                            <button onclick="setViewMode('icon')" data-mode-btn="icon" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="Icons">⚏</button>
+                        </div>
+                        <button onclick="toggleAppManager()" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <span class="text-lg">⚙️</span> Manage Apps
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search Bar -->
@@ -179,7 +195,7 @@
                 this.user = null;
                 this.db = null;
                 this.auth = null;
-                this.globalState = { theme: 'light' };
+                this.globalState = { theme: 'light', viewMode: 'thumbnail' };
                 this.stateListeners = [];
                 this.apps = []; // Store app list locally
                 this.deepSearchData = {}; // Cache for deep search
@@ -305,18 +321,25 @@
                 } catch (e) {
                     console.log('Auth persistence:', e.code || e.message);
                 }
-                try {
-                    await this.auth.signInWithPopup(provider);
-                    return;
-                } catch (e) {
-                    if (e.code === 'auth/account-exists-with-different-credential') {
-                        await this.linkPendingCredential(e);
+                // A standalone (Home Screen) web app has no browser window
+                // chrome to host a popup - signInWithPopup silently fails or
+                // hangs there instead of throwing something the fallback
+                // below could react to, so skip straight to redirect.
+                const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                if (!standalone) {
+                    try {
+                        await this.auth.signInWithPopup(provider);
                         return;
+                    } catch (e) {
+                        if (e.code === 'auth/account-exists-with-different-credential') {
+                            await this.linkPendingCredential(e);
+                            return;
+                        }
+                        // Closing the popup is a deliberate cancel, not a reason to fall
+                        // back to a redirect the user did not ask for.
+                        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+                        console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
                     }
-                    // Closing the popup is a deliberate cancel, not a reason to fall
-                    // back to a redirect the user did not ask for.
-                    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-                    console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
                 }
                 try {
                     await this.auth.signInWithRedirect(provider);
@@ -423,18 +446,25 @@
             loadApps();
         };
 
-        function login() {
-            const email = prompt("Enter email:");
-            const pass = prompt("Enter password:");
+        function toggleEmailLogin() {
+            const form = document.getElementById('emailLoginForm');
+            form.classList.toggle('hidden');
+            document.getElementById('btnShowEmailLogin').classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) document.getElementById('emailLoginEmail').focus();
+        }
+
+        function submitEmailLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailLoginEmail').value.trim();
+            const pass = document.getElementById('emailLoginPass').value;
             const errEl = document.getElementById('login-error');
-            
-            if(email && pass) {
-                errEl.classList.add('hidden');
-                Core.auth.signInWithEmailAndPassword(email, pass).catch(e => {
-                    errEl.textContent = e.message;
-                    errEl.classList.remove('hidden');
-                });
-            }
+            errEl.classList.add('hidden');
+            if (!email || !pass) return false;
+            Core.auth.signInWithEmailAndPassword(email, pass).catch(e => {
+                errEl.textContent = e.message;
+                errEl.classList.remove('hidden');
+            });
+            return false;
         }
 
         function toggleAppManager() {
@@ -492,9 +522,6 @@
             if (!Core.user) return;
             Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps')
                 .onSnapshot(doc => {
-                    const container = document.getElementById('apps-container');
-                    container.innerHTML = '';
-
                     let apps = (doc.exists && doc.data().list) ? doc.data().list : [];
                     Core.apps = apps; // Cache for search
 
@@ -518,43 +545,108 @@
                         }
                     }
 
-                    // --- GROUP BY CATEGORY ---
-                    const grouped = apps.reduce((acc, app) => {
-                        const cat = app.category || 'Uncategorized';
-                        if (!acc[cat]) acc[cat] = [];
-                        acc[cat].push(app);
-                        return acc;
-                    }, {});
-
-                    // --- RENDER ---
-                    Object.keys(grouped).sort().forEach(cat => {
-                        const section = document.createElement('div');
-                        section.className = "animate-fade-in-up";
-                        
-                        const gridHtml = grouped[cat].map((app, index) => `
-                            <div class="relative group p-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
-                                <div class="flex items-start justify-between mb-4">
-                                    <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
-                                    ${!app.isSystem ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>` : ''}
-                                </div>
-                                <h3 class="font-bold text-lg mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
-                                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
-                            </div>
-                        `).join('');
-
-                        section.innerHTML = `
-                            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                                <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                                ${cat}
-                            </h2>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                ${gridHtml}
-                            </div>
-                        `;
-                        container.appendChild(section);
-                    });
+                    renderDashboardGrid();
                 });
         }
+
+        // Three card layouts, one shared data source (Core.apps) - switching
+        // modes is a pure re-render, no re-fetch, so it's instant.
+        function gridClassForMode(mode) {
+            if (mode === 'list') return 'space-y-2';
+            if (mode === 'icon') return 'grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4';
+            return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'; // thumbnail
+        }
+
+        function renderAppCard(app, mode) {
+            const delBtn = !app.isSystem
+                ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`
+                : '';
+            if (mode === 'list') {
+                return `
+                    <div class="relative group flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
+                        <div class="text-xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg">${app.icon}</div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${app.name}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${app.desc || 'No description'}</p>
+                        </div>
+                        ${delBtn}
+                    </div>`;
+            }
+            if (mode === 'icon') {
+                const delBtnIcon = !app.isSystem
+                    ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="absolute top-0 right-0 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm">✕</button>`
+                    : '';
+                return `
+                    <div class="relative group flex flex-col items-center text-center gap-1.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
+                        <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-14 h-14 flex items-center justify-center rounded-2xl group-hover:scale-105 transition-transform shadow-sm">${app.icon}</div>
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300 leading-tight">${app.name}</span>
+                        ${delBtnIcon}
+                    </div>`;
+            }
+            // thumbnail (default) - same design as before, just denser so more
+            // fit per row and the grid fills the available width.
+            return `
+                <div class="relative group p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="text-2xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
+                        ${delBtn}
+                    </div>
+                    <h3 class="font-bold text-sm mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
+                </div>`;
+        }
+
+        function renderDashboardGrid() {
+            const container = document.getElementById('apps-container');
+            if (!container || !Core.apps) return;
+            container.innerHTML = '';
+            const mode = Core.globalState.viewMode || 'thumbnail';
+            lastRenderedViewMode = mode;
+
+            const grouped = Core.apps.reduce((acc, app) => {
+                const cat = app.category || 'Uncategorized';
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(app);
+                return acc;
+            }, {});
+
+            Object.keys(grouped).sort().forEach(cat => {
+                const section = document.createElement('div');
+                section.className = "animate-fade-in-up";
+                const items = grouped[cat].map(app => renderAppCard(app, mode)).join('');
+                section.innerHTML = `
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                        ${cat}
+                    </h2>
+                    <div class="${gridClassForMode(mode)}">
+                        ${items}
+                    </div>
+                `;
+                container.appendChild(section);
+            });
+        }
+
+        let lastRenderedViewMode = null;
+
+        function setViewMode(mode) {
+            Core.updateGlobalStore({ viewMode: mode });
+        }
+
+        function updateViewModeButtons() {
+            const mode = Core.globalState.viewMode || 'thumbnail';
+            document.querySelectorAll('[data-mode-btn]').forEach(btn => {
+                const active = btn.getAttribute('data-mode-btn') === mode;
+                btn.classList.toggle('bg-blue-600', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('text-slate-500', !active);
+            });
+        }
+
+        Core.subscribe(state => {
+            updateViewModeButtons();
+            if (Core.apps && state.viewMode !== lastRenderedViewMode) renderDashboardGrid();
+        });
 
         async function deleteApp(id) {
             if(!confirm("Remove this app shortcut?")) return;
