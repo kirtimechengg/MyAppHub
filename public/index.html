@@ -106,13 +106,15 @@
             <!-- App Manager Panel (Hidden) -->
             <div id="app-manager" class="hidden mb-8 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 animate-fade-in">
                 <div class="flex justify-between items-center mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
-                    <h3 class="font-bold text-lg flex items-center gap-2">🛠️ App Registry</h3>
-                    <button onclick="toggleAppManager()" class="text-slate-400 hover:text-slate-600">✕ Close</button>
+                    <!-- Heading and submit label are swapped by openAppEditor()
+                         when this panel is reused to edit an existing card. -->
+                    <h3 id="app-manager-title" class="font-bold text-lg flex items-center gap-2">🛠️ App Registry</h3>
+                    <button onclick="closeAppManager()" class="text-slate-400 hover:text-slate-600">✕ Close</button>
                 </div>
-                
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-2">
-                        <form onsubmit="registerApp(event)" class="space-y-4">
+                        <form id="app-form" onsubmit="submitAppForm(event)" class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">App Name</label>
@@ -145,7 +147,13 @@
                                 <input type="text" id="new-app-desc" placeholder="Brief description of functionality" class="w-full p-2.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
                             </div>
 
-                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-md">Add App to Dashboard</button>
+                            <div class="flex gap-3">
+                                <button type="submit" id="app-form-submit" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-md">Add App to Dashboard</button>
+                                <button type="button" id="app-form-cancel" onclick="closeAppManager()" class="hidden px-5 py-3 rounded-lg font-bold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">Cancel</button>
+                            </div>
+                            <!-- alert() is a silent no-op in an iOS Home Screen web
+                                 app, so results have to be reported in the page. -->
+                            <p id="app-form-status" class="hidden text-sm"></p>
                         </form>
                     </div>
 
@@ -154,8 +162,9 @@
                         <ul class="space-y-2 text-slate-600 dark:text-slate-400">
                             <li>• Use emojis for icons to keep the UI clean.</li>
                             <li>• Group related tools by <strong>Category</strong>.</li>
+                            <li>• Hit <strong>✎</strong> on any card — or right-click it — to rename it or change its icon, category, link or description.</li>
                             <li>• For search integration, ensure your apps save data to <code>app_data/{collectionID}</code>.</li>
-                            <li>• Default system apps cannot be deleted.</li>
+                            <li>• Built-in tools can be edited, but not deleted.</li>
                         </ul>
                     </div>
                 </div>
@@ -472,40 +481,129 @@
             return false;
         }
 
-        function toggleAppManager() {
-            const el = document.getElementById('app-manager');
-            el.classList.toggle('hidden');
-            if(!el.classList.contains('hidden')) document.getElementById('new-app-name').focus();
+        // --- APP REGISTRY / EDITOR ---
+        // One panel serves both jobs: null means "adding", an id means
+        // "editing that card".
+        let editingAppId = null;
+
+        const APP_FIELDS = {
+            name: 'new-app-name',
+            icon: 'new-app-icon',
+            category: 'new-app-cat',
+            link: 'new-app-link',
+            desc: 'new-app-desc'
+        };
+
+        function readAppForm() {
+            const values = {};
+            Object.keys(APP_FIELDS).forEach(key => {
+                values[key] = document.getElementById(APP_FIELDS[key]).value.trim();
+            });
+            return values;
         }
 
-        async function registerApp(e) {
-            e.preventDefault();
-            if(!Core.user) return;
-            
-            const newApp = {
-                name: document.getElementById('new-app-name').value,
-                icon: document.getElementById('new-app-icon').value,
-                category: document.getElementById('new-app-cat').value,
-                link: document.getElementById('new-app-link').value,
-                desc: document.getElementById('new-app-desc').value,
-                isSystem: false,
-                id: Date.now().toString()
-            };
+        function setAppFormStatus(message, isError) {
+            const el = document.getElementById('app-form-status');
+            el.textContent = message || '';
+            el.classList.toggle('hidden', !message);
+            el.classList.toggle('text-red-500', !!isError);
+            el.classList.toggle('text-emerald-600', !isError);
+        }
 
+        // Offer the categories already in use, so moving a tool into an
+        // existing group is a pick rather than a retype that has to match
+        // the old spelling exactly.
+        function refreshCategoryList() {
+            const categories = new Set(['Engineering', 'Project Management', 'Utilities']);
+            (Core.apps || []).forEach(app => { if (app.category) categories.add(app.category); });
+            document.getElementById('category-list').innerHTML =
+                [...categories].sort().map(c => `<option value="${esc(c)}"></option>`).join('');
+        }
+
+        function resetAppForm() {
+            editingAppId = null;
+            document.getElementById('app-form').reset();
+            document.getElementById('app-manager-title').textContent = '🛠️ App Registry';
+            document.getElementById('app-form-submit').textContent = 'Add App to Dashboard';
+            document.getElementById('app-form-cancel').classList.add('hidden');
+            setAppFormStatus('');
+        }
+
+        function openAppManager() {
+            resetAppForm();
+            refreshCategoryList();
+            document.getElementById('app-manager').classList.remove('hidden');
+            document.getElementById(APP_FIELDS.name).focus();
+        }
+
+        function closeAppManager() {
+            document.getElementById('app-manager').classList.add('hidden');
+            resetAppForm();
+        }
+
+        function toggleAppManager() {
+            if (document.getElementById('app-manager').classList.contains('hidden')) openAppManager();
+            else closeAppManager();
+        }
+
+        // Loads a card into the panel. Deliberately not routed through
+        // toggleAppManager(), which would close the panel if it happened to
+        // be open already.
+        function openAppEditor(id) {
+            const app = (Core.apps || []).find(a => a.id === id);
+            if (!app) return;
+            resetAppForm();
+            refreshCategoryList();
+            editingAppId = id;
+            Object.keys(APP_FIELDS).forEach(key => {
+                document.getElementById(APP_FIELDS[key]).value = app[key] || '';
+            });
+            document.getElementById('app-manager-title').textContent = '✎ Edit App';
+            document.getElementById('app-form-submit').textContent = 'Save Changes';
+            document.getElementById('app-form-cancel').classList.remove('hidden');
+            const panel = document.getElementById('app-manager');
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById(APP_FIELDS.name).focus();
+        }
+
+        async function submitAppForm(e) {
+            e.preventDefault();
+            if (!Core.user) return;
+            const values = readAppForm();
             const docRef = Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps');
-            
+
             try {
                 const doc = await docRef.get();
                 let list = (doc.exists && doc.data().list) ? doc.data().list : [];
-                list.push(newApp);
+
+                if (editingAppId) {
+                    const i = list.findIndex(a => a.id === editingAppId);
+                    if (i === -1) {
+                        setAppFormStatus('That app is no longer on the dashboard.', true);
+                        return;
+                    }
+                    const previous = list[i];
+                    // Spread the stored card so id, isSystem, systemLink and
+                    // searchRef survive; only the five form fields change.
+                    const updated = { ...previous, ...values };
+                    // A built-in pointed somewhere else would look "missing" to
+                    // the SYSTEM_APPS upsert in loadApps(), which would helpfully
+                    // add a second copy on the next load. Remember the link it
+                    // was seeded from so the upsert still counts it as present.
+                    if (previous.isSystem && !previous.systemLink && values.link !== previous.link) {
+                        updated.systemLink = previous.link;
+                    }
+                    list[i] = updated;
+                } else {
+                    list.push({ ...values, isSystem: false, id: newAppId() });
+                }
+
                 await docRef.set({ list }, { merge: true });
-                
-                alert("App added successfully!");
-                e.target.reset();
-                toggleAppManager();
+                closeAppManager();
             } catch (err) {
                 console.error(err);
-                alert("Error adding app");
+                setAppFormStatus('Could not save: ' + (err.message || err), true);
             }
         }
 
@@ -520,34 +618,80 @@
             { name: 'Add Page', icon: '➕', category: 'System', link: 'template.html', desc: 'Create a new page', isSystem: true }
         ];
 
-        // Guards the upsert so the write it triggers cannot loop through the
-        // snapshot listener that observes the same document.
+        // Card fields are user-editable free text, and everything below
+        // splices them into template literals. An apostrophe in a name or an
+        // ampersand in a description would otherwise break the markup.
+        function esc(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        // A bare Date.now() collides when two cards are created inside the
+        // same millisecond, and the id is now the only handle edit and delete
+        // have on a card.
+        function newAppId() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        }
+
+        // Cards seeded from SYSTEM_APPS never carried an id, so deleteApp()
+        // matched them by name - a fallback that cannot survive the rename the
+        // editor now allows. Backfill an id onto anything missing one (or
+        // holding a duplicate). Mutates in place; reports whether it changed
+        // anything so the caller can decide to persist.
+        function ensureAppIds(apps) {
+            const seen = new Set();
+            let changed = false;
+            apps.forEach(app => {
+                if (!app.id || seen.has(app.id)) {
+                    app.id = newAppId();
+                    changed = true;
+                }
+                seen.add(app.id);
+            });
+            return changed;
+        }
+
+        // Guards the upsert and the id backfill so the write they trigger
+        // cannot loop through the snapshot listener that observes the same
+        // document. Set before the write, never derived from the data - a
+        // guard that asked "does any card still lack an id?" would retry
+        // forever if a write were rejected.
         let systemAppsUpserted = false;
 
         function loadApps() {
             if (!Core.user) return;
-            Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps')
-                .onSnapshot(doc => {
+            const docRef = Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps');
+            docRef.onSnapshot(doc => {
                     let apps = (doc.exists && doc.data().list) ? doc.data().list : [];
                     Core.apps = apps; // Cache for search
 
                     // --- INITIAL SETUP (First Run) ---
                     if (apps.length === 0) {
-                        apps = SYSTEM_APPS.slice();
-                        Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps').set({ list: apps });
+                        apps = SYSTEM_APPS.map(a => ({ ...a, id: newAppId() }));
+                        Core.apps = apps; // else the first paint renders nothing
                         systemAppsUpserted = true;
+                        docRef.set({ list: apps });
                     } else if (!systemAppsUpserted) {
                         // --- UPSERT NEW BUILT-IN TOOLS ---
                         // Match on link, not name, so a renamed card is not
-                        // duplicated. Only ever appends; cards the user added
-                        // or edited are left exactly as they are.
-                        const haveLinks = new Set(apps.map(a => a.link));
+                        // duplicated. A built-in the user has re-pointed keeps
+                        // the link it was seeded from in systemLink, so it
+                        // still counts as present here. Only ever appends;
+                        // cards the user added or edited are left as they are.
+                        const haveLinks = new Set();
+                        apps.forEach(a => {
+                            if (a.link) haveLinks.add(a.link);
+                            if (a.systemLink) haveLinks.add(a.systemLink);
+                        });
                         const missing = SYSTEM_APPS.filter(a => !haveLinks.has(a.link));
                         systemAppsUpserted = true;
-                        if (missing.length) {
-                            apps = apps.concat(missing);
+                        // Rides along in the same write as the upsert.
+                        const idsAssigned = ensureAppIds(apps);
+                        if (missing.length || idsAssigned) {
+                            apps = apps.concat(missing.map(a => ({ ...a, id: newAppId() })));
                             Core.apps = apps;
-                            Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps').set({ list: apps });
+                            docRef.set({ list: apps });
                         }
                     }
 
@@ -563,42 +707,66 @@
             return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'; // thumbnail
         }
 
-        function renderAppCard(app, mode) {
-            const delBtn = !app.isSystem
-                ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`
+        // Both per-card buttons in one place - the delete markup used to be
+        // written out twice. Edit is offered on every card, built-ins
+        // included; delete stays user-cards-only, as it always was.
+        //
+        // The reveal is still `opacity-0 group-hover:opacity-100`, which
+        // ios-compat.css already forces permanently visible under
+        // `@media (hover: none)` - so these are reachable on a phone with no
+        // extra CSS here.
+        function cardActions(app, mode) {
+            const overlay = mode === 'icon';
+            const shape = overlay
+                ? 'absolute bg-white dark:bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm'
                 : '';
+            const reveal = 'opacity-0 group-hover:opacity-100 transition-opacity';
+            // Opposite corners in icon mode: on touch both are permanently
+            // visible, and a 56px tile has no room for them side by side.
+            // A touch device keeps these permanently on screen, and edit is
+            // now the main way into the panel, so it carries slightly more
+            // weight than the delete it sits next to.
+            const edit = `<button type="button" data-app-action="edit" title="Edit ${esc(app.name)}" aria-label="Edit ${esc(app.name)}" class="${shape} ${overlay ? 'top-0 left-0' : ''} ${reveal} text-slate-400 hover:text-blue-500">✎</button>`;
+            const del = app.isSystem ? ''
+                : `<button type="button" data-app-action="delete" title="Remove ${esc(app.name)}" aria-label="Remove ${esc(app.name)}" class="${shape} ${overlay ? 'top-0 right-0' : ''} ${reveal} text-slate-300 hover:text-red-500">✕</button>`;
+            return overlay ? edit + del : `<div class="flex items-center gap-1.5">${edit}${del}</div>`;
+        }
+
+        function renderAppCard(app, mode) {
+            // data-app-id rather than an inline onclick: the link is
+            // user-editable free text, and splicing it into a JS string
+            // literal inside an attribute breaks on the first apostrophe.
+            // The delegated listener below looks the card up by id instead.
+            const id = `data-app-id="${esc(app.id)}"`;
             if (mode === 'list') {
                 return `
-                    <div class="relative group flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
-                        <div class="text-xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg">${app.icon}</div>
+                    <div ${id} class="relative group cursor-pointer flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all">
+                        <div class="text-xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg">${esc(app.icon)}</div>
                         <div class="min-w-0 flex-1">
-                            <h3 class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${app.name}</h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${app.desc || 'No description'}</p>
+                            <h3 class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(app.name)}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(app.desc || 'No description')}</p>
                         </div>
-                        ${delBtn}
+                        ${cardActions(app, mode)}
                     </div>`;
             }
             if (mode === 'icon') {
-                const delBtnIcon = !app.isSystem
-                    ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="absolute top-0 right-0 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm">✕</button>`
-                    : '';
                 return `
-                    <div class="relative group flex flex-col items-center text-center gap-1.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
-                        <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-14 h-14 flex items-center justify-center rounded-2xl group-hover:scale-105 transition-transform shadow-sm">${app.icon}</div>
-                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300 leading-tight">${app.name}</span>
-                        ${delBtnIcon}
+                    <div ${id} class="relative group cursor-pointer flex flex-col items-center text-center gap-1.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all">
+                        <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-14 h-14 flex items-center justify-center rounded-2xl group-hover:scale-105 transition-transform shadow-sm">${esc(app.icon)}</div>
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300 leading-tight">${esc(app.name)}</span>
+                        ${cardActions(app, mode)}
                     </div>`;
             }
             // thumbnail (default) - same design as before, just denser so more
             // fit per row and the grid fills the available width.
             return `
-                <div class="relative group p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
+                <div ${id} class="relative group cursor-pointer p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
                     <div class="flex items-start justify-between mb-3">
-                        <div class="text-2xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
-                        ${delBtn}
+                        <div class="text-2xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${esc(app.icon)}</div>
+                        ${cardActions(app, mode)}
                     </div>
-                    <h3 class="font-bold text-sm mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
+                    <h3 class="font-bold text-sm mb-1 text-slate-800 dark:text-slate-100">${esc(app.name)}</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${esc(app.desc || 'No description')}</p>
                 </div>`;
         }
 
@@ -623,7 +791,7 @@
                 section.innerHTML = `
                     <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
                         <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                        ${cat}
+                        ${esc(cat)}
                     </h2>
                     <div class="${gridClassForMode(mode)}">
                         ${items}
@@ -655,16 +823,81 @@
         });
 
         async function deleteApp(id) {
-            if(!confirm("Remove this app shortcut?")) return;
             const docRef = Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps');
             const doc = await docRef.get();
-            if(doc.exists) {
-                let list = doc.data().list;
-                // Filter by ID if exists, otherwise by name (legacy support)
-                list = list.filter(a => (a.id && a.id !== id) || (!a.id && a.name !== id));
-                await docRef.set({ list });
+            if (doc.exists) {
+                // Every card carries an id now (ensureAppIds backfills the
+                // built-ins), so the old match-by-name fallback is gone - it
+                // could not have survived a rename anyway.
+                const list = (doc.data().list || []).filter(a => a.id !== id);
+                await docRef.set({ list }, { merge: true });
             }
         }
+
+        // window.confirm() is a silent no-op in an iOS Home Screen web app -
+        // the same reason this page has an inline email sign-in form instead
+        // of a prompt() - so removal confirms itself in the page. The first
+        // press arms the button; a second within four seconds removes.
+        let disarmTimer = null;
+
+        function disarmDelete(btn) {
+            if (!btn) return;
+            delete btn.dataset.armed;
+            btn.classList.remove('bg-red-500', 'text-white', 'ring-2', 'ring-red-300');
+            const label = 'Remove ' + (btn.dataset.appName || 'this app');
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+        }
+
+        function confirmThenDelete(btn, id) {
+            if (btn.dataset.armed === '1') {
+                clearTimeout(disarmTimer);
+                deleteApp(id);
+                return;
+            }
+            document.querySelectorAll('[data-app-action="delete"][data-armed="1"]').forEach(disarmDelete);
+            btn.dataset.appName = btn.dataset.appName || btn.title.replace(/^Remove /, '');
+            btn.dataset.armed = '1';
+            btn.classList.add('bg-red-500', 'text-white', 'ring-2', 'ring-red-300');
+            btn.title = 'Press again to remove';
+            btn.setAttribute('aria-label', 'Press again to remove');
+            clearTimeout(disarmTimer);
+            disarmTimer = setTimeout(() => disarmDelete(btn), 4000);
+        }
+
+        // One listener for every card. #apps-container itself survives each
+        // re-render - only its children are replaced - so this never needs
+        // rebinding, and no card has to carry an inline handler built out of
+        // user-supplied text.
+        const appsContainer = document.getElementById('apps-container');
+
+        function appForEvent(e) {
+            const card = e.target.closest('[data-app-id]');
+            if (!card) return null;
+            return (Core.apps || []).find(a => a.id === card.dataset.appId) || null;
+        }
+
+        appsContainer.addEventListener('click', e => {
+            const app = appForEvent(e);
+            if (!app) return;
+            const btn = e.target.closest('[data-app-action]');
+            if (!btn) {
+                window.location.href = app.link;
+                return;
+            }
+            e.stopPropagation();
+            if (btn.dataset.appAction === 'edit') openAppEditor(app.id);
+            else confirmThenDelete(btn, app.id);
+        });
+
+        // Right-click is the desktop shortcut into the editor. Touch has the
+        // ✎ button instead - iOS has no contextmenu event.
+        appsContainer.addEventListener('contextmenu', e => {
+            const app = appForEvent(e);
+            if (!app) return;
+            e.preventDefault();
+            openAppEditor(app.id);
+        });
 
         // --- GLOBAL SEARCH LOGIC ---
         function handleSearch(query) {
@@ -681,8 +914,11 @@
             let html = '';
 
             // 1. Search Apps (Metadata)
-            const matchedApps = Core.apps.filter(app => 
-                app.name.toLowerCase().includes(term) || 
+            // Every field here is guarded: a card can now be saved with an
+            // empty description, and an unguarded app.name would take the
+            // whole search panel down with it.
+            const matchedApps = Core.apps.filter(app =>
+                (app.name && app.name.toLowerCase().includes(term)) ||
                 (app.desc && app.desc.toLowerCase().includes(term)) ||
                 (app.category && app.category.toLowerCase().includes(term))
             );
@@ -690,13 +926,16 @@
             if (matchedApps.length > 0) {
                 html += `<div class="p-4 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase text-slate-500">Apps</div>`;
                 matchedApps.forEach(app => {
+                    // data-app-link, not an inline onclick, for the same reason
+                    // the cards use data-app-id - see renderAppCard().
+                    const meta = [app.category, app.desc].filter(Boolean).join(' • ');
                     html += `
-                        <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" onclick="window.location.href='${app.link}'">
+                        <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" data-app-link="${esc(app.link)}">
                             <div class="flex items-center gap-3">
-                                <span class="text-2xl">${app.icon}</span>
+                                <span class="text-2xl">${esc(app.icon)}</span>
                                 <div>
-                                    <div class="font-bold text-slate-800 dark:text-slate-200">${app.name}</div>
-                                    <div class="text-xs text-slate-500">${app.category} • ${app.desc}</div>
+                                    <div class="font-bold text-slate-800 dark:text-slate-200">${esc(app.name)}</div>
+                                    <div class="text-xs text-slate-500">${esc(meta)}</div>
                                 </div>
                             </div>
                         </div>
@@ -779,11 +1018,19 @@
             }
 
             if (html === '') {
-                html = `<div class="p-8 text-center text-slate-400">No matches found for "${query}"</div>`;
+                html = `<div class="p-8 text-center text-slate-400">No matches found for "${esc(query)}"</div>`;
             }
 
             resultsPanel.innerHTML = html;
         }
+
+        // Companion to the data-app-link rows above. The deep-search rows
+        // below them keep their own inline handlers - those links are
+        // hardcoded constants, not user-editable text.
+        document.getElementById('search-results-panel').addEventListener('click', e => {
+            const row = e.target.closest('[data-app-link]');
+            if (row) window.location.href = row.dataset.appLink;
+        });
     </script>
 </body>
 </html>
