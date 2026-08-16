@@ -1,0 +1,225 @@
+/*
+ * 📱 iOS COMPATIBILITY LAYER
+ *
+ * Loaded by every page in the hub, right after that page's own styles so it
+ * can override them. Everything here fixes something iOS Safari (and the
+ * Home Screen web app, which is the same engine without browser chrome)
+ * does differently from a desktop browser. Nothing here changes the desktop
+ * rendering: every rule is either inert on a mouse-driven browser or gated
+ * behind a touch/iOS media query.
+ *
+ * Pair with ios-compat.js, which handles the parts CSS cannot express
+ * (wrapping overflowing tables, tap-toggling hover menus, the pre-dvh
+ * viewport height).
+ */
+
+/* ------------------------------------------------------------------ *
+ * 1. Metrics every page can build on
+ * ------------------------------------------------------------------ */
+:root {
+    /* Safe areas are 0 everywhere except on a notched/rounded iPhone with
+       viewport-fit=cover, so referencing them unconditionally is free. */
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+
+    /* Height of the *visible* viewport. On iOS `100vh` is the height the
+       page would have if the address bar were hidden, so a `100vh` app
+       shell always overflows by the height of that bar. Prefer dvh; the
+       JS shim fills this in for iOS versions older than 15.4. */
+    --app-h: 100vh;
+}
+@supports (height: 100dvh) {
+    :root { --app-h: 100dvh; }
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. Text sizing
+ * ------------------------------------------------------------------ */
+/* iOS inflates the font of wide text blocks when the phone is rotated to
+   landscape, which silently breaks every layout that was measured in
+   portrait. */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. Safe areas
+ * ------------------------------------------------------------------ */
+/* With viewport-fit=cover the page paints edge to edge, so in landscape
+   the notch and the home indicator sit on top of the content unless the
+   insets are paid back. border-box keeps this inside any height the page
+   already set on <body>. */
+body {
+    box-sizing: border-box;
+    padding-left: var(--safe-l);
+    padding-right: var(--safe-r);
+}
+@media (display-mode: standalone) {
+    body { padding-bottom: var(--safe-b); }
+}
+
+/* The shared hub nav is `sticky top-0`, so it - not <body> - is what ends
+   up under the status bar. Give it the inset as padding so its background
+   still fills the bar. */
+#global-nav > nav { padding-top: var(--safe-t); }
+
+/* Anything a page pins to the very top or bottom of the screen. */
+.ios-safe-top { padding-top: var(--safe-t); }
+.ios-safe-bottom { padding-bottom: var(--safe-b); }
+
+/* ------------------------------------------------------------------ *
+ * 4. Touch behaviour
+ * ------------------------------------------------------------------ */
+body { -webkit-tap-highlight-color: transparent; }
+
+/* Without this iOS holds a 300ms double-tap-to-zoom timer before firing
+   click, which makes every button in these tools feel broken. */
+a, button, select, summary, label, [role="button"], [onclick],
+input[type="button"], input[type="submit"], input[type="reset"],
+input[type="checkbox"], input[type="radio"] {
+    touch-action: manipulation;
+}
+
+/* Tapping an element leaves :hover latched on iOS until something else is
+   tapped, so hover styling has to be reserved for real pointers. */
+@media (hover: none) {
+    /* A control that only appears on hover can never be reached by touch.
+       Tailwind's `opacity-0 group-hover:opacity-100` reveal (delete
+       buttons on the dashboard cards, the row actions in the Eisenhower
+       matrix) becomes permanently visible instead. */
+    .group-hover\:opacity-100 { opacity: 1 !important; }
+    .group-hover\:flex.hidden { display: flex !important; }
+}
+
+/* Give every tappable control a finger-sized target. Height only - widths
+   are load-bearing inside the dense toolbars. Keyed on the pointer rather
+   than the width, because a phone held in landscape is 844px wide and the
+   finger has not changed size. */
+@media (pointer: coarse) {
+    button, [role="button"], .btn, summary,
+    input[type="button"], input[type="submit"] {
+        min-height: 36px;
+    }
+    input[type="checkbox"], input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * 5. Form fields
+ * ------------------------------------------------------------------ */
+/* iOS zooms the whole page in whenever a field smaller than 16px takes
+   focus, and never zooms back out - the single most disruptive thing about
+   using these tools on a phone. Safari has ignored `user-scalable=no`
+   since iOS 10, so raising the field's own font is the only fix left.
+   Dense tables get taller here; that is the trade, and section 6 lets them
+   scroll sideways rather than squash. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+    textarea,
+    select {
+        font-size: max(16px, 1em) !important;
+    }
+}
+
+@supports (-webkit-touch-callout: none) {
+    /* Momentum scrolling for the scroll containers on iOS 12 and earlier;
+       inert on anything that is not scrollable. */
+    * { -webkit-overflow-scrolling: touch; }
+}
+
+/* iOS paints its own inset shadow and pill shape over any styled text
+   field. Checkboxes, radios, ranges, colour and file pickers are left
+   alone - stripping their appearance removes the control itself. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Safari refuses to render a disabled field's colour at full opacity. */
+input:disabled, textarea:disabled, select:disabled {
+    opacity: 1;
+    -webkit-text-fill-color: currentColor;
+}
+
+/* ------------------------------------------------------------------ *
+ * 6. Wide content scrolls instead of stretching the page
+ * ------------------------------------------------------------------ */
+/* ios-compat.js drops this wrapper around any table, chart canvas or
+   diagram that is wider than the space it has. Without it a single wide
+   table makes the *whole document* horizontally scrollable, so every
+   other section on the page drifts off-centre. */
+.ios-scroll-x {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+/* A scroll container still reports its contents' min-content width to its
+   parent, so without this the scroller pushes the layout wider than the
+   screen - exactly the overflow it was added to absorb - and iOS answers by
+   zooming the document out. Containment cuts that reporting off at the
+   scroller. */
+@supports (contain: inline-size) {
+    .ios-scroll-x { contain: inline-size; }
+}
+
+@media (max-width: 820px) {
+    /* A table squeezed into a phone screen is unreadable long before it is
+       unusable, so multi-column tables keep a legible width and scroll. */
+    .ios-scroll-x > table.ios-wide-table { min-width: 660px; }
+
+    /* Long tags, formulas and file names are the usual source of a page
+       that scrolls sideways for no visible reason. */
+    body { overflow-wrap: break-word; }
+    pre, code {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    img { max-width: 100%; height: auto; }
+}
+
+/* Two hooks for page authors, both read by ios-compat.js:
+     .ios-no-wrap  - on a container, to leave its tables alone
+     .ios-scroll-me - on any element that should get the same treatment as
+                      a table when it outgrows its column */
+
+/* ------------------------------------------------------------------ *
+ * 7. Hover menus become tap menus
+ * ------------------------------------------------------------------ */
+/* ios-compat.js puts .ios-menu-open on the wrapper of a dropdown that was
+   opened by tapping. The selectors mirror the Tailwind classes the hub's
+   account menu is built from. */
+.ios-menu-open > .group-hover\:block { display: block !important; }
+.ios-menu-open > .group-hover\:flex { display: flex !important; }
+
+@media (hover: none) {
+    /* Take :hover out of the decision entirely on touch. iOS latches
+       :hover onto the last-tapped element, so leaving Tailwind's rule
+       live means the menu re-opens itself the moment the tap toggle
+       closes it. Outscores `.group:hover .group-hover\:block` on
+       specificity; .ios-menu-open still wins over both. */
+    .group:hover > .group-hover\:block.hidden { display: none; }
+}
+
+/* ------------------------------------------------------------------ *
+ * 8. Printing from iOS
+ * ------------------------------------------------------------------ */
+/* A scroller prints as the sliver of table that happened to be visible.
+   Undo the whole mechanism on paper. */
+@media print {
+    .ios-scroll-x {
+        overflow: visible !important;
+        max-width: none !important;
+        contain: none !important;
+    }
+    .ios-scroll-x > table.ios-wide-table { min-width: 0 !important; }
+}
