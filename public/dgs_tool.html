@@ -176,18 +176,25 @@
                 } catch (e) {
                     console.log('Auth persistence:', e.code || e.message);
                 }
-                try {
-                    await this.auth.signInWithPopup(provider);
-                    return;
-                } catch (e) {
-                    if (e.code === 'auth/account-exists-with-different-credential') {
-                        await this.linkPendingCredential(e);
+                // A standalone (Home Screen) web app has no browser window
+                // chrome to host a popup - signInWithPopup silently fails or
+                // hangs there instead of throwing something the fallback
+                // below could react to, so skip straight to redirect.
+                const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                if (!standalone) {
+                    try {
+                        await this.auth.signInWithPopup(provider);
                         return;
+                    } catch (e) {
+                        if (e.code === 'auth/account-exists-with-different-credential') {
+                            await this.linkPendingCredential(e);
+                            return;
+                        }
+                        // Closing the popup is a deliberate cancel, not a reason to fall
+                        // back to a redirect the user did not ask for.
+                        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+                        console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
                     }
-                    // Closing the popup is a deliberate cancel, not a reason to fall
-                    // back to a redirect the user did not ask for.
-                    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-                    console.log('Popup sign-in unavailable, using redirect:', e.code || e.message);
                 }
                 try {
                     await this.auth.signInWithRedirect(provider);
