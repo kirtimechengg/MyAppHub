@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -54,6 +54,14 @@
   .mode-active{background:#0F172A;color:#fff}
   #drillBody dt{margin-bottom:2px}
   @media(min-width:1280px){#matrixCard{width:var(--mw,380px);flex:0 0 auto}}
+  /* The pipeline is three stages joined by arrows drawn in the 52px gaps.
+     Wrapped onto a phone those gaps become vertical dead space and the
+     arrows point at nothing, so stack the stages and drop the connectors. */
+  @media(max-width:768px){
+    #hdrBody{flex:1 0 100%;flex-direction:column;align-items:stretch;gap:8px}
+    .flow-node::after,.flow-node::before{display:none}
+    #matrixResize{display:none}
+  }
   #matrixResize{position:absolute;left:-12px;top:0;height:100%;width:14px;cursor:col-resize;z-index:5}
   #matrixResize::before{content:"";position:absolute;left:5px;top:50%;transform:translateY(-50%);height:42px;width:4px;border-radius:3px;background:#CBD5E1}
   #matrixResize:hover::before{background:#6366F1}
@@ -77,6 +85,9 @@
   .cyc-tbl td.num,.cyc-tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
   .cyc-tbl tbody tr{cursor:pointer}.cyc-tbl tbody tr:hover{background:#F1F5F9}
 </style>
+    <!-- iOS / mobile compatibility layer (see ios-compat.css) -->
+    <link rel="stylesheet" href="/ios-compat.css">
+    <script src="/ios-compat.js" defer></script>
 </head>
 <body class="min-h-screen">
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,6 +14,9 @@
     <title>App Hub Developer Guide</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>body { font-family: sans-serif; }</style>
+    <!-- iOS / mobile compatibility layer (see ios-compat.css) -->
+    <link rel="stylesheet" href="/ios-compat.css">
+    <script src="/ios-compat.js" defer></script>
 </head>
 <body class="bg-white text-slate-900">
 
@@ -80,6 +83,26 @@ function saveData(data) {
                     <li>Enter the name, icon, and filename (e.g., <code>my_new_tool.html</code>).</li>
                     <li>Click <strong>Add App</strong>.</li>
                 </ol>
+            </section>
+
+            <!-- Step 4 -->
+            <section>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">4</div>
+                    <h2 class="text-2xl font-bold">Keep it working on iPhone</h2>
+                </div>
+                <p class="mb-4">Every page loads a shared iOS layer as the last two lines of its <code>&lt;head&gt;</code>. <code>template.html</code> already has them, so a page copied from the template needs nothing else:</p>
+                <div class="bg-slate-100 p-4 rounded-lg font-mono text-sm overflow-x-auto">
+<pre>&lt;link rel="stylesheet" href="/ios-compat.css"&gt;
+&lt;script src="/ios-compat.js" defer&gt;&lt;/script&gt;</pre>
+                </div>
+                <p class="mt-4 mb-2">It has to come <strong>after</strong> the page's own styles, and the page's viewport tag needs <code>viewport-fit=cover</code>. Between them the two files handle safe areas, the focus-zoom that Safari applies to any field under 16px, hover-only menus, finger-sized tap targets, and wrapping over-wide tables in their own horizontal scroller.</p>
+                <p class="mb-2">Three things are worth knowing when you write a new page:</p>
+                <ul class="list-disc pl-6 space-y-2">
+                    <li>Size full-height shells with <code>var(--app-h)</code>, never <code>100vh</code> — on iOS <code>100vh</code> is taller than the screen by the height of the address bar.</li>
+                    <li>Safe-area insets are available as <code>var(--safe-t)</code>, <code>--safe-r</code>, <code>--safe-b</code> and <code>--safe-l</code>.</li>
+                    <li>Tables are wrapped automatically. Add <code>ios-no-wrap</code> to a container to opt out, or <code>ios-scroll-me</code> to anything else that should scroll the same way.</li>
+                </ul>
             </section>
 
         </div>

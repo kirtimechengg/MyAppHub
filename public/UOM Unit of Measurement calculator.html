@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,6 +85,9 @@
     .unit-pair { grid-template-columns:1fr auto 1fr; }
   }
 </style>
+    <!-- iOS / mobile compatibility layer (see ios-compat.css) -->
+    <link rel="stylesheet" href="/ios-compat.css">
+    <script src="/ios-compat.js" defer></script>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
 

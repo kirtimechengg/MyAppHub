@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,6 +22,9 @@
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
         .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
     </style>
+    <!-- iOS / mobile compatibility layer (see ios-compat.css) -->
+    <link rel="stylesheet" href="/ios-compat.css">
+    <script src="/ios-compat.js" defer></script>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -87,7 +90,9 @@
                         class="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 focus:border-blue-500 outline-none text-lg transition-all"
                         oninput="handleSearch(this.value)"
                     >
-                    <div class="absolute right-4 top-4">
+                    <!-- Hidden on phones: there is no "/" key to press, and the
+                         hint sits on top of the placeholder at that width. -->
+                    <div class="absolute right-4 top-4 hidden sm:block">
                         <span id="search-status" class="text-xs text-slate-400">Press / to search</span>
                     </div>
                 </div>

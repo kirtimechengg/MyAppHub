@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark" data-accent="amber" data-font="technical" data-density="normal">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -215,8 +215,26 @@ tr:hover td{background:var(--panel2)}tr.sel td{background:var(--blockOn)}td.tag{
 .drop.on{display:flex}
 .err{color:#E5534B;padding:10px;font-family:var(--mono);font-size:11px;line-height:1.7}
 @media(max-width:900px){main{grid-template-columns:1fr;height:auto}.right{grid-template-rows:520px 300px}header{flex-wrap:wrap}.tb.act{width:100%;border-top:1px solid var(--line2)}}
+/* The five view tabs and the search box together need ~730px. On a phone the
+   flex row shrank .tabs instead, and because it clips (overflow:hidden for the
+   rounded corners) every tab disappeared - the drawing views became
+   unreachable. Give the tabs their own full-width row that scrolls. */
+@media(max-width:760px){
+  #topbar{flex-wrap:wrap;margin:8px 8px 0}
+  #topbar .tabs{order:3;flex:1 0 100%;overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  #topbar .tab{flex:0 0 auto;white-space:nowrap;padding:9px 14px}
+  .search{min-width:0;flex:1 1 160px}
+  .search input{padding-right:60px}
+  header,.bar{margin:0 8px}
+  /* The stacked panes need to be tall enough to read a drawing in. */
+  .right{grid-template-rows:min(60vh,460px) min(40vh,320px)}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+    <!-- iOS / mobile compatibility layer (see ios-compat.css) -->
+    <link rel="stylesheet" href="/ios-compat.css">
+    <script src="/ios-compat.js" defer></script>
 </head>
 <body>
 
