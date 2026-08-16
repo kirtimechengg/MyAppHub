@@ -890,6 +890,27 @@
         minD2Open: 0.100            // m
     };
 
+    /* ===================================================================== */
+    /* 13b. Empirical fleet bands - screening advisories, not solver limits    */
+    /* ===================================================================== */
+    /* Sanity checks against real fleet experience, layered on top of a
+       finished solution - unlike DEFAULTS above, nothing here feeds the
+       solve; a result outside a band is flagged for review, never clamped
+       or altered. `unit` names the engine unit category (see UNITS) so the
+       UI can display each band in whatever system it's currently showing.
+       Add a sibling entry here for each new dataset; nothing else in this
+       file needs to change to support one. */
+    var EMPIRICAL_BANDS = {
+        headPerStage: {
+            label: 'Average head per stage',
+            unit: 'head',             // base J/kg
+            lo: 19429,                //  6,500 ft.lbf/lbm
+            hi: 41847,                // 14,000 ft.lbf/lbm
+            appliesTo: 'closed',      // survey covers closed impellers only; open designs run above hi
+            source: 'Survey of 60+ actual compressor sections, multiple equipment suppliers'
+        }
+    };
+
     /**
      * March one uncooled section: integrate the path, work out how many
      * stages are needed to respect the head-per-stage, Mach and temperature
@@ -2208,6 +2229,7 @@
         PRESETS: PRESETS,
         MODELS: MODELS,
         DEFAULTS: DEFAULTS,
+        EMPIRICAL_BANDS: EMPIRICAL_BANDS,
         IMPELLER_TYPES: IMPELLER_TYPES,
         ARCHITECTURES: ARCHITECTURES,
         IGC_LIMITS: IGC_LIMITS,

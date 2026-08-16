@@ -614,6 +614,15 @@
                 <p class="text-xs mb-3" style="color:var(--muted)">Section 1 re-solved at each stage count: speed on the left axis, peripheral Mach on the right, against their limits.</p>
                 <div class="chart-wrap" id="chartSweep"></div>
             </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Head per stage — fleet experience</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Every stage against the surveyed fleet band (closed impellers), from a survey of 60+ actual
+                    compressor sections across multiple equipment suppliers. A screening check, not a solver
+                    limit — a point outside the band is worth a second look, not necessarily wrong.
+                </p>
+                <div class="chart-wrap" id="chartHeadBand"></div>
+            </div>
         </section>
 
         <!-- ============================ REPORT ============================ -->
@@ -1096,6 +1105,16 @@ Min impeller diameter: 180 mm (closed) · 100 mm (open) — room for shaft, seal
 
 Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, ~1.5% loss per mesh<span class="live" data-f="limitsNow"></span></div>
                 <div class="drivers" data-drivers="inImpeller,inArchitecture,inPsi,inPhi,inMu2,inMrel,inT2max,inMaxSpeed,inMinD2,inEtaMech"></div>
+
+                <p class="text-sm mb-1 mt-4" style="color:var(--muted)">
+                    One entry here isn't a solver limit at all — a screening check against real fleet experience,
+                    shown on the Charts tab and in the Results warnings. It doesn't feed the solve and never
+                    clamps anything; a result outside it is worth a second look, not necessarily wrong.
+                </p>
+                <div class="formula">Average head per stage = Hp_section / nStages
+Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf/lbm)
+  from a survey of 60+ actual compressor sections across multiple equipment suppliers
+  open/semi-open impellers legitimately run above this band — the survey covers closed impellers only<span class="live" data-f="headBand"></span></div>
             </div>
         </section>
 
@@ -2291,6 +2310,41 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     $('chartSweep').innerHTML = `<p class="text-sm" style="color:var(--muted)">Could not compute the sweep for this duty.</p>`;
                 }
             }
+
+            /* --- 6. Head per stage against the surveyed fleet band --- */
+            const band = E.EMPIRICAL_BANDS.headPerStage;
+            const bandLo = disp('head', band.lo), bandHi = disp('head', band.hi);
+            const hpVals = allStages.map(s => disp('head', s.st.Hp));
+            const hpMax = Math.max(bandHi * 1.15, ...hpVals.map(v => v * 1.15));
+            const phiMaxBand = Math.max(0.16, ...allStages.map(s => s.st.phi * 1.15));
+            $('chartHeadBand').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Head per stage against flow coefficient — fleet band, closed impellers',
+                xlab: 'Flow coefficient  φ',
+                ylab: 'Head per stage (' + unitLabel('head') + ')',
+                x0: 0, x1: phiMaxBand, y0: 0, y1: hpMax,
+                xfmt: v => v.toFixed(3),
+                rects: [
+                    { x0: 0, x1: phiMaxBand, y0: bandLo, y1: bandHi, fill: p.accent, opacity: 0.10, label: 'Fleet band — closed impellers', labelColor: p.muted }
+                ],
+                hlines: [
+                    { y: bandHi, color: p.bad, dash: '5 4', label: 'Fleet max (' + fmtNum(bandHi, 0) + ' ' + unitLabel('head') + ')' },
+                    { y: bandLo, color: p.bad, dash: '5 4', label: 'Fleet min (' + fmtNum(bandLo, 0) + ' ' + unitLabel('head') + ')' }
+                ],
+                points: allStages.map(s => ({
+                    x: s.st.phi, y: disp('head', s.st.Hp),
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    // Open/semi-open impellers legitimately run above this band -
+                    // the survey behind it covers closed impellers only - so
+                    // don't red-flag them here even though the shaded band is
+                    // still drawn for reference.
+                    ok: inp.impeller.open ? true : (s.st.Hp >= band.lo && s.st.Hp <= band.hi)
+                })),
+                legend: [
+                    { label: 'Inside the fleet band', color: p.ok },
+                    { label: 'Outside the fleet band', color: p.bad }
+                ]
+            });
         }
 
         /* ---------------------------------------------------------------- */
@@ -2551,6 +2605,24 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                     if (st.Mrel > currentLimits().mrelMax) warns.push(['bad', 'Section ' + s.section + ' stage ' + st.index + ' inlet relative Mach ' + st.Mrel.toFixed(2) + ' exceeds the limit.']);
                     if (st.phi < E.DEFAULTS.phiMin) warns.push(['warn', 'Section ' + s.section + ' stage ' + st.index + ' flow coefficient ' + st.phi.toFixed(4) + ' is below ' + E.DEFAULTS.phiMin + ' — a very narrow impeller with poor efficiency.']);
                 });
+                // Fleet-experience screening, not a solver limit: real vendor
+                // sections cluster inside this band, so a result outside it
+                // is worth a second look, not necessarily wrong. Only
+                // meaningful for closed impellers - the survey it's drawn
+                // from doesn't cover open/semi-open designs.
+                if (!inp.impeller.open) {
+                    const band = E.EMPIRICAL_BANDS.headPerStage;
+                    const avgHp = s.HpTotal / s.nStages;
+                    if (avgHp > band.hi) {
+                        warns.push(['warn', 'Section ' + s.section + ' average head per stage ' + dispU('head', avgHp, 1) +
+                            ' is above the surveyed fleet band (' + dispU('head', band.hi, 1) + ' max, ' + band.source +
+                            ', closed impellers) — worth checking whether one more stage brings it back in range.']);
+                    } else if (avgHp < band.lo) {
+                        warns.push(['warn', 'Section ' + s.section + ' average head per stage ' + dispU('head', avgHp, 1) +
+                            ' is below the surveyed fleet band (' + dispU('head', band.lo, 1) + ' min, ' + band.source +
+                            ') — the duty may be built with fewer, more heavily loaded stages.']);
+                    }
+                }
                 if (s.cooler && s.cooler.dewWarning.condensing) {
                     warns.push(['warn', 'The intercooler after section ' + s.section + ' takes the gas below its dew point (heaviest component ' +
                         s.cooler.dewWarning.heaviest + '). A knockout drum is needed; this tool does not flash the stream or change the composition.']);
@@ -3040,7 +3112,17 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             /* 14. limits in force ------------------------------------------ */
             limitsNow: c => `→ in force now: ψ ${n(c.inp.psiTarget, 3)}, φ ${n(c.inp.phiTarget, 3)}, Mu₂max ${n(c.inp.limits.mu2Max, 3)}, ` +
                 `M rel max ${n(c.inp.limits.mrelMax, 3)}, T₂max ${n(c.inp.limits.t2MaxC, 1)} °C, ` +
-                `U₂max ${n(c.inp.impeller.u2max, 0)} m/s, N max ${n(c.inp.maxSpeed, 0)} rpm, D₂ min ${n(c.inp.minD2, 3)} m`
+                `U₂max ${n(c.inp.impeller.u2max, 0)} m/s, N max ${n(c.inp.maxSpeed, 0)} rpm, D₂ min ${n(c.inp.minD2, 3)} m`,
+            headBand: c => {
+                const band = E.EMPIRICAL_BANDS.headPerStage;
+                const avgHp = c.sec.HpTotal / c.sec.nStages;
+                if (c.inp.impeller.open) {
+                    return `→ section ${c.sec.section}: ${n(c.sec.HpTotal, 1)} / ${c.sec.nStages} = ${n(avgHp, 1)} J/kg` +
+                        `  —  band not applied (open impeller, outside the surveyed population)`;
+                }
+                const verdict = avgHp > band.hi ? 'ABOVE the band' : (avgHp < band.lo ? 'BELOW the band' : 'inside the band');
+                return `→ section ${c.sec.section}: ${n(c.sec.HpTotal, 1)} / ${c.sec.nStages} = ${n(avgHp, 1)} J/kg  —  ${verdict}`;
+            }
         };
 
         // The two selectors are rebuilt from the current result each render so
