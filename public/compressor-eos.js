@@ -724,7 +724,66 @@
         return clamp(f, 0.80, 1.0);
     }
 
-    function predictEtaP(Q1_m3h, phi) {
+    /* Aungier polytropic efficiency characteristic, digitised from the
+       published figure rather than reproduced algebraically - the curve is
+       read off the chart at the points below and linearly interpolated
+       between them, so treat it as good to roughly +/-0.01, not as an exact
+       restatement of Aungier's own equations. Efficiency here is a function
+       of flow coefficient alone; unlike the built-in correlation it carries
+       no explicit machine-size term, which is why very small phi drops away
+       so steeply. Vaned diffusers run slightly higher than vaneless over
+       most of the range and fall off less sharply at low phi. */
+    var AUNGIER_ETA = {
+        phi:      [0.0025, 0.005, 0.010, 0.015, 0.020, 0.030, 0.040, 0.050, 0.060, 0.070,
+                   0.080, 0.090, 0.100, 0.110, 0.120, 0.140, 0.160, 0.180, 0.200],
+        vaned:    [0.400, 0.550, 0.655, 0.710, 0.745, 0.790, 0.815, 0.831, 0.843, 0.850,
+                   0.855, 0.858, 0.860, 0.859, 0.855, 0.842, 0.828, 0.816, 0.805],
+        vaneless: [0.255, 0.450, 0.600, 0.665, 0.705, 0.762, 0.792, 0.810, 0.822, 0.832,
+                   0.839, 0.843, 0.845, 0.845, 0.843, 0.835, 0.822, 0.808, 0.795]
+    };
+
+    /* diffuser: 'vaned' | 'vaneless'. Held flat outside the digitised range
+       rather than extrapolated - the curve's shape past either end isn't
+       something the figure supports claiming. */
+    function aungierEtaP(phi, diffuser) {
+        var ys = AUNGIER_ETA[diffuser === 'vaned' ? 'vaned' : 'vaneless'];
+        var xs = AUNGIER_ETA.phi;
+        if (!isFinite(phi)) return ys[0];
+        if (phi <= xs[0]) return ys[0];
+        if (phi >= xs[xs.length - 1]) return ys[ys.length - 1];
+        for (var i = 1; i < xs.length; i++) {
+            if (phi <= xs[i]) {
+                var t = (phi - xs[i - 1]) / (xs[i] - xs[i - 1]);
+                return ys[i - 1] + t * (ys[i] - ys[i - 1]);
+            }
+        }
+        return ys[ys.length - 1];
+    }
+
+    /* Aungier impeller axial length: L/D2 = 0.014 + 0.023*(D2/D1) + 1.58*phi.
+       The published figure draws this as a single straight line because it
+       fixes the eye ratio; here D1/D2 comes from the stage that was actually
+       solved, so the line moves with the geometry instead of assuming it.
+       At the figure's implied D1/D2 = 0.35 this reproduces its 0.08 intercept
+       and 0.333 value at phi = 0.16. */
+    function aungierAxialLengthRatio(phi, eyeRatio) {
+        var r = (isFinite(eyeRatio) && eyeRatio > 0) ? eyeRatio : 0.35;
+        return 0.014 + 0.023 / r + 1.58 * (isFinite(phi) && phi > 0 ? phi : 0);
+    }
+
+    /* etaModel: undefined/'builtin' keeps the flow-based correlation above;
+       'aungier-vaned' / 'aungier-vaneless' switch to the digitised curves.
+       Aungier depends only on phi, so the first pass - before any stage
+       geometry exists - still falls back to the flow-only estimate to give
+       the solve loop somewhere to start; it converges on the Aungier value
+       once a flow coefficient is known. */
+    function predictEtaP(Q1_m3h, phi, etaModel) {
+        if (etaModel === 'aungier-vaned' || etaModel === 'aungier-vaneless') {
+            if (isFinite(phi) && phi > 0) {
+                return aungierEtaP(phi, etaModel === 'aungier-vaned' ? 'vaned' : 'vaneless');
+            }
+            return baseEtaP(Q1_m3h);
+        }
         var eta = baseEtaP(Q1_m3h);
         if (isFinite(phi) && phi > 0) eta *= phiEfficiencyFactor(phi);
         return clamp(eta, 0.68, 0.87);
@@ -908,6 +967,14 @@
             hi: 41847,                // 14,000 ft.lbf/lbm
             appliesTo: 'closed',      // survey covers closed impellers only; open designs run above hi
             source: 'Survey of 60+ actual compressor sections, multiple equipment suppliers'
+        },
+        tipSpeed: {
+            label: 'Impeller tip speed',
+            unit: 'velocity',         // base m/s
+            lo: 198.12,               // 650 ft/sec
+            hi: 274.32,               // 900 ft/sec
+            appliesTo: 'closed',      // same survey population as headPerStage
+            source: 'Survey of 60+ actual compressor sections, multiple equipment suppliers'
         }
     };
 
@@ -930,7 +997,7 @@
 
         // First pass with a flow-only efficiency estimate, then refine once
         // the flow coefficient is known.
-        var etaP = opts.etaPManual || predictEtaP(Q1total * 3600, null);
+        var etaP = opts.etaPManual || predictEtaP(Q1total * 3600, null, opts.etaModel);
         var path = compressPath(mix, T1, P1, P2, etaP, model, opts.pathSteps || 40);
 
         // Allowable tip speed is the tighter of the mechanical stress limit
@@ -967,7 +1034,7 @@
             // Re-estimate efficiency from the first stage flow coefficient and
             // re-run the path if it moved appreciably.
             if (!opts.etaPManual) {
-                var newEta = predictEtaP(Q1total * 3600, result.stages[0].phi);
+                var newEta = predictEtaP(Q1total * 3600, result.stages[0].phi, opts.etaModel);
                 if (Math.abs(newEta - etaP) > 0.002) {
                     etaP = newEta;
                     path = compressPath(mix, T1, P1, P2, etaP, model, opts.pathSteps || 40);
@@ -1280,6 +1347,7 @@
                 psiTarget: opts.psiTarget,
                 phiTarget: opts.phiTarget,
                 etaPManual: opts.etaPManual,
+                etaModel: opts.etaModel,
                 etaMech: opts.etaMech,
                 speedMode: secSpeed ? 'manual' : 'auto',
                 speedManual: secSpeed,
@@ -2253,6 +2321,9 @@
 
         baseEtaP: baseEtaP,
         phiEfficiencyFactor: phiEfficiencyFactor,
+        aungierEtaP: aungierEtaP,
+        aungierAxialLengthRatio: aungierAxialLengthRatio,
+        AUNGIER_ETA: AUNGIER_ETA,
         predictEtaP: predictEtaP,
 
         // Exported so the Help tab can show the EOS internals (A, B, am, bm,
