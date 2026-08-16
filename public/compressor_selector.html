@@ -3353,14 +3353,30 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
 
         // Recalculates and persists the result - use this whenever the user
         // has actually changed something.
+        //
+        // The calculation itself (a multi-stage real-gas EOS solve) and the
+        // chart redraw it triggers are the expensive part of typing in this
+        // tool - not the network save, which was already debounced. Running
+        // that synchronously on every keystroke is what made composition
+        // and other fast-typed fields feel laggy, so it gets its own short
+        // debounce here, separate from (and shorter than) scheduleSave()'s.
+        // scheduleSave() itself stays un-debounced at the call site - it
+        // only resets timers and touches one status label, so there is
+        // nothing to gain by delaying it too.
+        let recalcTimer = null;
+        const RECALC_DEBOUNCE_MS = 200;
+
         function recalc() {
-            try {
-                recalcCore();
-                scheduleSave();
-            } catch (e) {
-                showError(e.message || String(e));
-                console.error(e);
-            }
+            scheduleSave();
+            clearTimeout(recalcTimer);
+            recalcTimer = setTimeout(() => {
+                try {
+                    recalcCore();
+                } catch (e) {
+                    showError(e.message || String(e));
+                    console.error(e);
+                }
+            }, RECALC_DEBOUNCE_MS);
         }
 
         // Recalculates without saving - use this when merely *displaying*
@@ -3520,7 +3536,20 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
             }
         }
 
-        let saveTimer = null;
+        // Two separate debounces, not one. localStorage is free and
+        // near-instant, so it stays on a short timer for crash resilience -
+        // reload mid-edit and you lose at most a second of typing. The
+        // Firestore write is the one that round-trips to the network and
+        // then back down through every other signed-in tab's live listener
+        // (caseSyncUnsub below); that's the "live sync" that made rapid
+        // typing feel like it was fighting the network, so it gets a long,
+        // quiet cadence instead. Both read collectState() fresh when they
+        // fire, so whichever fires last always wins - nothing here depends
+        // on firing order.
+        let localSaveTimer = null, cloudSaveTimer = null;
+        const LOCAL_SAVE_MS = 1200;
+        const CLOUD_SAVE_MS = 20000; // requested window was 15-25s
+
         // caseSyncUnsub: the live listener's unsubscribe, so a re-login or
         // sign-out can detach the old one before attaching a new one.
         // lastSyncedAt: a watermark of the savedAt this tab last wrote or
@@ -3528,33 +3557,82 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
         // another device" apart from the echo of its own write.
         let caseSyncUnsub = null, lastSyncedAt = 0;
 
+        // True whenever a cloud write is outstanding - scheduled but not yet
+        // sent. Guards the visibility/pagehide flush below so switching tabs
+        // with nothing pending doesn't issue an identical, pointless write.
+        let cloudDirty = false;
+
         function scheduleSave() {
-            clearTimeout(saveTimer);
-            $('saveStatus').textContent = Core.user ? 'Saving…' : '';
-            saveTimer = setTimeout(async () => {
-                const state = collectState();
-                const localOk = saveLocal(state);
+            $('saveStatus').textContent = Core.user ? 'Editing…' : '';
+
+            clearTimeout(localSaveTimer);
+            localSaveTimer = setTimeout(() => {
+                const localOk = saveLocal(collectState());
                 if (!Core.user) {
                     $('saveStatus').textContent = localOk
                         ? 'Saved on this device — sign in to sync'
                         : 'Not saved — this browser blocks local storage';
-                    return;
                 }
-                try {
-                    await Core.db.collection('users').doc(Core.user.uid)
-                        .collection('app_data').doc(TOOL_ID)
-                        .set(state, { merge: true });
-                    // Written before the live listener's own echo of this write
-                    // arrives, so that echo is recognized and skipped below.
-                    lastSyncedAt = state.savedAt;
-                    $('saveStatus').textContent = 'Synced ' + new Date().toLocaleTimeString();
-                } catch (e) {
-                    $('saveStatus').textContent = localOk
-                        ? 'Saved on this device — cloud sync failed'
-                        : 'Save failed';
-                }
-            }, 1500);
+            }, LOCAL_SAVE_MS);
+
+            if (!Core.user) return;
+            cloudDirty = true;
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(() => writeCloud(), CLOUD_SAVE_MS);
         }
+
+        async function writeCloud() {
+            const state = collectState();
+            const localOk = saveLocal(state);
+            try {
+                await Core.db.collection('users').doc(Core.user.uid)
+                    .collection('app_data').doc(TOOL_ID)
+                    .set(state, { merge: true });
+                // Written before the live listener's own echo of this write
+                // arrives, so that echo is recognized and skipped below.
+                lastSyncedAt = state.savedAt;
+                cloudDirty = false;
+                $('saveStatus').textContent = 'Synced ' + new Date().toLocaleTimeString();
+            } catch (e) {
+                $('saveStatus').textContent = localOk
+                    ? 'Saved on this device — cloud sync failed'
+                    : 'Save failed';
+            }
+        }
+
+        // Forces both saves through right away - for moments that are not
+        // "still typing", where waiting the full debounce would be wrong:
+        // navigating away, or an import that must not be lost if the very
+        // next keystroke elsewhere throws.
+        function flushSave() {
+            clearTimeout(localSaveTimer);
+            clearTimeout(cloudSaveTimer);
+            if (!Core.user) {
+                const localOk = saveLocal(collectState());
+                $('saveStatus').textContent = localOk
+                    ? 'Saved on this device — sign in to sync'
+                    : 'Not saved — this browser blocks local storage';
+                return;
+            }
+            writeCloud();
+        }
+
+        // A widened cloud debounce (CLOUD_SAVE_MS) means a page closed or
+        // backgrounded mid-edit could otherwise sit with up to 20s of
+        // changes never reaching Firestore - fine for this device (the
+        // local save is still on its own short timer) but stale for any
+        // other device until this tab is reopened. visibilitychange fires
+        // reliably when a tab is backgrounded or a mobile browser is
+        // switched away from; pagehide covers an actual close/navigation.
+        // Neither can await a network response, so this is best-effort, not
+        // a guarantee - same as any other beacon-style flush.
+        function flushIfDirty() {
+            if (cloudDirty) flushSave();
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') flushIfDirty();
+        });
+        window.addEventListener('pagehide', flushIfDirty);
 
         // Auth resolved with nobody signed in: fall back to whatever this
         // device last held, so a reload is not a silent data loss. Just
@@ -3836,8 +3914,12 @@ Integrally geared: max 4 pinions, max 2 impellers/pinion, max gear ratio ~20:1, 
                         // calculate (recalc() catches that and shows the
                         // error), its scheduleSave() call is never reached,
                         // and the just-imported fields would otherwise be
-                        // lost again on the next reload.
-                        scheduleSave();
+                        // lost again on the next reload. flushSave(), not
+                        // scheduleSave() - an import is a discrete event, not
+                        // a keystroke in a run of them, so there is nothing
+                        // to debounce and no reason to sit on the network
+                        // write for up to CLOUD_SAVE_MS.
+                        flushSave();
                         recalc();
                     } catch (err) {
                         showError('Could not read that file: ' + err.message);
