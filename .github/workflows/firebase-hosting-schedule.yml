@@ -9,6 +9,11 @@ on:
       # anything added later. Pushes that only touch README or the workflows
       # themselves still skip the deploy.
       - 'public/**'
+      # firebase.json controls what `firebase deploy --only hosting` actually
+      # does (headers, ignore list, public dir) even though it isn't served
+      # itself - a config-only change here needs to deploy too. Missing this
+      # is exactly what silently stranded the cache-header fix after PR #21.
+      - 'firebase.json'
   workflow_dispatch:
 
 permissions:
