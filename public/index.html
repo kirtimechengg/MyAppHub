@@ -63,9 +63,16 @@
                         <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">Dashboard</h1>
                         <p class="text-slate-500 dark:text-slate-400">Your integrated engineering workspace</p>
                     </div>
-                    <button onclick="toggleAppManager()" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <span class="text-lg">⚙️</span> Manage Apps
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm">
+                            <button onclick="setViewMode('thumbnail')" data-mode-btn="thumbnail" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="Thumbnails">🔳</button>
+                            <button onclick="setViewMode('list')" data-mode-btn="list" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="List">☰</button>
+                            <button onclick="setViewMode('icon')" data-mode-btn="icon" class="px-2.5 py-1.5 rounded-md text-sm transition text-slate-500" title="Icons">⚏</button>
+                        </div>
+                        <button onclick="toggleAppManager()" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <span class="text-lg">⚙️</span> Manage Apps
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search Bar -->
@@ -188,7 +195,7 @@
                 this.user = null;
                 this.db = null;
                 this.auth = null;
-                this.globalState = { theme: 'light' };
+                this.globalState = { theme: 'light', viewMode: 'thumbnail' };
                 this.stateListeners = [];
                 this.apps = []; // Store app list locally
                 this.deepSearchData = {}; // Cache for deep search
@@ -515,9 +522,6 @@
             if (!Core.user) return;
             Core.db.collection('users').doc(Core.user.uid).collection('app_data').doc('dashboard_apps')
                 .onSnapshot(doc => {
-                    const container = document.getElementById('apps-container');
-                    container.innerHTML = '';
-
                     let apps = (doc.exists && doc.data().list) ? doc.data().list : [];
                     Core.apps = apps; // Cache for search
 
@@ -541,43 +545,108 @@
                         }
                     }
 
-                    // --- GROUP BY CATEGORY ---
-                    const grouped = apps.reduce((acc, app) => {
-                        const cat = app.category || 'Uncategorized';
-                        if (!acc[cat]) acc[cat] = [];
-                        acc[cat].push(app);
-                        return acc;
-                    }, {});
-
-                    // --- RENDER ---
-                    Object.keys(grouped).sort().forEach(cat => {
-                        const section = document.createElement('div');
-                        section.className = "animate-fade-in-up";
-                        
-                        const gridHtml = grouped[cat].map((app, index) => `
-                            <div class="relative group p-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
-                                <div class="flex items-start justify-between mb-4">
-                                    <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
-                                    ${!app.isSystem ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>` : ''}
-                                </div>
-                                <h3 class="font-bold text-lg mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
-                                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
-                            </div>
-                        `).join('');
-
-                        section.innerHTML = `
-                            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                                <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                                ${cat}
-                            </h2>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                ${gridHtml}
-                            </div>
-                        `;
-                        container.appendChild(section);
-                    });
+                    renderDashboardGrid();
                 });
         }
+
+        // Three card layouts, one shared data source (Core.apps) - switching
+        // modes is a pure re-render, no re-fetch, so it's instant.
+        function gridClassForMode(mode) {
+            if (mode === 'list') return 'space-y-2';
+            if (mode === 'icon') return 'grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4';
+            return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'; // thumbnail
+        }
+
+        function renderAppCard(app, mode) {
+            const delBtn = !app.isSystem
+                ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`
+                : '';
+            if (mode === 'list') {
+                return `
+                    <div class="relative group flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
+                        <div class="text-xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg">${app.icon}</div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${app.name}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${app.desc || 'No description'}</p>
+                        </div>
+                        ${delBtn}
+                    </div>`;
+            }
+            if (mode === 'icon') {
+                const delBtnIcon = !app.isSystem
+                    ? `<button onclick="event.stopPropagation(); deleteApp('${app.id || app.name}')" class="absolute top-0 right-0 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm">✕</button>`
+                    : '';
+                return `
+                    <div class="relative group flex flex-col items-center text-center gap-1.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer" onclick="window.location.href='${app.link}'">
+                        <div class="text-3xl bg-slate-50 dark:bg-slate-700/50 w-14 h-14 flex items-center justify-center rounded-2xl group-hover:scale-105 transition-transform shadow-sm">${app.icon}</div>
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300 leading-tight">${app.name}</span>
+                        ${delBtnIcon}
+                    </div>`;
+            }
+            // thumbnail (default) - same design as before, just denser so more
+            // fit per row and the grid fills the available width.
+            return `
+                <div class="relative group p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full" onclick="window.location.href='${app.link}'">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="text-2xl bg-slate-50 dark:bg-slate-700/50 w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-110 transition-transform shadow-sm">${app.icon}</div>
+                        ${delBtn}
+                    </div>
+                    <h3 class="font-bold text-sm mb-1 text-slate-800 dark:text-slate-100">${app.name}</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${app.desc || 'No description'}</p>
+                </div>`;
+        }
+
+        function renderDashboardGrid() {
+            const container = document.getElementById('apps-container');
+            if (!container || !Core.apps) return;
+            container.innerHTML = '';
+            const mode = Core.globalState.viewMode || 'thumbnail';
+            lastRenderedViewMode = mode;
+
+            const grouped = Core.apps.reduce((acc, app) => {
+                const cat = app.category || 'Uncategorized';
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(app);
+                return acc;
+            }, {});
+
+            Object.keys(grouped).sort().forEach(cat => {
+                const section = document.createElement('div');
+                section.className = "animate-fade-in-up";
+                const items = grouped[cat].map(app => renderAppCard(app, mode)).join('');
+                section.innerHTML = `
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                        ${cat}
+                    </h2>
+                    <div class="${gridClassForMode(mode)}">
+                        ${items}
+                    </div>
+                `;
+                container.appendChild(section);
+            });
+        }
+
+        let lastRenderedViewMode = null;
+
+        function setViewMode(mode) {
+            Core.updateGlobalStore({ viewMode: mode });
+        }
+
+        function updateViewModeButtons() {
+            const mode = Core.globalState.viewMode || 'thumbnail';
+            document.querySelectorAll('[data-mode-btn]').forEach(btn => {
+                const active = btn.getAttribute('data-mode-btn') === mode;
+                btn.classList.toggle('bg-blue-600', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('text-slate-500', !active);
+            });
+        }
+
+        Core.subscribe(state => {
+            updateViewModeButtons();
+            if (Core.apps && state.viewMode !== lastRenderedViewMode) renderDashboardGrid();
+        });
 
         async function deleteApp(id) {
             if(!confirm("Remove this app shortcut?")) return;
