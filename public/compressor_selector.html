@@ -1411,7 +1411,15 @@ Fleet band, closed impellers: 19,429 – 41,847 J/kg   (6,500 – 14,000 ft·lbf
     </script>
 
     <!-- 5. THERMODYNAMIC / AERODYNAMIC ENGINE -->
-    <script src="compressor-eos.js"></script>
+    <!-- The ?v= is a cache buster, and it has to stay. firebase.json now sends
+         Cache-Control: no-cache for .js, but that only governs responses served
+         from now on - a browser that already cached this file under the old
+         header-less config can keep serving its stale copy until its own
+         heuristic freshness window expires. That is exactly what produced
+         "E.EMPIRICAL_BANDS is undefined": a fresh HTML page paired with a
+         months-old engine. Bump this whenever compressor-eos.js gains
+         something the page depends on. -->
+    <script src="compressor-eos.js?v=20260816"></script>
 
     <!-- 6. PAGE LOGIC -->
     <script>
