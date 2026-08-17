@@ -1226,6 +1226,8 @@
                 Hp: HpStage,
                 U2: U2, D2: D2, N: N,
                 psi: stagePsi, phi: phi,
+                nsSpec: specificSpeed(HpStage, Qs, N),
+                dsSpec: specificDiameter(HpStage, Qs, D2),
                 Mu2: Mu2, Mrel: eye.Mrel,
                 eyeRatio: eye.eyeRatio, D1: eye.D1,
                 sonic: dIn.sonic,
@@ -1583,6 +1585,8 @@
         st.U2 = g.U2;
         st.D2 = g.D2;
         st.phi = g.phi;
+        st.nsSpec = specificSpeed(st.Hp, st.Q1, N);
+        st.dsSpec = specificDiameter(st.Hp, st.Q1, g.D2);
         st.Mu2 = g.U2 / st.sonic;
         st.Mrel = eye.Mrel;
         st.eyeRatio = eye.eyeRatio;
@@ -1642,6 +1646,364 @@
             }
         }
         return rows;
+    }
+
+    /* ===================================================================== */
+    /* 14d. Sandberg preliminary selection methodology                        */
+    /* ===================================================================== */
+    /*
+     * Sandberg (2022), "Centrifugal Compressor Configuration, Selection and
+     * Arrangement: A User's Perspective", Turbomachinery Laboratory, Texas
+     * A&M. Three procedures that size a machine from process data alone, so a
+     * purchaser can build a selection independently of the supplier or check
+     * one that has been proposed. The paper validates them against six real
+     * supplier selections and lands within 2-14% on diameter, 3-20% on speed.
+     *
+     * The paper carries unit-conversion constants C5-C11 for its mixed units
+     * (m3/hr, mm, rpm). In consistent SI base they all collapse, so none of
+     * them appear here:
+     *
+     *   phi = Q / (pi/4 * D^2 * U2)      Eqn 6   - already stageGeometry's phi
+     *   mu_p = Hp_stage / U2^2           Eqn 7   - already the engine's psi
+     *   ns  = omega * sqrt(Q) / Hp_stage^0.75    Eqn 12, omega = 2*pi*N/60
+     *   ds  = D * Hp_stage^0.25 / sqrt(Q)        Eqn 13
+     *   mu_p = 4 / (ns*ds)^2             Eqn 14
+     *   tau = mu_p / eta_p               Eqn 10  - work input coefficient
+     *
+     * So the app's existing flow and head coefficients ARE the paper's phi and
+     * mu_p; only ns, ds and tau are new. Everything below is SI base:
+     * Hp in J/kg, Q in m3/s, D in m, N in rpm.
+     *
+     * Naming: `ns` here is specific speed. Do not confuse it with
+     * schultz.ns, which is the polytropic exponent.
+     */
+
+    var OMEGA_PER_RPM = 2 * Math.PI / 60;
+
+    /** Eqn 12. Dimensionless specific speed. */
+    function specificSpeed(HpStage, Q, N) {
+        return OMEGA_PER_RPM * N * Math.sqrt(Q) / Math.pow(HpStage, 0.75);
+    }
+
+    /** Eqn 13. Dimensionless specific diameter. */
+    function specificDiameter(HpStage, Q, D) {
+        return D * Math.pow(HpStage, 0.25) / Math.sqrt(Q);
+    }
+
+    /** Eqn 6, written in terms of D and N rather than D and U2. */
+    function flowCoefficient(Q, D, N) {
+        return 240 * Q / (Math.PI * Math.PI * D * D * D * N);
+    }
+
+    /**
+     * Eqn 9. Weighted average impeller diameter for a section whose stages are
+     * not all the same size - the paper's Davg, the diameter that reproduces
+     * the section head coefficient of Eqn 8 when applied to every stage.
+     */
+    function weightedAvgDiameter(diameters) {
+        if (!diameters || !diameters.length) return NaN;
+        var s = 0;
+        for (var i = 0; i < diameters.length; i++) s += diameters[i] * diameters[i];
+        return Math.sqrt(s / diameters.length);
+    }
+
+    /*
+     * The paper's tabulated basis.
+     *
+     * Figures 15, 16 and 17 are published as charts, but the six case-study
+     * tables in the appendix print the same (phi, ns, ds, eta) quartet - and
+     * print it identically in every case, which is what shows it to be a
+     * correlation rather than per-case output. That gives an exact 13-point
+     * trace of the curve the paper's own worked examples ran on, to 4 decimal
+     * places and with no chart reading involved. It is the default basis here
+     * and the reference the self-tests check against.
+     *
+     * mu_p and tau are deliberately NOT stored: deriving them (Eqns 14 and 10)
+     * keeps one source of truth and makes those identities hold exactly.
+     *
+     * Range is phi 0.005-0.19, wider than DEFAULTS.phiMin/phiMax, because the
+     * paper's own case studies need it - Cases 3 and 5 go below the optimum
+     * band to reach a supplier's minimum frame size, Case 4 goes above it to
+     * reach a 3600 rpm motor. Selections outside 0.05-0.11 are flagged, never
+     * clamped.
+     */
+    var SELECTION_TABLE = {
+        phi: [0.0050, 0.0100, 0.0200, 0.0300, 0.0400, 0.0600, 0.0800,
+              0.1000, 0.1200, 0.1300, 0.1500, 0.1700, 0.1900],
+        ns:  [0.2206, 0.2992, 0.4115, 0.4960, 0.5686, 0.6895, 0.7968,
+              0.8991, 1.0179, 1.0714, 1.1544, 1.2512, 1.4297],
+        ds:  [13.2605, 9.4765, 6.7622, 5.5557, 4.8215, 3.9486, 3.4186,
+              3.0487, 2.7615, 2.6410, 2.4379, 2.2664, 2.0991],
+        // Aungier vaned/vaneless average, Figure 17. The paper factors this by
+        // 0.95 as its second variant to bracket the supplier scatter.
+        eta: [0.4757, 0.6290, 0.7321, 0.7749, 0.8025, 0.8351, 0.8473,
+              0.8537, 0.8524, 0.8487, 0.8375, 0.8232, 0.8071]
+    };
+
+    var PHI_BEST_LO = 0.05, PHI_BEST_HI = 0.11;   // paper's optimum band
+
+    /*
+     * Figures 15 and 16, digitised per source curve.
+     *
+     * Honesty about what these are: over roughly phi 0.02-0.14 (ns 0.35-1.5)
+     * all four published curves collapse into a single band, which is the
+     * paper's own point - correlations derived from Ns-Ds data (Cordier,
+     * Casey) and from phi-mu_p relations (Aungier) agree closely. In that
+     * band the spread between them is finer than a figure can be read to, so
+     * these arrays are anchored on SELECTION_TABLE there and should be treated
+     * as one curve with four labels, good to roughly +/-0.1 in ds.
+     *
+     * Where they genuinely separate, and where reading them is therefore worth
+     * something, is at the ends: the high-phi tail of Figure 15 (at phi = 0.20
+     * Cordier falls to about 1.5 while Aungier vaned holds near 2.0) and the
+     * low-ns head of Figure 16, where each curve also stops at a different
+     * place. Those differing extents are carried per source rather than padded
+     * to a common grid, so a lookup outside a curve's published range is
+     * reported instead of silently extrapolated.
+     *
+     * Use these for drawing and for exploring source sensitivity. For numbers,
+     * 'tabulated' is exact and is the default.
+     */
+    var FIG15 = {          // ds against phi
+        tabulated:       { x: SELECTION_TABLE.phi, y: SELECTION_TABLE.ds },
+        cordier:         { x: [0.002, 0.005, 0.010, 0.020, 0.030, 0.040, 0.060, 0.080, 0.100, 0.120, 0.140, 0.160, 0.180, 0.200],
+                           y: [17.80, 13.10,  9.40,  6.72,  5.52,  4.79,  3.92,  3.39,  3.01,  2.71,  2.45,  2.22,  1.90,  1.52] },
+        casey:           { x: [0.002, 0.005, 0.010, 0.020, 0.030, 0.040, 0.060, 0.080, 0.100, 0.120, 0.140, 0.160, 0.180, 0.200],
+                           y: [22.00, 13.90,  9.70,  6.85,  5.60,  4.85,  3.97,  3.43,  3.06,  2.76,  2.52,  2.32,  2.02,  1.74] },
+        aungierVaned:    { x: [0.002, 0.005, 0.010, 0.020, 0.030, 0.040, 0.060, 0.080, 0.100, 0.120, 0.140, 0.160, 0.180, 0.200],
+                           y: [17.20, 13.20,  9.50,  6.80,  5.58,  4.84,  3.97,  3.44,  3.08,  2.80,  2.58,  2.40,  2.18,  2.00] },
+        aungierVaneless: { x: [0.002, 0.005, 0.010, 0.020, 0.030, 0.040, 0.060, 0.080, 0.100, 0.120, 0.140, 0.160, 0.180, 0.200],
+                           y: [16.50, 12.80,  9.30,  6.70,  5.50,  4.78,  3.92,  3.40,  3.04,  2.76,  2.54,  2.36,  2.14,  1.96] }
+    };
+
+    var FIG16 = {          // ds against ns - the Cordier characteristic
+        tabulated:       { x: SELECTION_TABLE.ns, y: SELECTION_TABLE.ds },
+        // Casey spans the whole plotted range; Cordier starts near ns 0.19;
+        // both Aungier curves stop short of ns 1.6.
+        casey:           { x: [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.10, 1.30, 1.50, 1.70, 1.90, 2.10],
+                           y: [24.50, 16.80, 12.90, 10.60, 9.55, 6.95, 5.55, 4.62, 3.95, 3.45, 3.08, 2.82, 2.63, 2.31, 2.14, 2.04, 1.97, 1.93] },
+        cordier:         { x: [0.19, 0.25, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.10, 1.30, 1.50, 1.70, 1.90, 2.10],
+                           y: [17.80, 10.90, 9.40, 6.85, 5.48, 4.56, 3.90, 3.41, 3.04, 2.79, 2.60, 2.28, 2.11, 2.01, 1.95, 1.92] },
+        aungierVaned:    { x: [0.25, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.10, 1.30, 1.50, 1.55],
+                           y: [16.50, 9.60, 6.90, 5.52, 4.60, 3.93, 3.43, 3.06, 2.81, 2.63, 2.33, 2.15, 2.10] },
+        aungierVaneless: { x: [0.27, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.10, 1.30, 1.50],
+                           y: [14.50, 9.45, 6.80, 5.45, 4.54, 3.88, 3.39, 3.02, 2.77, 2.59, 2.30, 2.20] }
+    };
+
+    var SELECTION_SOURCES = ['tabulated', 'cordier', 'casey', 'aungierVaned', 'aungierVaneless'];
+
+    function figCurve(fig, source) {
+        return fig[source] || fig.tabulated;
+    }
+
+    /**
+     * Log-log interpolation. Both figures are power-law-ish over their range,
+     * so straight-line interpolation in log space tracks them much better than
+     * in linear space: checked against the paper's own fixed-diameter column,
+     * linear gives ns 0.9410 where the paper prints 0.9373, log-log gives
+     * 0.9380. Held flat outside the data rather than extrapolated, matching
+     * aungierEtaP - the shape past either end isn't something the source
+     * supports claiming.
+     */
+    function interpLogLog(xs, ys, x) {
+        if (!isFinite(x) || x <= 0) return NaN;
+        if (x <= xs[0]) return ys[0];
+        var n = xs.length;
+        if (x >= xs[n - 1]) return ys[n - 1];
+        for (var i = 1; i < n; i++) {
+            if (x <= xs[i]) {
+                var t = (Math.log(x) - Math.log(xs[i - 1])) / (Math.log(xs[i]) - Math.log(xs[i - 1]));
+                return Math.exp(Math.log(ys[i - 1]) + t * (Math.log(ys[i]) - Math.log(ys[i - 1])));
+            }
+        }
+        return ys[n - 1];
+    }
+
+    /** As above, but solving for x given y on a monotonically decreasing y. */
+    function interpLogLogInverse(xs, ys, y) {
+        if (!isFinite(y) || y <= 0) return NaN;
+        var n = ys.length;
+        if (y >= ys[0]) return xs[0];
+        if (y <= ys[n - 1]) return xs[n - 1];
+        for (var i = 1; i < n; i++) {
+            if (y >= ys[i]) {
+                var t = (Math.log(y) - Math.log(ys[i - 1])) / (Math.log(ys[i]) - Math.log(ys[i - 1]));
+                return Math.exp(Math.log(xs[i - 1]) + t * (Math.log(xs[i]) - Math.log(xs[i - 1])));
+            }
+        }
+        return xs[n - 1];
+    }
+
+    /** Figure 15 forward: flow coefficient to specific diameter. */
+    function dsFromPhi(phi, source) {
+        var c = figCurve(FIG15, source);
+        return interpLogLog(c.x, c.y, phi);
+    }
+
+    /** Figure 16 forward: specific diameter to specific speed. */
+    function nsFromDs(ds, source) {
+        var c = figCurve(FIG16, source);
+        return interpLogLogInverse(c.x, c.y, ds);
+    }
+
+    /** Figure 16 inverse: specific speed to specific diameter. */
+    function dsFromNs(ns, source) {
+        var c = figCurve(FIG16, source);
+        return interpLogLog(c.x, c.y, ns);
+    }
+
+    /** Figure 17: the Aungier vaned/vaneless average used by the paper. */
+    function etaFromPhi(phi) {
+        return interpLogLog(SELECTION_TABLE.phi, SELECTION_TABLE.eta, phi);
+    }
+
+    /** True when x sits outside the published extent of a source's curve. */
+    function outsideCurve(fig, source, x) {
+        var c = figCurve(fig, source);
+        return x < c.x[0] || x > c.x[c.x.length - 1];
+    }
+
+    /** True when y (a ds value) sits outside the published extent of the curve's range. */
+    function outsideCurveRange(fig, source, y) {
+        var c = figCurve(fig, source);
+        var yMax = c.y[0], yMin = c.y[c.y.length - 1];   // ds falls monotonically
+        return y < yMin || y > yMax;
+    }
+
+    /**
+     * One preliminary selection, by any of the paper's three methods.
+     *
+     *   method  'phi'      - assume a flow coefficient (paper p.28)
+     *           'diameter' - fix the average impeller diameter (p.29)
+     *           'speed'    - fix the rotational speed (p.30)
+     *
+     *   opts    { HpTotal, Q1, nStages, value, etaFactor, source }
+     *           HpTotal J/kg for the section, Q1 m3/s at section inlet,
+     *           value is phi / D in m / N in rpm to match the method,
+     *           etaFactor is the paper's 1.00 or 0.95 Aungier variant.
+     *
+     * Each method walks the paper's numbered steps in order; the difference
+     * between them is only which of phi, D and N is the independent one.
+     */
+    function selectSection(method, opts) {
+        var nStages = Math.max(1, Math.round(opts.nStages || 1));
+        var HpStage = opts.HpTotal / nStages;
+        var Q = opts.Q1;
+        var source = opts.source || 'tabulated';
+        var etaFactor = isFinite(opts.etaFactor) && opts.etaFactor > 0 ? opts.etaFactor : 1;
+        var v = opts.value;
+        var phi, ns, ds, D, N, offCurve = false;
+
+        if (!isFinite(HpStage) || HpStage <= 0 || !isFinite(Q) || Q <= 0 || !isFinite(v) || v <= 0) {
+            return { method: method, value: v, viable: false, error: 'Head, inlet flow and the method value must all be positive.' };
+        }
+
+        if (method === 'diameter') {
+            // D -> ds [Eqn 13] -> ns [Fig 16] -> N [Eqn 12] -> phi [Eqn 6]
+            D = v;
+            ds = specificDiameter(HpStage, Q, D);
+            offCurve = outsideCurveRange(FIG16, source, ds);
+            ns = nsFromDs(ds, source);
+            N = ns * Math.pow(HpStage, 0.75) / (OMEGA_PER_RPM * Math.sqrt(Q));
+            phi = flowCoefficient(Q, D, N);
+        } else if (method === 'speed') {
+            // N -> ns [Eqn 12] -> ds [Fig 16 inverse] -> D [Eqn 13] -> phi [Eqn 6]
+            N = v;
+            ns = specificSpeed(HpStage, Q, N);
+            offCurve = outsideCurve(FIG16, source, ns);
+            ds = dsFromNs(ns, source);
+            D = ds * Math.sqrt(Q) / Math.pow(HpStage, 0.25);
+            phi = flowCoefficient(Q, D, N);
+        } else {
+            // phi -> ds [Fig 15] -> ns [Fig 16] -> D [Eqn 13], N [Eqn 12]
+            method = 'phi';
+            phi = v;
+            offCurve = outsideCurve(FIG15, source, phi);
+            ds = dsFromPhi(phi, source);
+            ns = nsFromDs(ds, source);
+            D = ds * Math.sqrt(Q) / Math.pow(HpStage, 0.25);
+            N = ns * Math.pow(HpStage, 0.75) / (OMEGA_PER_RPM * Math.sqrt(Q));
+        }
+
+        var nsds = ns * ds;
+        var mu_p = 4 / (nsds * nsds);                  // Eqn 14
+        var etaP = etaFromPhi(phi) * etaFactor;        // Figure 17
+        var tau = mu_p / etaP;                         // Eqn 10
+        var U = Math.PI * D * N / 60;
+
+        return {
+            method: method,
+            value: v,
+            nStages: nStages,
+            HpTotal: opts.HpTotal,
+            HpStage: HpStage,
+            Q1: Q,
+            source: source,
+            etaFactor: etaFactor,
+            phi: phi,
+            nsSpec: ns,
+            dsSpec: ds,
+            nsds: nsds,
+            mu_p: mu_p,
+            etaP: etaP,
+            tau: tau,
+            D: D,
+            N: N,
+            Utip: U,
+            // phi recovered from ns and ds alone (8/(pi*ns*ds^3) is an exact
+            // identity of the defining formulas, independent of any curve).
+            // For the 'diameter' and 'speed' methods this always equals phi
+            // above, since D (or N) is carried through unchanged rather than
+            // re-derived from a curve. For the 'phi' method it is a
+            // diagnostic: phi -> ds and ds -> ns are two separate
+            // interpolations (Fig 15, then Fig 16), so a gap from the input
+            // phi shows how much those two curves disagree with each other
+            // at this point - zero at a shared table node, small between
+            // nodes on 'tabulated', and largest when mixing independently
+            // digitised source curves.
+            phiClosure: 8 / (Math.PI * ns * ds * ds * ds),
+            // The paper flags tau > 1 in Cases 3 and 5: it would demand a
+            // greater enthalpy rise than the stage has available, so the
+            // selection is arithmetically fine but physically not a machine.
+            viable: tau <= 1,
+            tauExceeded: tau > 1,
+            outsideOptimum: phi < PHI_BEST_LO || phi > PHI_BEST_HI,
+            outsideCurve: offCurve
+        };
+    }
+
+    /** The paper's tables: one selection per swept value of the independent variable. */
+    function selectionSweep(method, opts, values) {
+        return (values || []).map(function (v) {
+            return selectSection(method, Object.assign({}, opts, { value: v }));
+        });
+    }
+
+    /**
+     * Step 7/8 of every procedure: "iterate on these steps with resulting
+     * efficiencies until efficiency value convergence".
+     *
+     * Polytropic head depends on efficiency through the discharge state, so
+     * the caller supplies hpFn(eta) -> { HpTotal, Q1 } to re-integrate the
+     * path at a trial efficiency. Same tolerance and cap as the section solve
+     * in runSection so the two agree on what "converged" means.
+     */
+    function selectSectionIterated(method, opts, hpFn) {
+        var eta = isFinite(opts.etaStart) && opts.etaStart > 0 ? opts.etaStart : 0.80;
+        var res = null, iterations = 0;
+        for (var i = 0; i < 10; i++) {
+            iterations = i + 1;
+            var duty = hpFn ? hpFn(eta) : { HpTotal: opts.HpTotal, Q1: opts.Q1 };
+            res = selectSection(method, Object.assign({}, opts, {
+                HpTotal: duty.HpTotal, Q1: duty.Q1
+            }));
+            if (!isFinite(res.etaP)) break;
+            if (Math.abs(res.etaP - eta) < 0.002) { eta = res.etaP; break; }
+            eta = res.etaP;
+            if (!hpFn) break;             // nothing to re-integrate; one pass is the answer
+        }
+        if (res) res.iterations = iterations;
+        return res;
     }
 
     /* ===================================================================== */
@@ -2282,6 +2644,130 @@
               sweepMonotonic ? 1 : 0, 1, 0,
               sweep.map(function (r) { return r.nStages + ':' + (isFinite(r.mu2Max) ? r.mu2Max.toFixed(3) : r.error || '?'); }).join(', '));
 
+        // 21. Sandberg (2022) selection methodology, checked against the
+        //     paper's own six worked case studies (Appendix, Tables A1-A6).
+        //     Hp and Qa below are taken straight from those tables and run
+        //     through toBase so the check exercises the same unit path a
+        //     user's US-unit input would. Tight (~1%) tolerance mid-table
+        //     where the case studies sit inside the optimum band; loosened
+        //     at the one case (A4.5) that lands in the sparse, steeply-bent
+        //     tail beyond ns ~ 1.25 - see note there.
+        (function () {
+            var ftlbflbm = function (v) { return toBase('head', 'ft.lbf/lbm', v); };
+            var acfm = function (v) { return toBase('volFlow', 'ACFM', v); };
+            var inches = function (v) { return toBase('length', 'in', v); };
+
+            // Table A1.2, phi = 0.08 column, 4 stages.
+            var a12 = selectSection('phi', {
+                HpTotal: ftlbflbm(52960.8), Q1: acfm(6928), nStages: 4, value: 0.08, etaFactor: 1
+            });
+            check('Selection A1.2 (phi=0.08): impeller diameter', a12.D, inches(17.2554), inches(17.2554) * 0.01, 'in');
+            check('Selection A1.2 (phi=0.08): speed', a12.N, 11806.7, 11806.7 * 0.01, 'rpm');
+            check('Selection A1.2 (phi=0.08): head coefficient μp', a12.mu_p, 0.5391, 0.01, '');
+            check('Selection A1.2 (phi=0.08): polytropic efficiency', a12.etaP, 0.8473, 0.01, '');
+
+            // Table A1.5, Equal Impeller Diameter column.
+            var a15d = selectSection('diameter', {
+                HpTotal: ftlbflbm(52937.6), Q1: acfm(6928), nStages: 4, value: inches(14.8790), etaFactor: 1
+            });
+            check('Selection A1.5 (fixed D): specific speed ns', a15d.nsSpec, 0.9373, 0.02, '');
+            check('Selection A1.5 (fixed D): speed', a15d.N, 13884, 13884 * 0.02, 'rpm');
+            check('Selection A1.5 (fixed D): flow coefficient', a15d.phi, 0.1061, 0.003, '');
+
+            // Table A1.5, Equal Rotational Speed column.
+            var a15n = selectSection('speed', {
+                HpTotal: ftlbflbm(52937.6), Q1: acfm(6928), nStages: 4, value: 13485, etaFactor: 1
+            });
+            check('Selection A1.5 (fixed N): specific diameter ds', a15n.dsSpec, 3.0122, 0.02, '');
+            check('Selection A1.5 (fixed N): impeller diameter', a15n.D, inches(15.2055), inches(15.2055) * 0.02, 'in');
+
+            // Table A2.2, phi = 0.08 column, 7 stages - same duty at a
+            // different flow scale, to catch an accidental size dependence.
+            var a22 = selectSection('phi', {
+                HpTotal: ftlbflbm(87256.7), Q1: acfm(17316), nStages: 7, value: 0.08, etaFactor: 1
+            });
+            check('Selection A2.2 (phi=0.08): impeller diameter', a22.D, inches(27.6945), inches(27.6945) * 0.01, 'in');
+            check('Selection A2.2 (phi=0.08): speed', a22.N, 7137.8, 7137.8 * 0.01, 'rpm');
+
+            // Table A3.4, phi = 0.005 at 95% efficiency: the paper's own
+            // example of a selection that is arithmetically solvable but not
+            // physically viable (tau > 1, more enthalpy rise than available).
+            var a34 = selectSection('phi', {
+                HpTotal: ftlbflbm(17056.4), Q1: acfm(257.7), nStages: 3, value: 0.005, etaFactor: 0.95
+            });
+            check('Selection A3.4 (phi=0.005, 95% η): work input coefficient τ > 1', a34.tau, 1.0343, 0.01, '');
+            check('Selection A3.4 (phi=0.005, 95% η): flagged not viable', a34.viable ? 1 : 0, 0, 0, '');
+
+            // Table A4.5, Equal Rotational Speed column: fixed 3600 rpm motor,
+            // single stage. This ns (~1.32) falls between SELECTION_TABLE's
+            // last two nodes (1.2512 at phi=0.17, 1.4297 at phi=0.19), the
+            // most sparsely sampled, most sharply bent part of the curve -
+            // log-log interpolation there recovers ds to ~2%, and since
+            // phi = flowCoefficient(Q,D,N) with N fixed goes as 1/D^3, that
+            // becomes ~6-8% on phi. Kept as a test (not deleted) because it
+            // is a real, bounded, understood limitation worth catching a
+            // regression on, not a hidden gap.
+            var a45 = selectSection('speed', {
+                HpTotal: ftlbflbm(9089.4), Q1: acfm(116753.4), nStages: 1, value: 3600, etaFactor: 1
+            });
+            check('Selection A4.5 (fixed N=3600, tail region): impeller diameter', a45.D, inches(51.036), inches(51.036) * 0.03, 'in');
+
+            // Round-trip consistency: any two methods, run on the geometry
+            // that the third one produced, must land back on the same
+            // machine. This is the property the whole methodology depends
+            // on and it is independent of how well any curve is digitised.
+            var base = selectSection('phi', {
+                HpTotal: ftlbflbm(52960.8), Q1: acfm(6928), nStages: 4, value: 0.08, etaFactor: 1
+            });
+            var viaD = selectSection('diameter', {
+                HpTotal: ftlbflbm(52960.8), Q1: acfm(6928), nStages: 4, value: base.D, etaFactor: 1
+            });
+            var viaN = selectSection('speed', {
+                HpTotal: ftlbflbm(52960.8), Q1: acfm(6928), nStages: 4, value: base.N, etaFactor: 1
+            });
+            check('Selection: fixed-diameter method closes on the phi method\'s N',
+                  viaD.N, base.N, base.N * 0.01, 'rpm');
+            check('Selection: fixed-speed method closes on the phi method\'s D',
+                  viaN.D, base.D, base.D * 0.01, 'm');
+        })();
+
+        // 22. Digitisation cross-checks. A misread chart is the likeliest
+        //     failure mode for FIG15/FIG16/SELECTION_TABLE.eta, so these
+        //     compare independently-sourced curves against each other rather
+        //     than against a single external number.
+        (function () {
+            // SELECTION_TABLE.eta (from the case-study tables) should track
+            // the existing AUNGIER_ETA vaned/vaneless average (from Figure 11,
+            // added independently in an earlier pass) closely - two
+            // digitisations of the same underlying relationship.
+            var maxGap = 0, worstPhi = null;
+            SELECTION_TABLE.phi.forEach(function (phi, i) {
+                if (phi < 0.01 || phi > 0.19) return;
+                var avg = (aungierEtaP(phi, 'vaned') + aungierEtaP(phi, 'vaneless')) / 2;
+                var gap = Math.abs(SELECTION_TABLE.eta[i] - avg);
+                if (gap > maxGap) { maxGap = gap; worstPhi = phi; }
+            });
+            check('SELECTION_TABLE.eta tracks AUNGIER_ETA (Fig 17 vs Fig 11)',
+                  maxGap, 0, 0.025, 'Largest gap ' + maxGap.toFixed(4) + ' at φ=' + worstPhi + '.');
+
+            // Every FIG15/FIG16 source curve should reproduce the tabulated
+            // ds/ns over the optimum band (phi 0.05-0.11) within a loose
+            // digitisation tolerance - the paper's own point is that these
+            // curves agree closely there, so a wide spread means a misread
+            // axis or a log/linear mix-up, not a real disagreement.
+            ['cordier', 'casey', 'aungierVaned', 'aungierVaneless'].forEach(function (src) {
+                var worst = 0;
+                SELECTION_TABLE.phi.forEach(function (phi, i) {
+                    if (phi < 0.05 || phi > 0.11) return;
+                    var ds = dsFromPhi(phi, src);
+                    var rel = Math.abs(ds - SELECTION_TABLE.ds[i]) / SELECTION_TABLE.ds[i];
+                    if (rel > worst) worst = rel;
+                });
+                check('Fig 15 (' + src + ') tracks tabulated ds over optimum band', worst, 0, 0.03,
+                      'Worst relative gap ' + (worst * 100).toFixed(1) + '%.');
+            });
+        })();
+
         return out;
     }
 
@@ -2335,6 +2821,25 @@
         stageGeometry: stageGeometry,
         stageAtSpeed: stageAtSpeed,
         inletRelativeMach: inletRelativeMach,
+
+        // Sandberg (2022) preliminary selection methodology
+        specificSpeed: specificSpeed,
+        specificDiameter: specificDiameter,
+        flowCoefficient: flowCoefficient,
+        weightedAvgDiameter: weightedAvgDiameter,
+        SELECTION_TABLE: SELECTION_TABLE,
+        SELECTION_SOURCES: SELECTION_SOURCES,
+        PHI_BEST_LO: PHI_BEST_LO,
+        PHI_BEST_HI: PHI_BEST_HI,
+        FIG15: FIG15,
+        FIG16: FIG16,
+        dsFromPhi: dsFromPhi,
+        nsFromDs: nsFromDs,
+        dsFromNs: dsFromNs,
+        etaFromPhi: etaFromPhi,
+        selectSection: selectSection,
+        selectionSweep: selectionSweep,
+        selectSectionIterated: selectSectionIterated,
 
         runSection: runSection,
         runSectionWithReference: runSectionWithReference,

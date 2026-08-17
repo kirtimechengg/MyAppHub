@@ -281,6 +281,7 @@
             <button class="tab on" data-view="v-process">Process Data</button>
             <button class="tab" data-view="v-gas">Gas Composition</button>
             <button class="tab" data-view="v-machine">Machine &amp; Limits</button>
+            <button class="tab" data-view="v-selection">Selection</button>
             <button class="tab" data-view="v-results">Results</button>
             <button class="tab" data-view="v-charts">Charts</button>
             <button class="tab" data-view="v-report">Report</button>
@@ -541,6 +542,93 @@
             </div>
         </section>
 
+        <!-- ============================ SELECTION ============================ -->
+        <section id="v-selection" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Preliminary selection methodology</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Sandberg (2022), <em>Centrifugal Compressor Configuration, Selection and Arrangement</em>
+                    (Turbomachinery Laboratory, Texas A&amp;M). Three ways to size a section from its process
+                    duty alone — useful for an independent check before engaging a supplier, or for evaluating
+                    a proposed selection. Head and inlet flow below are taken from this section's own solve on
+                    the Process Data / Machine &amp; Limits tabs; only the sizing method itself changes.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Section</label>
+                        <select id="inSelSection"></select>
+                    </div>
+                    <div class="field">
+                        <label>Method</label>
+                        <select id="inSelMethod">
+                            <option value="phi">Flow coefficient</option>
+                            <option value="diameter">Fixed impeller diameter</option>
+                            <option value="speed">Fixed rotational speed</option>
+                        </select>
+                        <span class="hint" id="selMethodHint"></span>
+                    </div>
+                    <div class="field">
+                        <label>Stages</label>
+                        <input type="number" id="inSelStages" min="1" max="20" step="1">
+                        <span class="hint">Defaults to this section's solved stage count.</span>
+                    </div>
+                    <div class="field">
+                        <label>Correlation source</label>
+                        <select id="inSelSource">
+                            <option value="tabulated">Paper's tabulated basis (default)</option>
+                            <option value="cordier">Cordier (1955)</option>
+                            <option value="casey">Casey et al. (2010)</option>
+                            <option value="aungierVaned">Aungier — vaned diffuser</option>
+                            <option value="aungierVaneless">Aungier — vaneless diffuser</option>
+                        </select>
+                        <span class="hint">Figures 15/16. The four broadly agree; the tabulated basis is exact to the paper's own worked examples.</span>
+                    </div>
+                    <div class="field">
+                        <label>Efficiency basis</label>
+                        <select id="inSelEtaFactor">
+                            <option value="100">100% of Aungier average (Fig. 17)</option>
+                            <option value="95">95% of Aungier average</option>
+                        </select>
+                        <span class="hint">The paper's own bracket for supplier-selection scatter.</span>
+                    </div>
+                    <div class="field">
+                        <label id="selValuesLabel">Values to sweep (comma-separated)</label>
+                        <input type="text" id="inSelValues" placeholder="0.05, 0.07, 0.08, 0.09, 0.11">
+                        <span class="hint" id="selValuesHint"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Selection sweep</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    One column per swept value, following the method's numbered steps exactly. τ &gt; 1 means the
+                    selection would need more enthalpy rise than the stage has available — arithmetically
+                    solvable, not a real machine.
+                </p>
+                <div id="selSweepTable"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Impeller diameter and speed against flow coefficient</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">The paper's own Figure A1.1 presentation of the sweep above.</p>
+                <div class="chart-wrap" id="chartSelSweep"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Cross-check against this section's own solve</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    This section's actual φ, diameter and speed, each fed back through all three methods.
+                    Close agreement across the row is the paper's own validation argument for the methodology.
+                    The efficiency row is the one exception worth expecting: "This app's solve" uses whatever
+                    correlation is selected on the Machine &amp; Limits tab, while the three methods here always
+                    use the paper's own Aungier-average table (Figure 17) — a real difference in model choice,
+                    not a discrepancy in the geometry.
+                </p>
+                <div id="selCompareTable"></div>
+            </div>
+        </section>
+
         <!-- ============================ RESULTS ============================ -->
         <section id="v-results" class="view space-y-5">
             <div class="card p-5">
@@ -658,6 +746,24 @@
                     assuming a fixed one.
                 </p>
                 <div class="chart-wrap" id="chartAungierLD"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Specific diameter vs flow coefficient (Sandberg Fig. 15)</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Four independently-sourced correlations for dimensionless specific diameter, all agreeing closely
+                    across the optimum band, with this machine's solved stages overlaid.
+                </p>
+                <div class="chart-wrap" id="chartFig15"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Cordier characteristic (Sandberg Fig. 16)</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Specific diameter against specific speed — the correlation the Selection tab's flow-coefficient
+                    and fixed-diameter/speed methods route through.
+                </p>
+                <div class="chart-wrap" id="chartFig16"></div>
             </div>
         </section>
 
@@ -2044,7 +2150,13 @@ Aungier impeller axial length:
             const p = pal();
             const W = o.w || 720, H = o.h || 420;
             const m = { l: 66, r: o.y2lab ? 62 : 20, t: o.title ? 34 : 14, b: o.legend ? 62 : 48 };
-            const px = v => m.l + (v - o.x0) / (o.x1 - o.x0) * (W - m.l - m.r);
+            // xlog: Figure 16 (the Cordier characteristic) is published on a
+            // log specific-speed axis, so this is opt-in per chart and every
+            // other chart's linear px is untouched. A caller using xlog must
+            // pass xticksRaw (log-spaced ticks aren't "nice" round numbers).
+            const px = o.xlog
+                ? v => m.l + (Math.log(v) - Math.log(o.x0)) / (Math.log(o.x1) - Math.log(o.x0)) * (W - m.l - m.r)
+                : v => m.l + (v - o.x0) / (o.x1 - o.x0) * (W - m.l - m.r);
             const py = v => H - m.b - (v - o.y0) / (o.y1 - o.y0) * (H - m.t - m.b);
             const py2 = v => H - m.b - (v - o.y20) / (o.y21 - o.y20) * (H - m.t - m.b);
 
@@ -2494,6 +2606,275 @@ Aungier impeller axial length:
                     { label: 'This machine', color: p.accent }
                 ]
             });
+
+            /* --- 10/11. Sandberg (2022) Figures 15 and 16 --------------------
+               All four published source curves drawn together, exactly as the
+               paper does, because their agreement over most of the range is
+               itself the paper's point — a curve that diverges from its
+               siblings here reads as a digitisation problem, not a genuine
+               difference. This machine's solved stages (already carrying
+               nsSpec/dsSpec from the march) are overlaid on both. */
+            const curvePts = c => c.x.map((v, i) => [v, c.y[i]]);
+            const SRC_STYLE = [
+                ['cordier', p.muted, undefined],
+                ['casey', p.accent, undefined],
+                ['aungierVaneless', p.warn, '6 4'],
+                ['aungierVaned', p.bad, undefined]
+            ];
+
+            $('chartFig15').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Figure 15 — Dimensionless specific diameter against flow coefficient',
+                xlab: 'Flow coefficient  φ', ylab: 'Dimensionless specific diameter  ds',
+                x0: 0, x1: 0.20, y0: 0, y1: 25,
+                xfmt: v => v.toFixed(2), yfmt: v => v.toFixed(0),
+                series: SRC_STYLE.map(([key, color, dash]) =>
+                    ({ pts: curvePts(E.FIG15[key]), stroke: color, width: 1.75, dash: dash })),
+                points: allStages.map(s => ({
+                    x: s.st.phi, y: s.st.dsSpec,
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    color: p.ok
+                })),
+                legend: [
+                    { label: 'Cordier', color: p.muted },
+                    { label: 'Casey et al.', color: p.accent },
+                    { label: 'Aungier vaneless', color: p.warn, dash: '6 4' },
+                    { label: 'Aungier vaned', color: p.bad },
+                    { label: 'This machine', color: p.ok }
+                ]
+            });
+
+            $('chartFig16').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Figure 16 — Cordier characteristic: specific diameter against specific speed',
+                xlab: 'Dimensionless specific speed  ns  (log scale)', ylab: 'Dimensionless specific diameter  ds',
+                x0: 0.10, x1: 2.10, y0: 0, y1: 25, xlog: true,
+                xticksRaw: [0.10, 0.15, 0.20, 0.30, 0.50, 0.70, 1.00, 1.50, 2.00].map(v => ({ v, label: v.toFixed(2) })),
+                yfmt: v => v.toFixed(0),
+                series: SRC_STYLE.map(([key, color, dash]) =>
+                    ({ pts: curvePts(E.FIG16[key]), stroke: color, width: 1.75, dash: dash })),
+                points: allStages.map(s => ({
+                    x: s.st.nsSpec, y: s.st.dsSpec,
+                    label: (train.sections.length > 1 ? 'S' + s.sec + '·' : '') + '#' + s.st.index,
+                    color: p.ok
+                })),
+                legend: [
+                    { label: 'Cordier', color: p.muted },
+                    { label: 'Casey et al.', color: p.accent },
+                    { label: 'Aungier vaneless', color: p.warn, dash: '6 4' },
+                    { label: 'Aungier vaned', color: p.bad },
+                    { label: 'This machine', color: p.ok }
+                ]
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Selection tab - Sandberg (2022) preliminary methodology           */
+        /* ---------------------------------------------------------------- */
+
+        const SEL_METHOD_TEXT = {
+            phi: {
+                label: 'Values to sweep — flow coefficient φ (comma-separated)',
+                hint: 'Optimum band is 0.05–0.11 — the paper suggests the extremes plus a point or two inside it.',
+                method: 'Assume φ, read ds off Figure 15 and ns off Figure 16, derive D and N. The paper’s primary, most flexible method.'
+            },
+            diameter: {
+                label: () => `Values to sweep — average impeller diameter (comma-separated, ${unitLabel('length')})`,
+                hint: 'A supplier’s standardised sizes are the natural values to try here.',
+                method: 'Fix D, get ds directly, read ns off Figure 16, derive N and the resulting φ.'
+            },
+            speed: {
+                label: 'Values to sweep — rotational speed (comma-separated, rpm)',
+                hint: 'A fixed-speed motor or single-shaft gas turbine’s output speed is the natural value here.',
+                method: 'Fix N, get ns directly, read ds off Figure 16 (inverse), derive D and the resulting φ.'
+            }
+        };
+
+        function updateSelMethodUI() {
+            const t = SEL_METHOD_TEXT[$('inSelMethod').value];
+            $('selValuesLabel').textContent = typeof t.label === 'function' ? t.label() : t.label;
+            $('selValuesHint').textContent = t.hint;
+            $('selMethodHint').textContent = t.method;
+        }
+
+        function syncSelSelectors(train) {
+            const sel = $('inSelSection');
+            const want = Number(sel.value) || 1;
+            sel.innerHTML = train.sections.map(s => `<option value="${s.section}">Section ${s.section}</option>`).join('');
+            const idx = Math.min(Math.max(want, 1), train.sections.length);
+            sel.value = String(idx);
+            return train.sections[idx - 1];
+        }
+
+        // Anchored to the section's own solved geometry so a blank values
+        // field still shows something meaningful rather than an empty table.
+        function selDefaultValues(method, sec) {
+            if (method === 'phi') return [0.05, 0.07, 0.08, 0.09, 0.11];
+            const st = sec.stages[0];
+            if (method === 'diameter') return [0.85, 1.0, 1.15].map(f => st.D2 * f);
+            if (method === 'speed') return [0.85, 1.0, 1.15].map(f => sec.speed * f);
+            return [];
+        }
+
+        function selParseValues(method, raw) {
+            return raw.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+                const n = Number(s);
+                if (!isFinite(n)) return NaN;
+                return method === 'diameter' ? E.toBase('length', units.length, n) : n;
+            }).filter(isFinite);
+        }
+
+        function selFmtValue(method, v) {
+            if (method === 'phi') return v.toFixed(3);
+            if (method === 'diameter') return disp('length', v, 2);
+            return Math.round(v).toLocaleString() + ' rpm';
+        }
+
+        function selStatusPill(r) {
+            if (!r.viable) return `<span class="pill bad">τ&gt;1</span>`;
+            if (r.outsideCurve) return `<span class="pill warn">off-curve</span>`;
+            if (r.outsideOptimum) return `<span class="pill warn">outside 0.05–0.11</span>`;
+            return `<span class="pill ok">OK</span>`;
+        }
+
+        function selApplyRow(secIdx, results) {
+            return `<tr><td data-l="Apply">Apply</td>${results.map((r, i) => `
+                <td data-l="${i}">${r && r.viable !== false && isFinite(r.N)
+                    ? `<button type="button" class="text-xs font-semibold" style="color:var(--accent)" data-sel-apply="${i}">Use this →</button>`
+                    : '—'}</td>`).join('')}</tr>`;
+        }
+
+        function renderSelection(train, inp) {
+            if (!train) { $('selSweepTable').innerHTML = ''; $('selCompareTable').innerHTML = ''; $('chartSelSweep').innerHTML = ''; return; }
+
+            const sec = syncSelSelectors(train);
+            const secIdx = Number($('inSelSection').value) - 1;
+            const method = $('inSelMethod').value;
+            updateSelMethodUI();
+
+            if (!$('inSelStages').value) $('inSelStages').value = sec.stages.length;
+            const nStages = Math.max(1, Math.round(Number($('inSelStages').value) || sec.stages.length));
+
+            let values = selParseValues(method, $('inSelValues').value);
+            if (!values.length) {
+                values = selDefaultValues(method, sec);
+                $('inSelValues').value = values.map(v => method === 'phi' ? v.toFixed(3) : (method === 'diameter' ? disp('length', v, 2) : Math.round(v))).join(', ');
+            }
+
+            const opts = {
+                HpTotal: sec.HpTotal,
+                Q1: sec.stages[0].Q1,
+                nStages: nStages,
+                etaFactor: $('inSelEtaFactor').value === '95' ? 0.95 : 1,
+                source: $('inSelSource').value
+            };
+
+            const results = E.selectionSweep(method, opts, values);
+
+            const p = pal();
+            const rowDef = [
+                ['Qa', () => disp('volFlow', opts.Q1)],
+                ['Hp total', r => disp('head', r.HpTotal)],
+                ['Stages', () => nStages],
+                ['Flow coefficient φ', r => isFinite(r.phi) ? r.phi.toFixed(4) : '—'],
+                ['Specific speed ns', r => isFinite(r.nsSpec) ? r.nsSpec.toFixed(4) : '—'],
+                ['Specific diameter ds', r => isFinite(r.dsSpec) ? r.dsSpec.toFixed(4) : '—'],
+                ['ns·ds', r => isFinite(r.nsds) ? r.nsds.toFixed(4) : '—'],
+                ['Head coefficient μp', r => isFinite(r.mu_p) ? r.mu_p.toFixed(4) : '—'],
+                ['Polytropic efficiency ηp', r => isFinite(r.etaP) ? r.etaP.toFixed(4) : '—'],
+                ['Work input coefficient τ', r => isFinite(r.tau) ? r.tau.toFixed(4) : '—'],
+                ['Impeller diameter Davg', r => isFinite(r.D) ? disp('length', r.D, 2) : '—'],
+                ['Rotational speed', r => isFinite(r.N) ? Math.round(r.N).toLocaleString() + ' rpm' : '—'],
+                ['Tip speed', r => isFinite(r.Utip) ? disp('velocity', r.Utip, 1) : '—'],
+                ['Status', r => selStatusPill(r)]
+            ];
+
+            if (!results.length) {
+                $('selSweepTable').innerHTML = `<p class="text-sm" style="color:var(--muted)">Enter one or more values to sweep.</p>`;
+                $('chartSelSweep').innerHTML = '';
+            } else {
+                $('selSweepTable').innerHTML = `
+                    <table class="data">
+                        <thead><tr><th>Parameter</th>${results.map((r, i) => `<th>${esc(selFmtValue(method, values[i]))}</th>`).join('')}</tr></thead>
+                        <tbody>
+                        ${rowDef.map(([label, fn]) => `<tr><td data-l="Parameter" style="text-align:left">${label}</td>${
+                            results.map((r, i) => `<td data-l="${label}">${r.error ? '—' : fn(r, i)}</td>`).join('')}</tr>`).join('')}
+                        ${selApplyRow(secIdx, results)}
+                        </tbody>
+                    </table>
+                    ${results.some(r => r.error) ? `<p class="text-xs mt-2" style="color:var(--bad)">${esc(results.find(r => r.error).error)}</p>` : ''}`;
+
+                $('selSweepTable').querySelectorAll('button[data-sel-apply]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const r = results[Number(btn.getAttribute('data-sel-apply'))];
+                        if (!r || !isFinite(r.N) || !isFinite(r.mu_p)) return;
+                        sections[secIdx].speedMode = 'manual';
+                        sections[secIdx].speedManual = Math.round(r.N);
+                        $('inPsi').value = r.mu_p.toFixed(4);
+                        renderSections();
+                        recalc();
+                    });
+                });
+
+                // Figure A1.1: D and N against phi, sorted for a clean line.
+                const pts = results.map((r, i) => ({ r, v: values[i] }))
+                    .filter(x => !x.r.error && isFinite(x.r.phi) && isFinite(x.r.D) && isFinite(x.r.N))
+                    .sort((a, b) => a.r.phi - b.r.phi);
+                if (pts.length >= 2) {
+                    const Ds = pts.map(x => disp('length', x.r.D));
+                    const Ns = pts.map(x => x.r.N);
+                    $('chartSelSweep').innerHTML = svgPlot({
+                        w: 720, h: 380,
+                        title: 'Impeller diameter and speed against flow coefficient',
+                        xlab: 'Flow coefficient  φ', ylab: `Diameter (${unitLabel('length')})`, y2lab: 'Speed (rpm)',
+                        x0: Math.min(...pts.map(x => x.r.phi)) * 0.95, x1: Math.max(...pts.map(x => x.r.phi)) * 1.05,
+                        y0: 0, y1: Math.max(...Ds) * 1.15,
+                        y20: 0, y21: Math.max(...Ns) * 1.15,
+                        xfmt: v => v.toFixed(3), yfmt: v => v.toFixed(0), y2fmt: v => Math.round(v).toLocaleString(),
+                        series: [
+                            { pts: pts.map((x, i) => [x.r.phi, Ds[i]]), stroke: p.accent, marker: true, label: 'Diameter' },
+                            { pts: pts.map((x, i) => [x.r.phi, Ns[i]]), stroke: p.warn, marker: true, dash: '5 3', axis: 'y2', label: 'Speed' }
+                        ],
+                        legend: [
+                            { label: 'Impeller diameter', color: p.accent },
+                            { label: 'Rotational speed', color: p.warn, dash: '5 3' }
+                        ]
+                    });
+                } else {
+                    $('chartSelSweep').innerHTML = `<p class="text-sm p-3" style="color:var(--muted)">Sweep at least two values to plot this chart.</p>`;
+                }
+            }
+
+            // Cross-check: this section's own solved geometry, fed back
+            // through all three methods, per the paper's Table A1.5.
+            const baseSt = sec.stages[0];
+            const baseCol = { label: 'This app’s solve', phi: baseSt.phi, D: baseSt.D2, N: sec.speed, ns: baseSt.nsSpec, ds: baseSt.dsSpec, mu_p: baseSt.psi, etaP: sec.etaPoly };
+            const viaPhi = E.selectSection('phi', Object.assign({}, opts, { value: baseSt.phi }));
+            const viaD = E.selectSection('diameter', Object.assign({}, opts, { value: baseSt.D2 }));
+            const viaN = E.selectSection('speed', Object.assign({}, opts, { value: sec.speed }));
+            const cmpCols = [
+                baseCol,
+                { label: 'Flow-coefficient method', phi: viaPhi.phi, D: viaPhi.D, N: viaPhi.N, ns: viaPhi.nsSpec, ds: viaPhi.dsSpec, mu_p: viaPhi.mu_p, etaP: viaPhi.etaP },
+                { label: 'Fixed-diameter method', phi: viaD.phi, D: viaD.D, N: viaD.N, ns: viaD.nsSpec, ds: viaD.dsSpec, mu_p: viaD.mu_p, etaP: viaD.etaP },
+                { label: 'Fixed-speed method', phi: viaN.phi, D: viaN.D, N: viaN.N, ns: viaN.nsSpec, ds: viaN.dsSpec, mu_p: viaN.mu_p, etaP: viaN.etaP }
+            ];
+            const cmpRows = [
+                ['Flow coefficient φ', c => isFinite(c.phi) ? c.phi.toFixed(4) : '—'],
+                ['Specific speed ns', c => isFinite(c.ns) ? c.ns.toFixed(4) : '—'],
+                ['Specific diameter ds', c => isFinite(c.ds) ? c.ds.toFixed(4) : '—'],
+                ['Head coefficient μp', c => isFinite(c.mu_p) ? c.mu_p.toFixed(4) : '—'],
+                ['Polytropic efficiency ηp', c => isFinite(c.etaP) ? c.etaP.toFixed(4) : '—'],
+                ['Impeller diameter', c => isFinite(c.D) ? disp('length', c.D, 2) : '—'],
+                ['Rotational speed', c => isFinite(c.N) ? Math.round(c.N).toLocaleString() + ' rpm' : '—']
+            ];
+            $('selCompareTable').innerHTML = `
+                <table class="data">
+                    <thead><tr><th>Parameter</th>${cmpCols.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
+                    <tbody>
+                    ${cmpRows.map(([label, fn]) => `<tr><td data-l="Parameter" style="text-align:left">${label}</td>${
+                        cmpCols.map(c => `<td data-l="${label}">${fn(c)}</td>`).join('')}</tr>`).join('')}
+                    </tbody>
+                </table>`;
         }
 
         /* ---------------------------------------------------------------- */
@@ -3619,6 +4000,7 @@ Aungier impeller axial length:
             renderResults(train, inp);
             drawCharts(train, inp);
             renderHelpLive(train, inp);
+            renderSelection(train, inp);
             return train;
         }
 
@@ -3678,9 +4060,18 @@ Aungier impeller axial length:
             'inBullSpeedPreset', 'inBullSpeed', 'inPinionLayout',
             'inEtaModel', 'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
 
+        // Selection-tab controls are saved and restored like SIMPLE_INPUTS,
+        // but kept out of that array deliberately: SIMPLE_INPUTS also drives
+        // the "recalc on every input" wiring below, and these never need a
+        // full EOS re-solve - renderSelection() re-renders straight off the
+        // section the app already solved. They get their own light 'change'
+        // listeners instead (see the tab-setup block above).
+        const SEL_PERSIST_INPUTS = ['inSelMethod', 'inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'];
+
         function collectState() {
             const vals = {};
             SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            SEL_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
             // version 3: sections also carry per-section stage/speed overrides;
             // the old global inSpeedManual/inCommonShaft fields are retired.
             // pressureBasis is purely additive - absent on any older save,
@@ -4008,6 +4399,7 @@ Aungier impeller axial length:
                     // Guards against showing values from a calculation that has
                     // since been superseded while the tab was hidden.
                     if (view === 'v-help' && lastTrain) renderHelpLive(lastTrain, lastInput);
+                    if (view === 'v-selection' && lastTrain) renderSelection(lastTrain, lastInput);
                 });
             });
 
@@ -4018,6 +4410,24 @@ Aungier impeller axial length:
                     if (lastTrain) renderHelpLive(lastTrain, lastInput);
                 });
             });
+
+            // Selection tab: sweep controls re-render from the last solve,
+            // no need to re-run the EOS train for a method or values change -
+            // but the choice itself still has to reach localStorage/cloud,
+            // same as every other input, so scheduleSave() is called directly
+            // rather than going through recalc()'s heavier path.
+            $('inSelMethod').addEventListener('change', () => {
+                $('inSelValues').value = '';   // let the new method's own defaults populate
+                if (lastTrain) renderSelection(lastTrain, lastInput);
+                scheduleSave();
+            });
+            ['inSelSection', 'inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'].forEach(id => {
+                $(id).addEventListener('change', () => {
+                    if (lastTrain) renderSelection(lastTrain, lastInput);
+                    scheduleSave();
+                });
+            });
+            updateSelMethodUI();
 
             // Live recalculation on every input
             SIMPLE_INPUTS.forEach(id => {
