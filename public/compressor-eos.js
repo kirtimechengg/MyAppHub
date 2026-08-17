@@ -900,6 +900,31 @@
     }
 
     /**
+     * Given a fixed diameter D2 and target psi, the resulting speed and phi.
+     * The mirror of stageAtSpeed: psi still sets the tip speed, but here it is
+     * the diameter that is known and the shaft speed that falls out.
+     */
+    function stageAtDiameter(HpStage, Q1, psi, D2) {
+        var U2 = Math.sqrt(HpStage / psi);
+        var N = 60 * U2 / (Math.PI * D2);
+        var phi = Q1 / (Math.PI / 4 * D2 * D2 * U2);
+        return { U2: U2, N: N, phi: phi };
+    }
+
+    /**
+     * Both diameter and speed known - an actual supplier offering rather than a
+     * sizing exercise. Nothing is solved: the tip speed follows from the
+     * geometry, and psi and phi are then *results* to be checked rather than
+     * targets to be met. This is the evaluation case in Sandberg's methodology.
+     */
+    function stageAtBoth(HpStage, Q1, D2, N) {
+        var U2 = Math.PI * D2 * N / 60;
+        var psi = HpStage / (U2 * U2);
+        var phi = Q1 / (Math.PI / 4 * D2 * D2 * U2);
+        return { U2: U2, psi: psi, phi: phi };
+    }
+
+    /**
      * Inlet relative Mach number at the impeller eye.
      *
      * This needs an eye geometry that is really the vendor's to choose, so a
@@ -1004,8 +1029,20 @@
         // and the peripheral Mach limit at the section inlet.
         var u2Mach = lim.mu2Max * d1.sonic;
         var u2Allow = Math.min(imp.u2max, u2Mach);
-        var psi = Math.min(opts.psiTarget || lim.psiTarget, imp.psiMax);
-        var headPerStageMax = psi * u2Allow * u2Allow;
+        var basis = opts.basis === 'sandberg' ? 'sandberg' : 'app';
+        // A section may carry its own head coefficient; otherwise the machine-wide
+        // target applies. Only the app basis reads it at all - see below.
+        var psi = Math.min(opts.psiManual || opts.psiTarget || lim.psiTarget, imp.psiMax);
+
+        // On the sandberg basis psi is an *output* of the Fig 15 / Fig 16 chain,
+        // so it cannot be used to seed the stage count. Sandberg's own case
+        // studies size the minimum impeller count off the head-per-stage ceiling
+        // instead - which is the closed-impeller fleet band already carried here
+        // (14,000 ft.lbf/lbm). Open impellers run above that band by design, so
+        // they keep the mechanical/Mach ceiling.
+        var headPerStageMax = (basis === 'sandberg' && !imp.open)
+            ? EMPIRICAL_BANDS.headPerStage.hi
+            : psi * u2Allow * u2Allow;
 
         // Math.max(1, NaN) is NaN, so guard the ratio explicitly - a NaN stage
         // count would silently produce an empty stage list.
@@ -1086,7 +1123,8 @@
             u2Allow: u2Allow,
             u2Mach: u2Mach,
             t2Exceeded: t2Exceeded,
-            psiUsed: psi,
+            psiUsed: result.psiUsed,
+            psiTargetUsed: psi,
             etaSource: opts.etaPManual ? 'manual' : 'correlation',
             speedLimited: result.speedLimited,
             sizeLimited: result.sizeLimited,
@@ -1094,8 +1132,15 @@
             underSize: result.underSize,
             freeSpeed: result.freeSpeed,
             speedSource: result.speedSource,
+            sizeSource: result.sizeSource,
             stagesSource: stagesManual ? (pinned ? 'architecture' : 'manual') : 'auto',
+            fixMode: result.fixMode,
+            basis: result.basis,
             D2: result.D2,
+            D2list: result.D2list,
+            trimmed: result.trimmed,
+            nsSpec: result.nsSpec,
+            dsSpec: result.dsSpec,
             maxSpeed: result.maxSpeed,
             minD2: result.minD2
         };
@@ -1109,15 +1154,22 @@
      */
     function runSectionWithReference(opts) {
         var actual = runSection(opts);
+        var fixed = resolveFixMode(opts) !== 'auto';
         var overridden = (opts.stagesMode === 'manual' && opts.stagesManual > 0) ||
-                         (opts.speedMode === 'manual' && opts.speedManual > 0);
+                         fixed || opts.basis === 'sandberg' || opts.psiManual > 0;
         if (!overridden) {
             actual.auto = null;
             return actual;
         }
+        // The reference is "what an unconstrained selection on this app's own
+        // correlations would have given", so every pin and the basis itself are
+        // stripped - otherwise the comparison is against a machine that was
+        // already half-decided.
         var bare = Object.assign({}, opts);
         delete bare.stagesMode; delete bare.stagesManual;
         delete bare.speedMode; delete bare.speedManual;
+        delete bare.fixMode; delete bare.D2Manual;
+        delete bare.basis; delete bare.psiManual;
         try {
             var ref = runSection(bare);
             actual.auto = {
@@ -1147,6 +1199,34 @@
      * (normal for a single body), so the flow coefficient falls stage by stage
      * as the gas densifies.
      */
+    /**
+     * Which of the two geometry variables the user has pinned. `speedManual`
+     * with no explicit mode is how every case saved before this existed says
+     * "fixed speed", so it still means that.
+     */
+    function resolveFixMode(opts) {
+        var m = opts.fixMode;
+        if (m === 'speed' || m === 'diameter' || m === 'both' || m === 'auto') return m;
+        return opts.speedManual > 0 ? 'speed' : 'auto';
+    }
+
+    /**
+     * Impeller diameters as an array of length nStages, in metres. A scalar
+     * describes a section of equal impellers; a short list is padded with its
+     * own last entry, which is what happens when the stage count grows past
+     * the diameters actually quoted.
+     */
+    function normaliseD2(v, nStages) {
+        if (v == null) return null;
+        var list = (Array.isArray(v) ? v : [v]).filter(function (x) {
+            return isFinite(x) && x > 0;
+        });
+        if (!list.length) return null;
+        list = list.slice(0, nStages);
+        while (list.length < nStages) list.push(list[list.length - 1]);
+        return list;
+    }
+
     function marchStages(mix, model, T1, P1, P2, mdot, nStages, psi, etaP, lim, imp, opts) {
         // Total head from a full-section path at this efficiency.
         var full = compressPath(mix, T1, P1, P2, etaP, model, opts.pathSteps || 40);
@@ -1165,21 +1245,72 @@
         var maxSpeed = opts.maxSpeed || (imp.open ? lim.maxSpeedOpen : lim.maxSpeedClosed);
         var minD2 = opts.minD2 || (imp.open ? lim.minD2Open : lim.minD2Closed);
 
-        var geo = stageGeometry(HpStage, Q1, psi, phiTarget);
-        var freeSpeed = geo.N;              // what the aerodynamics alone would pick
-        var N = geo.N;
-        var D2 = geo.D2;
-        var speedLimited = false, sizeLimited = false;
+        var fixMode = resolveFixMode(opts);
+        var basis = opts.basis === 'sandberg' ? 'sandberg' : 'app';
+        var src = opts.selectionSource || 'tabulated';
 
-        if (opts.speedManual) {
-            // A hand-entered speed is honoured exactly - but it is still
-            // checked below, which is the whole point of the manual mode.
+        // What the aerodynamics alone would pick, kept in every mode so the UI
+        // can always say what an unconstrained selection would have given.
+        var geo = stageGeometry(HpStage, Q1, psi, phiTarget);
+        var freeSpeed = geo.N;
+
+        var D2list = null, D2 = null, N = null;
+        var psiUsed = psi;                  // an output on the sandberg basis
+        var speedLimited = false, sizeLimited = false;
+        var ns = null, ds = null;
+
+        if (fixMode === 'both' || fixMode === 'diameter') {
+            D2list = normaliseD2(opts.D2Manual, nStages);
+            if (!D2list) {
+                throw new Error('This section fixes the impeller diameter but none was given — ' +
+                                'enter a diameter, or set the section back to automatic sizing.');
+            }
+            D2 = weightedAvgDiameter(D2list);          // Eqn 9
+        }
+
+        if (fixMode === 'both') {
+            // Nothing to solve: the machine is fully described, so psi and phi
+            // become results to be checked rather than targets to be met.
             N = opts.speedManual;
-            D2 = stageAtSpeed(HpStage, Q1, psi, N).D2;
+            psiUsed = stageAtBoth(HpStage, Q1, D2, N).psi;
+        } else if (fixMode === 'diameter') {
+            if (basis === 'sandberg') {
+                ds = specificDiameter(HpStage, Q1, D2);
+                ns = nsFromDs(ds, src);
+                N = ns * Math.pow(HpStage, 0.75) / (OMEGA_PER_RPM * Math.sqrt(Q1));
+                psiUsed = 4 / (ns * ds * ns * ds);      // Eqn 14
+            } else {
+                N = stageAtDiameter(HpStage, Q1, psi, D2).N;
+            }
+        } else if (fixMode === 'speed') {
+            N = opts.speedManual;
+            if (basis === 'sandberg') {
+                ns = specificSpeed(HpStage, Q1, N);
+                ds = dsFromNs(ns, src);
+                D2 = ds * Math.sqrt(Q1) / Math.pow(HpStage, 0.25);
+                psiUsed = 4 / (ns * ds * ns * ds);
+            } else {
+                D2 = stageAtSpeed(HpStage, Q1, psi, N).D2;
+            }
         } else {
+            if (basis === 'sandberg') {
+                // Sandberg's flow coefficient method: phi is the assumption and
+                // both diameter and speed fall out of the Fig 15 / Fig 16 chain.
+                ds = dsFromPhi(phiTarget, src);
+                ns = nsFromDs(ds, src);
+                D2 = ds * Math.sqrt(Q1) / Math.pow(HpStage, 0.25);
+                N = ns * Math.pow(HpStage, 0.75) / (OMEGA_PER_RPM * Math.sqrt(Q1));
+                psiUsed = 4 / (ns * ds * ns * ds);
+            } else {
+                N = geo.N;
+                D2 = geo.D2;
+            }
+            // Only the fully free case is squeezed by the caps. Every pinned
+            // mode is honoured exactly and flagged below instead - clamping a
+            // value the engineer typed in would hide the conflict.
             if (N > maxSpeed) {
                 N = maxSpeed;
-                D2 = stageAtSpeed(HpStage, Q1, psi, N).D2;
+                D2 = stageAtSpeed(HpStage, Q1, psiUsed, N).D2;
                 speedLimited = true;
             }
             if (D2 < minD2) {
@@ -1188,16 +1319,20 @@
                 // so neither flag is cleared - the old code cleared speedLimited
                 // here and hid the conflict.
                 D2 = minD2;
-                N = 60 * Math.sqrt(HpStage / psi) / (Math.PI * D2);
+                N = 60 * Math.sqrt(HpStage / psiUsed) / (Math.PI * D2);
                 sizeLimited = true;
             }
         }
+
+        // Every mode ends with one diameter per impeller; a derived diameter is
+        // uniform across the section, as a single body normally is.
+        if (!D2list) D2list = normaliseD2(D2, nStages);
 
         // Diagnostics are evaluated unconditionally, in every mode. A manual
         // speed used to bypass these entirely and could return an impossible
         // machine with nothing raised.
         var overSpeed = N > maxSpeed * 1.0001;
-        var underSize = D2 < minD2 * 0.9999;
+        var underSize = Math.min.apply(null, D2list) < minD2 * 0.9999;
 
         var stages = [];
         var T = T1, P = P1, h = st1.h;
@@ -1206,11 +1341,16 @@
             var sIn = state(mix, T, P, model);
             var dIn = derived(mix, T, P, model);
             var Qs = mdot / sIn.rho;                            // m3/s at stage inlet
-            var U2 = Math.PI * D2 * N / 60;
+            // Each impeller carries its own diameter: a supplier's section may
+            // have trimmed impellers, and with the head split equally the
+            // smaller ones then run at a higher psi. That spread is real and is
+            // reported per stage rather than averaged away.
+            var D2i = D2list[i];
+            var U2 = Math.PI * D2i * N / 60;
             var stagePsi = HpStage / (U2 * U2);
-            var phi = Qs / (Math.PI / 4 * D2 * D2 * U2);
+            var phi = Qs / (Math.PI / 4 * D2i * D2i * U2);
             var Mu2 = U2 / dIn.sonic;
-            var eye = inletRelativeMach(Qs, U2, D2, dIn.sonic);
+            var eye = inletRelativeMach(Qs, U2, D2i, dIn.sonic);
 
             // Step the stage: known head, so integrate up in pressure until the
             // accumulated polytropic head matches HpStage.
@@ -1224,10 +1364,10 @@
                 Zin: sIn.Z, rhoIn: sIn.rho,
                 Q1: Qs,                                          // m3/s
                 Hp: HpStage,
-                U2: U2, D2: D2, N: N,
+                U2: U2, D2: D2i, N: N,
                 psi: stagePsi, phi: phi,
                 nsSpec: specificSpeed(HpStage, Qs, N),
-                dsSpec: specificDiameter(HpStage, Qs, D2),
+                dsSpec: specificDiameter(HpStage, Qs, D2i),
                 Mu2: Mu2, Mrel: eye.Mrel,
                 eyeRatio: eye.eyeRatio, D1: eye.D1,
                 sonic: dIn.sonic,
@@ -1258,8 +1398,20 @@
             freeSpeed: freeSpeed,
             maxSpeed: maxSpeed,
             minD2: minD2,
-            D2: D2,
-            speedSource: opts.speedManual ? 'manual' : (speedLimited || sizeLimited ? 'limited' : 'auto')
+            D2: D2,                     // weighted average, Eqn 9
+            D2list: D2list,
+            trimmed: Math.max.apply(null, D2list) - Math.min.apply(null, D2list) > 1e-6,
+            fixMode: fixMode,
+            basis: basis,
+            psiUsed: psiUsed,
+            nsSpec: ns,
+            dsSpec: ds,
+            speedSource: (fixMode === 'speed' || fixMode === 'both') ? 'manual'
+                       : fixMode === 'diameter' ? 'derived'
+                       : (speedLimited || sizeLimited ? 'limited' : 'auto'),
+            sizeSource: (fixMode === 'diameter' || fixMode === 'both') ? 'manual'
+                      : fixMode === 'speed' ? 'derived'
+                      : (sizeLimited ? 'limited' : 'auto')
         };
     }
 
@@ -1337,9 +1489,15 @@
 
         for (var i = 0; i < opts.sections.length; i++) {
             var sec = opts.sections[i];
-            var secSpeed = (sec.speedMode === 'manual' && sec.speedManual > 0)
+            var secFix = resolveFixMode(sec);
+            var secSpeed = (secFix === 'speed' || secFix === 'both') && sec.speedManual > 0
                 ? sec.speedManual
                 : sharedSpeed;
+            // Inheriting a common-shaft speed makes a section speed-fixed too,
+            // unless it already pins its own diameter as well.
+            var fixMode = secFix;
+            if (fixMode === 'auto' && secSpeed) fixMode = 'speed';
+            else if (fixMode === 'diameter' && secSpeed) fixMode = 'both';
             var res = runSectionWithReference({
                 mix: mix, model: model,
                 T1: T, P1: P, P2: sec.P2,
@@ -1347,10 +1505,15 @@
                 limits: lim, impeller: imp,
                 architecture: opts.architecture,
                 psiTarget: opts.psiTarget,
+                psiManual: sec.psiManual,
                 phiTarget: opts.phiTarget,
                 etaPManual: opts.etaPManual,
                 etaModel: opts.etaModel,
                 etaMech: opts.etaMech,
+                fixMode: fixMode,
+                basis: sec.basis || opts.basis,
+                selectionSource: opts.selectionSource,
+                D2Manual: sec.D2Manual,
                 speedMode: secSpeed ? 'manual' : 'auto',
                 speedManual: secSpeed,
                 stagesMode: sec.stagesMode,
@@ -1597,6 +1760,10 @@
 
         sec.speed = N;
         sec.D2 = g.D2;
+        // One impeller per pinion, so the section's diameter list is that one
+        // value - keep it in step or downstream readers see a stale geometry.
+        sec.D2list = [g.D2];
+        sec.trimmed = false;
         return st;
     }
 
@@ -2731,6 +2898,140 @@
                   viaN.D, base.D, base.D * 0.01, 'm');
         })();
 
+        // 21b. The four stage-sizing primitives must be mutually consistent.
+        //      Each solves for a different pair, so round-tripping one through
+        //      the others is what proves they describe the same machine.
+        (function () {
+            var g = stageGeometry(30000, 5.0, 0.52, 0.075);
+            var atD = stageAtDiameter(30000, 5.0, 0.52, g.D2);
+            check('stageAtDiameter recovers the speed stageGeometry picked',
+                  atD.N, g.N, g.N * 1e-9, 'rpm');
+            check('stageAtDiameter recovers the flow coefficient', atD.phi, 0.075, 1e-9, '');
+
+            var both = stageAtBoth(30000, 5.0, g.D2, g.N);
+            check('stageAtBoth recovers ψ from the geometry alone', both.psi, 0.52, 1e-9, '');
+            check('stageAtBoth recovers φ from the geometry alone', both.phi, 0.075, 1e-9, '');
+
+            // Halving the diameter at fixed speed quarters the tip speed and so
+            // quadruples psi - the 1/D^2 behaviour a trimmed impeller shows.
+            var trim = stageAtBoth(30000, 5.0, g.D2 / 2, g.N);
+            check('stageAtBoth: ψ scales as 1/D²', trim.psi, 0.52 * 4, 0.52 * 4 * 1e-9, '');
+        })();
+
+        // 21c. Supplier-offering evaluation: with both diameter and speed given
+        //      the machine is fully described, so φ and μp are outputs. These
+        //      are the "Supplier Selection" columns of the paper's own tables,
+        //      which is the case the fixed-D-and-N mode exists to serve.
+        (function () {
+            var ftlbflbm = function (v) { return toBase('head', 'ft.lbf/lbm', v); };
+            var acfm = function (v) { return toBase('volFlow', 'ACFM', v); };
+            var inches = function (v) { return toBase('length', 'in', v); };
+
+            // Table A1.5, Supplier Selection column: 4 impellers, 14.8790 in,
+            // 13,485 rpm on 52,808 ft.lbf/lbm and 6,928 ACFM.
+            var s1 = stageAtBoth(ftlbflbm(52808.0) / 4, acfm(6928), inches(14.8790), 13485.0);
+            check('Supplier eval A1.5: flow coefficient φ', s1.phi, 0.1092, 0.002, '');
+            check('Supplier eval A1.5: head coefficient μp', s1.psi, 0.5542, 0.01, '');
+
+            // Table A6.5, Supplier Selection column: 7 impellers, 48.9960 in,
+            // 4,486 rpm on 112,224 ft.lbf/lbm and 52,329 ACFM (hydrogen recycle).
+            var s6 = stageAtBoth(ftlbflbm(112224.0) / 7, acfm(52329), inches(48.9960), 4486.0);
+            check('Supplier eval A6.5: flow coefficient φ', s6.phi, 0.0695, 0.002, '');
+            check('Supplier eval A6.5: head coefficient μp', s6.psi, 0.5608, 0.01, '');
+        })();
+
+        // 21d. Per-stage diameters. A uniform list must be indistinguishable
+        //      from the single-diameter case - that is the guard on the change
+        //      from one section diameter to one per impeller.
+        (function () {
+            var uniform = runSection({
+                mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+                stagesMode: 'manual', stagesManual: 4,
+                fixMode: 'both', speedManual: 12000, D2Manual: 0.42
+            });
+            var listed = runSection({
+                mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+                stagesMode: 'manual', stagesManual: 4,
+                fixMode: 'both', speedManual: 12000, D2Manual: [0.42, 0.42, 0.42, 0.42]
+            });
+            check('Per-stage diameters: uniform list matches a single value',
+                  listed.stages[3].psi, uniform.stages[3].psi, uniform.stages[3].psi * 1e-9, '');
+            check('Per-stage diameters: a uniform section is not flagged as trimmed',
+                  listed.trimmed ? 1 : 0, 0, 0, '');
+
+            // A trimmed section: the last impeller is 10% smaller, so its tip
+            // speed is 10% lower and it must carry the head at a higher psi.
+            var trimmed = runSection({
+                mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+                stagesMode: 'manual', stagesManual: 4,
+                fixMode: 'both', speedManual: 12000, D2Manual: [0.42, 0.42, 0.42, 0.378]
+            });
+            check('Trimmed section is flagged', trimmed.trimmed ? 1 : 0, 1, 0, '');
+            check('Trimmed impeller runs at ψ scaled by 1/D²',
+                  trimmed.stages[3].psi, trimmed.stages[0].psi / (0.9 * 0.9),
+                  trimmed.stages[0].psi * 1e-6, 'The head split is equal, so a smaller impeller works harder.');
+            check('Weighted average diameter is Eqn 9, not the arithmetic mean',
+                  trimmed.D2, Math.sqrt((3 * 0.42 * 0.42 + 0.378 * 0.378) / 4), 1e-9, 'm');
+        })();
+
+        // 21e. Basis equivalence - the assertion that "size this section by the
+        //      paper's method" and "the paper's table says" are the same number.
+        //      Without this the sandberg basis could drift from the Selection
+        //      tab it is supposed to mirror and nothing would notice.
+        (function () {
+            var common = {
+                mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+                stagesMode: 'manual', stagesManual: 5, basis: 'sandberg', phiTarget: 0.09,
+                maxSpeed: 1e9, minD2: 1e-9        // let the correlation stand unclamped
+            };
+            var solved = runSection(common);
+            var predicted = selectSection('phi', {
+                HpTotal: solved.HpTotal, Q1: solved.Q1, nStages: 5, value: 0.09, etaFactor: 1
+            });
+            check('Basis equivalence (auto): solver speed matches the phi method',
+                  solved.speed, predicted.N, predicted.N * 0.01, 'rpm');
+            check('Basis equivalence (auto): solver diameter matches the phi method',
+                  solved.D2, predicted.D, predicted.D * 0.01, 'm');
+            check('Basis equivalence (auto): ψ is derived, not the 0.52 target',
+                  solved.psiUsed, predicted.mu_p, 0.01, 'On the sandberg basis ψ is an output.');
+
+            // Fixed speed on the sandberg basis must reproduce the fixed-speed
+            // method at that same speed.
+            var atN = runSection(Object.assign({}, common, {
+                fixMode: 'speed', speedManual: 9000
+            }));
+            var predN = selectSection('speed', {
+                HpTotal: atN.HpTotal, Q1: atN.Q1, nStages: 5, value: 9000, etaFactor: 1
+            });
+            check('Basis equivalence (fixed N): diameter matches the fixed-speed method',
+                  atN.D2, predN.D, predN.D * 0.01, 'm');
+
+            // And fixed diameter must reproduce the fixed-diameter method.
+            var atD = runSection(Object.assign({}, common, {
+                fixMode: 'diameter', D2Manual: 0.45
+            }));
+            var predD = selectSection('diameter', {
+                HpTotal: atD.HpTotal, Q1: atD.Q1, nStages: 5, value: 0.45, etaFactor: 1
+            });
+            check('Basis equivalence (fixed D): speed matches the fixed-diameter method',
+                  atD.speed, predD.N, predD.N * 0.01, 'rpm');
+        })();
+
+        // 21f. A pinned geometry is honoured exactly, and the app basis is
+        //      untouched by any of the above.
+        (function () {
+            var pinned = runSection({
+                mix: ng, model: 'PR', T1: 313.15, P1: 30e5, P2: 90e5, mdot: 20000 / 3600,
+                fixMode: 'both', speedManual: 11000, D2Manual: 0.40, stagesMode: 'manual', stagesManual: 4
+            });
+            check('Fixed D and N: speed honoured exactly', pinned.speed, 11000, 1e-9, 'rpm');
+            check('Fixed D and N: diameter honoured exactly', pinned.stages[0].D2, 0.40, 1e-9, 'm');
+            check('Fixed D and N: ψ is reported as an output',
+                  pinned.psiUsed, pinned.stages[0].psi, pinned.stages[0].psi * 1e-9, '');
+            check('Fixed D and N: sizeSource is manual',
+                  pinned.sizeSource === 'manual' ? 1 : 0, 1, 0, '');
+        })();
+
         // 22. Digitisation cross-checks. A misread chart is the likeliest
         //     failure mode for FIG15/FIG16/SELECTION_TABLE.eta, so these
         //     compare independently-sourced curves against each other rather
@@ -2820,6 +3121,8 @@
 
         stageGeometry: stageGeometry,
         stageAtSpeed: stageAtSpeed,
+        stageAtDiameter: stageAtDiameter,
+        stageAtBoth: stageAtBoth,
         inletRelativeMach: inletRelativeMach,
 
         // Sandberg (2022) preliminary selection methodology

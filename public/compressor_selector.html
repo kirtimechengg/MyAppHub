@@ -560,11 +560,7 @@
                     </div>
                     <div class="field">
                         <label>Method</label>
-                        <select id="inSelMethod">
-                            <option value="phi">Flow coefficient</option>
-                            <option value="diameter">Fixed impeller diameter</option>
-                            <option value="speed">Fixed rotational speed</option>
-                        </select>
+                        <input type="text" id="selMethodName" disabled>
                         <span class="hint" id="selMethodHint"></span>
                     </div>
                     <div class="field">
@@ -1861,7 +1857,8 @@ Aungier impeller axial length:
         let sections = [{
             P2: 90e5, Tcool: 313.15, dPcool: 0.5e5,
             stagesMode: 'auto', stagesManual: 4,
-            speedMode: 'auto', speedManual: 10000
+            fixMode: 'auto', basis: 'app',
+            speedManual: 10000, D2Manual: null
         }];
 
         // Reference tab. Metadata only - image bytes never live here, only in
@@ -1890,6 +1887,34 @@ Aungier impeller axial length:
             dPcool: { to: dPtoBase, from: dPfromBase }
         };
 
+        /* Impeller diameters are held in SI metres, one entry per impeller, and
+           typed as a comma-separated list in whatever length unit is on display.
+           A single value describes a section of equal impellers; a real supplier
+           section may have trimmed ones, which is why this is a list at all. */
+        function d2ListToDisplay(list) {
+            if (!list || !list.length) return '';
+            return list.map(d => fmtNum(E.fromBase('length', units.length, d))).join(', ');
+        }
+        function d2ListFromDisplay(raw) {
+            const out = String(raw == null ? '' : raw).split(',')
+                .map(t => Number(t.trim()))
+                .filter(n => isFinite(n) && n > 0)
+                .map(n => E.toBase('length', units.length, n));
+            return out.length ? out : null;
+        }
+
+        const FIX_MODES = [
+            ['auto', 'Auto — solver sizes it'],
+            ['speed', 'Fixed speed'],
+            ['diameter', 'Fixed impeller Ø'],
+            ['both', 'Fixed Ø + speed (as offered)']
+        ];
+        const fixModeOf = s => {
+            const m = s.fixMode;
+            if (m === 'speed' || m === 'diameter' || m === 'both' || m === 'auto') return m;
+            return s.speedMode === 'manual' ? 'speed' : 'auto';   // pre-v5 state
+        };
+
         function renderSections() {
             const wrap = $('sectionRows');
             const isIgc = $('inArchitecture').value === 'igc';
@@ -1900,6 +1925,7 @@ Aungier impeller axial length:
                 const v = k => fmtNum(SEC_CONV[k].from(s[k]));
                 const stagesManual = s.stagesManual == null ? 4 : s.stagesManual;
                 const speedManual = s.speedManual == null ? 10000 : s.speedManual;
+                const fix = fixModeOf(s);
                 return `
                 <div class="p-3 rounded-xl" style="background:var(--surface-2);border:1px solid var(--line)">
                     <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
@@ -1937,27 +1963,67 @@ Aungier impeller axial length:
                             <span class="hint" data-autoref="${i}-stages">&nbsp;</span>
                         </div>`}
                         <div class="field">
+                            <label>Geometry</label>
+                            <select data-sec="${i}" data-k="fixMode">
+                                ${FIX_MODES.map(([val, txt]) =>
+                                    `<option value="${val}" ${fix === val ? 'selected' : ''}>${txt}</option>`).join('')}
+                            </select>
+                            <span class="hint">${
+                                fix === 'both' ? 'A supplier\'s actual machine — ψ and φ become results to check.'
+                              : fix === 'diameter' ? 'Frame size is set; the speed follows.'
+                              : fix === 'speed' ? 'Driver sets the speed; the diameter follows.'
+                              : 'Nothing pinned — both fall out of the correlations.'}</span>
+                        </div>
+                        ${fix === 'speed' || fix === 'both' ? `
+                        <div class="field">
                             <label>Speed</label>
                             <div class="flex gap-2 items-center">
-                                <select data-sec="${i}" data-k="speedMode" style="flex:0 0 auto;width:auto">
-                                    <option value="auto" ${s.speedMode !== 'manual' ? 'selected' : ''}>Auto</option>
-                                    <option value="manual" ${s.speedMode === 'manual' ? 'selected' : ''}>Manual</option>
-                                </select>
                                 <input type="number" step="100" min="1" data-sec="${i}" data-k="speedManual"
-                                    value="${speedManual}" ${s.speedMode === 'manual' ? '' : 'disabled'} style="max-width:110px">
+                                    value="${speedManual}" style="max-width:130px">
                                 <span class="text-xs" style="color:var(--muted)">rpm</span>
                             </div>
                             <span class="hint" data-autoref="${i}-speed">&nbsp;</span>
-                        </div>
+                        </div>` : `
+                        <div class="field">
+                            <label>Speed</label>
+                            <input type="text" value="solved" disabled>
+                            <span class="hint" data-autoref="${i}-speed">&nbsp;</span>
+                        </div>`}
+                        ${fix === 'diameter' || fix === 'both' ? `
+                        <div class="field">
+                            <label>Impeller Ø <span class="unit" data-unit="length"></span></label>
+                            <input type="text" data-sec="${i}" data-k="D2Manual"
+                                value="${d2ListToDisplay(s.D2Manual)}" placeholder="e.g. 378, 378, 340">
+                            <span class="hint" data-d2hint="${i}">One value per impeller, or a single value for equal impellers.</span>
+                        </div>` : ''}
+                        ${fix === 'both' ? '' : `
+                        <div class="field">
+                            <label>Sizing basis</label>
+                            <select data-sec="${i}" data-k="basis">
+                                <option value="app" ${s.basis !== 'sandberg' ? 'selected' : ''}>App correlations (assume ψ and φ)</option>
+                                <option value="sandberg" ${s.basis === 'sandberg' ? 'selected' : ''}>Sandberg / Cordier (assume φ only)</option>
+                            </select>
+                            <span class="hint">${s.basis === 'sandberg'
+                                ? 'ψ is derived from Figures 15–16, not taken from the Machine tab.'
+                                : 'ψ and φ both come from the Machine tab targets.'}</span>
+                        </div>`}
                     </div>
                 </div>`;
             }).join('');
 
-            wrap.querySelectorAll('select[data-sec][data-k="stagesMode"], select[data-sec][data-k="speedMode"]').forEach(sel => {
+            // These three change which inputs exist, so each needs a re-render.
+            wrap.querySelectorAll('select[data-sec][data-k="stagesMode"], select[data-sec][data-k="fixMode"], select[data-sec][data-k="basis"]').forEach(sel => {
                 sel.addEventListener('change', () => {
                     const i = Number(sel.getAttribute('data-sec'));
                     const k = sel.getAttribute('data-k');
                     sections[i][k] = sel.value;
+                    // Switching into a diameter mode with nothing entered yet is
+                    // the common case; seed it from the machine already solved so
+                    // the user edits a real number instead of an empty box.
+                    if (k === 'fixMode' && (sel.value === 'diameter' || sel.value === 'both') &&
+                        !(sections[i].D2Manual || []).length && lastTrain && lastTrain.sections[i]) {
+                        sections[i].D2Manual = (lastTrain.sections[i].D2list || []).slice();
+                    }
                     renderSections();
                     recalc();
                 });
@@ -1967,6 +2033,13 @@ Aungier impeller axial length:
                     const i = Number(inp.getAttribute('data-sec'));
                     const k = inp.getAttribute('data-k');
                     sections[i][k] = Number(inp.value);
+                    recalc();
+                });
+            });
+            wrap.querySelectorAll('input[data-sec][data-k="D2Manual"]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const i = Number(inp.getAttribute('data-sec'));
+                    sections[i].D2Manual = d2ListFromDisplay(inp.value);
                     recalc();
                 });
             });
@@ -1993,7 +2066,22 @@ Aungier impeller axial length:
                 }
                 const speedEl = document.querySelector(`[data-autoref="${i}-speed"]`);
                 if (speedEl) {
-                    speedEl.textContent = s.auto ? `Auto would give ${Math.round(s.auto.speed).toLocaleString()} rpm at ${s.auto.nStages} stages.` : ' ';
+                    speedEl.textContent = s.speedSource === 'derived'
+                        ? `Solved: ${Math.round(s.speed).toLocaleString()} rpm.`
+                        : s.auto ? `Auto would give ${Math.round(s.auto.speed).toLocaleString()} rpm at ${s.auto.nStages} stages.`
+                        : ' ';
+                }
+                // A diameter list shorter than the impeller count is padded with
+                // its own last entry, so say so rather than letting the section
+                // quietly solve a machine the user did not describe.
+                const d2El = document.querySelector(`[data-d2hint="${i}"]`);
+                if (d2El) {
+                    const given = (sections[i].D2Manual || []).length;
+                    d2El.textContent = given && given < s.nStages
+                        ? `${given} diameter${given > 1 ? 's' : ''} for ${s.nStages} impellers — the last is repeated for the rest.`
+                        : s.trimmed
+                            ? `Trimmed section: average Ø ${dispU('length', s.D2, 1)}. Smaller impellers run at a higher ψ.`
+                            : 'One value per impeller, or a single value for equal impellers.';
                 }
                 const badge = document.querySelector(`[data-badge="${i}"]`);
                 if (!badge) return;
@@ -2672,29 +2760,54 @@ Aungier impeller axial length:
         /* Selection tab - Sandberg (2022) preliminary methodology           */
         /* ---------------------------------------------------------------- */
 
+        /* The method is not a separate choice: it is whichever of speed and
+           diameter the section pins on the Process Data tab. Sandberg's three
+           procedures are exactly the three ways to leave one of them free, so
+           asking twice would only let the two answers disagree. */
         const SEL_METHOD_TEXT = {
             phi: {
+                name: 'Flow coefficient',
                 label: 'Values to sweep — flow coefficient φ (comma-separated)',
                 hint: 'Optimum band is 0.05–0.11 — the paper suggests the extremes plus a point or two inside it.',
-                method: 'Assume φ, read ds off Figure 15 and ns off Figure 16, derive D and N. The paper’s primary, most flexible method.'
+                method: 'Section pins nothing, so φ is the assumption: read ds off Figure 15 and ns off Figure 16, derive D and N. The paper’s primary method.'
             },
             diameter: {
+                name: 'Fixed impeller diameter',
                 label: () => `Values to sweep — average impeller diameter (comma-separated, ${unitLabel('length')})`,
                 hint: 'A supplier’s standardised sizes are the natural values to try here.',
-                method: 'Fix D, get ds directly, read ns off Figure 16, derive N and the resulting φ.'
+                method: 'Section pins the diameter: get ds directly, read ns off Figure 16, derive N and the resulting φ.'
             },
             speed: {
+                name: 'Fixed rotational speed',
                 label: 'Values to sweep — rotational speed (comma-separated, rpm)',
                 hint: 'A fixed-speed motor or single-shaft gas turbine’s output speed is the natural value here.',
-                method: 'Fix N, get ns directly, read ds off Figure 16 (inverse), derive D and the resulting φ.'
+                method: 'Section pins the speed: get ns directly, read ds off Figure 16 (inverse), derive D and the resulting φ.'
+            },
+            both: {
+                name: 'Evaluation — Ø and speed both fixed',
+                label: 'Nothing to sweep',
+                hint: 'Both variables are pinned, so there is no free parameter left to vary.',
+                method: 'Section pins both, so the machine is fully described. φ and μp are results, and the comparison below shows what each method would have picked instead.'
             }
         };
 
-        function updateSelMethodUI() {
-            const t = SEL_METHOD_TEXT[$('inSelMethod').value];
+        /* Sandberg's method for a section is decided by what that section fixes. */
+        const selMethodFor = i => {
+            const f = fixModeOf(sections[i] || {});
+            return f === 'auto' ? 'phi' : f;
+        };
+
+        function updateSelMethodUI(method) {
+            const t = SEL_METHOD_TEXT[method] || SEL_METHOD_TEXT.phi;
+            $('selMethodName').value = t.name;
             $('selValuesLabel').textContent = typeof t.label === 'function' ? t.label() : t.label;
             $('selValuesHint').textContent = t.hint;
             $('selMethodHint').textContent = t.method;
+            // With both pinned there is nothing to sweep, so the field would only
+            // invite input that could not be honoured.
+            const vf = $('inSelValues');
+            vf.disabled = method === 'both';
+            if (method === 'both') vf.value = '';
         }
 
         function syncSelSelectors(train) {
@@ -2749,14 +2862,14 @@ Aungier impeller axial length:
 
             const sec = syncSelSelectors(train);
             const secIdx = Number($('inSelSection').value) - 1;
-            const method = $('inSelMethod').value;
-            updateSelMethodUI();
+            const method = selMethodFor(secIdx);
+            updateSelMethodUI(method);
 
             if (!$('inSelStages').value) $('inSelStages').value = sec.stages.length;
             const nStages = Math.max(1, Math.round(Number($('inSelStages').value) || sec.stages.length));
 
-            let values = selParseValues(method, $('inSelValues').value);
-            if (!values.length) {
+            let values = method === 'both' ? [] : selParseValues(method, $('inSelValues').value);
+            if (!values.length && method !== 'both') {
                 values = selDefaultValues(method, sec);
                 $('inSelValues').value = values.map(v => method === 'phi' ? v.toFixed(3) : (method === 'diameter' ? disp('length', v, 2) : Math.round(v))).join(', ');
             }
@@ -2769,7 +2882,22 @@ Aungier impeller axial length:
                 source: $('inSelSource').value
             };
 
-            const results = E.selectionSweep(method, opts, values);
+            // Step 7/8 of every procedure: iterate until the efficiency settles.
+            // Head depends on efficiency through the discharge state, so each
+            // column re-integrates its own path rather than sharing the solver's
+            // single Hp - which is why the paper's own tables show Hp drifting
+            // slightly from column to column.
+            const T1s = sec.stages[0].Tin + 273.15;
+            const P1s = sec.stages[0].Pin * 1e5;
+            const Q1s = sec.stages[0].Q1;
+            const hpFn = eta => ({
+                HpTotal: E.compressPath(inp.mix, T1s, P1s, sec.P2, eta, inp.model, 40).Hp,
+                Q1: Q1s                       // inlet volume flow is set by the inlet state, not by eta
+            });
+            const results = method === 'both' ? [] : values.map(v =>
+                E.selectSectionIterated(method, Object.assign({}, opts, {
+                    value: v, etaStart: sec.etaPoly
+                }), hpFn));
 
             const p = pal();
             const rowDef = [
@@ -2790,7 +2918,11 @@ Aungier impeller axial length:
             ];
 
             if (!results.length) {
-                $('selSweepTable').innerHTML = `<p class="text-sm" style="color:var(--muted)">Enter one or more values to sweep.</p>`;
+                $('selSweepTable').innerHTML = method === 'both'
+                    ? `<p class="text-sm" style="color:var(--muted)">Section ${secIdx + 1} pins both the impeller diameter and the
+                       speed, so there is no free variable to sweep. It is being evaluated, not sized — the comparison below shows
+                       what each of the paper's three methods would have selected for the same duty.</p>`
+                    : `<p class="text-sm" style="color:var(--muted)">Enter one or more values to sweep.</p>`;
                 $('chartSelSweep').innerHTML = '';
             } else {
                 $('selSweepTable').innerHTML = `
@@ -2806,11 +2938,26 @@ Aungier impeller axial length:
 
                 $('selSweepTable').querySelectorAll('button[data-sel-apply]').forEach(btn => {
                     btn.addEventListener('click', () => {
-                        const r = results[Number(btn.getAttribute('data-sel-apply'))];
-                        if (!r || !isFinite(r.N) || !isFinite(r.mu_p)) return;
-                        sections[secIdx].speedMode = 'manual';
-                        sections[secIdx].speedManual = Math.round(r.N);
-                        $('inPsi').value = r.mu_p.toFixed(4);
+                        const i = Number(btn.getAttribute('data-sel-apply'));
+                        const r = results[i];
+                        if (!r || !isFinite(r.N)) return;
+                        // Write the *assumption* this column was built on, not the
+                        // numbers it produced, and switch the section onto the same
+                        // correlation. The solver then re-derives this machine
+                        // rather than holding a snapshot that goes stale the moment
+                        // the duty or the efficiency moves.
+                        const s = sections[secIdx];
+                        s.basis = 'sandberg';
+                        if (method === 'phi') {
+                            $('inPhi').value = values[i].toFixed(4);
+                            s.fixMode = 'auto';
+                        } else if (method === 'diameter') {
+                            s.fixMode = 'diameter';
+                            s.D2Manual = [values[i]];
+                        } else if (method === 'speed') {
+                            s.fixMode = 'speed';
+                            s.speedManual = Math.round(values[i]);
+                        }
                         renderSections();
                         recalc();
                     });
@@ -2848,9 +2995,17 @@ Aungier impeller axial length:
             // Cross-check: this section's own solved geometry, fed back
             // through all three methods, per the paper's Table A1.5.
             const baseSt = sec.stages[0];
-            const baseCol = { label: 'This app’s solve', phi: baseSt.phi, D: baseSt.D2, N: sec.speed, ns: baseSt.nsSpec, ds: baseSt.dsSpec, mu_p: baseSt.psi, etaP: sec.etaPoly };
+            // The paper's methods all work on the weighted average diameter
+            // (Eqn 9), so feed that back rather than stage 1's - on a trimmed
+            // section the two differ and only the average is comparable.
+            const baseD = isFinite(sec.D2) ? sec.D2 : baseSt.D2;
+            const baseCol = {
+                label: sec.fixMode === 'both' ? 'This machine (as offered)' : 'This app’s solve',
+                phi: baseSt.phi, D: baseD, N: sec.speed,
+                ns: baseSt.nsSpec, ds: baseSt.dsSpec, mu_p: sec.psiUsed, etaP: sec.etaPoly
+            };
             const viaPhi = E.selectSection('phi', Object.assign({}, opts, { value: baseSt.phi }));
-            const viaD = E.selectSection('diameter', Object.assign({}, opts, { value: baseSt.D2 }));
+            const viaD = E.selectSection('diameter', Object.assign({}, opts, { value: baseD }));
             const viaN = E.selectSection('speed', Object.assign({}, opts, { value: sec.speed }));
             const cmpCols = [
                 baseCol,
@@ -2920,10 +3075,27 @@ Aungier impeller axial length:
                     o.stagesMode = 'manual';
                     o.stagesManual = Math.round(s.stagesManual);
                 }
-                if (s.speedMode === 'manual' && s.speedManual > 0) {
+                // Which of speed and diameter the section pins, and which
+                // correlation sizes whatever is left free.
+                const fix = fixModeOf(s);
+                const d2 = (s.D2Manual || []).filter(d => isFinite(d) && d > 0);
+                if ((fix === 'diameter' || fix === 'both') && !d2.length) {
+                    throw new Error('Section ' + (i + 1) + ' fixes the impeller diameter but none was ' +
+                                    'entered — give a diameter, or set the section back to automatic sizing.');
+                }
+                if ((fix === 'speed' || fix === 'both') && !(s.speedManual > 0)) {
+                    throw new Error('Section ' + (i + 1) + ' fixes the shaft speed but none was entered.');
+                }
+                o.fixMode = fix;
+                if (fix === 'speed' || fix === 'both') {
                     o.speedMode = 'manual';
                     o.speedManual = s.speedManual;
                 }
+                if (fix === 'diameter' || fix === 'both') o.D2Manual = d2;
+                // With both pinned the machine is fully described, so no
+                // correlation runs and the basis has nothing to act on.
+                if (fix !== 'both' && s.basis === 'sandberg') o.basis = 'sandberg';
+                if (s.psiManual > 0) o.psiManual = s.psiManual;
                 return o;
             });
 
@@ -3123,6 +3295,27 @@ Aungier impeller axial length:
                         ' is below the practical minimum ' + dispU('length', s.minD2, 0) +
                         (s.speedSource === 'manual' ? ' at the manually set speed' : '') +
                         ' — there is no room for the shaft, seals and bearings.']);
+                }
+                // With the geometry pinned, psi is a result rather than a target,
+                // so nothing in the solve keeps it sensible. A quoted machine
+                // that implies a head coefficient outside the usable band is the
+                // main thing evaluation mode exists to catch.
+                if (s.fixMode === 'both' && isFinite(s.psiUsed)) {
+                    const lim = currentLimits();
+                    if (s.psiUsed > lim.psiMax || s.psiUsed < lim.psiMin) {
+                        warns.push([s.psiUsed > lim.psiMax * 1.25 || s.psiUsed < lim.psiMin * 0.75 ? 'bad' : 'warn',
+                            'Section ' + s.section + ': the quoted diameter and speed imply a head coefficient ψ of ' +
+                            s.psiUsed.toFixed(3) + ', outside the usable ' + lim.psiMin.toFixed(2) + '–' + lim.psiMax.toFixed(2) +
+                            ' band. ' + (s.psiUsed > lim.psiMax
+                                ? 'The impellers are being asked for more head than a stage of this size normally makes — check the stage count, the diameter or the duty.'
+                                : 'The impellers are loafing; a smaller or slower machine would do this duty.')]);
+                    }
+                }
+                if (s.trimmed) {
+                    const psis = s.stages.map(x => x.psi);
+                    warns.push(['warn', 'Section ' + s.section + ' has impellers of different diameters (average ' +
+                        dispU('length', s.D2, 1) + '). With the head split equally the smallest works hardest — ψ runs from ' +
+                        Math.min(...psis).toFixed(3) + ' to ' + Math.max(...psis).toFixed(3) + ' across the section.']);
                 }
                 const phis = s.stages.map(x => x.phi);
                 const spread = Math.max(...phis) / Math.min(...phis);
@@ -4066,7 +4259,9 @@ Aungier impeller axial length:
         // full EOS re-solve - renderSelection() re-renders straight off the
         // section the app already solved. They get their own light 'change'
         // listeners instead (see the tab-setup block above).
-        const SEL_PERSIST_INPUTS = ['inSelMethod', 'inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'];
+        // inSelMethod is gone: the method is the section's fix mode, which lives
+        // in the sections array and is persisted with it.
+        const SEL_PERSIST_INPUTS = ['inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'];
 
         function collectState() {
             const vals = {};
@@ -4083,7 +4278,11 @@ Aungier impeller axial length:
             // bytes live in this device's IndexedDB, never in this object, so
             // they never touch Firestore's 1MB document cap or an exported
             // JSON file.
-            return { version: 4, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
+            // version 5: sections carry fixMode ('auto'|'speed'|'diameter'|'both')
+            // and basis ('app'|'sandberg') in place of the old speedMode, plus
+            // D2Manual - an array of impeller diameters in SI metres, one per
+            // impeller, so a trimmed supplier section survives a round trip.
+            return { version: 5, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -4118,8 +4317,19 @@ Aungier impeller axial length:
                 }, {
                     stagesMode: x.stagesMode === 'manual' ? 'manual' : 'auto',
                     stagesManual: Number(x.stagesManual) || 4,
-                    speedMode: x.speedMode === 'manual' ? 'manual' : 'auto',
-                    speedManual: Number(x.speedManual) || 10000
+                    // Pre-v5 said only "is the speed manual"; that is exactly the
+                    // 'speed' fix mode. Everything saved before the basis existed
+                    // was solved on the app's own correlations, so it stays there
+                    // and a reloaded case gives the same machine as before.
+                    fixMode: ['auto', 'speed', 'diameter', 'both'].indexOf(x.fixMode) >= 0
+                        ? x.fixMode
+                        : (x.speedMode === 'manual' ? 'speed' : 'auto'),
+                    basis: x.basis === 'sandberg' ? 'sandberg' : 'app',
+                    speedManual: Number(x.speedManual) || 10000,
+                    D2Manual: Array.isArray(x.D2Manual)
+                        ? x.D2Manual.map(Number).filter(d => isFinite(d) && d > 0)
+                        : null,
+                    psiManual: Number(x.psiManual) || 0
                 }));
 
                 // A pre-v3 file's global fixed-speed override becomes a manual
@@ -4130,7 +4340,7 @@ Aungier impeller axial length:
                     if (oldSpeed > 0) {
                         const common = s.values.inCommonShaft === '1';
                         sections.forEach((sec, i) => {
-                            if (i === 0 || common) { sec.speedMode = 'manual'; sec.speedManual = oldSpeed; }
+                            if (i === 0 || common) { sec.fixMode = 'speed'; sec.speedManual = oldSpeed; }
                         });
                     }
                 }
@@ -4416,18 +4626,22 @@ Aungier impeller axial length:
             // but the choice itself still has to reach localStorage/cloud,
             // same as every other input, so scheduleSave() is called directly
             // rather than going through recalc()'s heavier path.
-            $('inSelMethod').addEventListener('change', () => {
-                $('inSelValues').value = '';   // let the new method's own defaults populate
+            // Changing section changes the method too, since the method is that
+            // section's fix mode - so the swept values from the old section would
+            // be read in the wrong quantity entirely. Blanking lets the new
+            // method's own defaults populate.
+            $('inSelSection').addEventListener('change', () => {
+                $('inSelValues').value = '';
                 if (lastTrain) renderSelection(lastTrain, lastInput);
                 scheduleSave();
             });
-            ['inSelSection', 'inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'].forEach(id => {
+            ['inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'].forEach(id => {
                 $(id).addEventListener('change', () => {
                     if (lastTrain) renderSelection(lastTrain, lastInput);
                     scheduleSave();
                 });
             });
-            updateSelMethodUI();
+            updateSelMethodUI(selMethodFor(0));
 
             // Live recalculation on every input
             SIMPLE_INPUTS.forEach(id => {
