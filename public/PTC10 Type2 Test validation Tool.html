@@ -93,9 +93,11 @@ header .proj::placeholder{color:rgba(255,255,255,.6)}
 
 nav{background:var(--nav-bg);padding:10px 0;overflow-y:auto}
 /* mode-tagged nav items: body[data-mode] decides which set is visible; untagged items
-   (none currently) would show in both */
-body[data-mode="generic"] nav [data-m="siemens"]{display:none}
-body[data-mode="siemens"] nav [data-m="generic"]{display:none}
+   (none currently) would show in both. Written as "hide everything tagged for another
+   mode" so a fourth mode needs one line, not one line per pair. */
+body[data-mode="generic"] nav [data-m]:not([data-m="generic"]){display:none}
+body[data-mode="siemens"] nav [data-m]:not([data-m="siemens"]){display:none}
+body[data-mode="guide"]   nav [data-m]:not([data-m="guide"])  {display:none}
 nav button{display:block;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;
   color:var(--nav-fg);padding:calc(10px*var(--dens)) 16px;font-size:calc(13.5px*var(--scale))}
 nav button:hover{background:rgba(255,255,255,.06);color:#fff}
@@ -214,6 +216,31 @@ body.hidefx tr.fxr{display:none}
 .rule{background:var(--fx-bg);border-left:3px solid var(--blue-2);padding:8px 11px;border-radius:var(--r-sm);
   font-size:calc(12.5px*var(--scale));line-height:1.6;color:var(--ink);margin-bottom:12px}
 .rule b{color:var(--accent-ink)}
+
+/* ---------- PTC-10 guide (Colby 2005) ---------- */
+.figcap{font-size:calc(11.5px*var(--scale));color:var(--muted);line-height:1.55;margin-top:7px}
+.figcap b{color:var(--accent-ink);font-weight:600}
+/* A figure card holds a redrawn SVG and, once a slot in PAPER_SNAPS is filled, the
+   original scan beside it. Empty slots collapse so the SVG takes the full width. */
+/* a full-width card on a wide monitor would blow a 560-unit figure up to ~1140px, which
+   makes the type disproportionately large — cap it and centre it instead */
+.figwrap{display:grid;gap:14px}
+[id^="figG"]>svg{max-width:860px;margin:0 auto;display:block}
+.figwrap.paired [id^="figG"]>svg{max-width:none}
+.figwrap.paired{grid-template-columns:1fr 1fr}
+@media(max-width:1000px){.figwrap.paired{grid-template-columns:1fr}}
+.cite{font-size:calc(11.5px*var(--scale));color:var(--muted);line-height:1.6;
+  border-left:3px solid var(--rule);padding-left:11px}
+.gck .act{display:none}
+.gck td.txt{font-size:calc(12.5px*var(--scale));line-height:1.5;white-space:normal}
+.gck td.ref{font-family:var(--mono);font-size:calc(11px*var(--scale));color:var(--muted);white-space:normal}
+.gck td.auto{font-family:var(--mono);font-size:calc(11px*var(--scale));color:var(--muted);line-height:1.5}
+.gck tr.au-N td{background:var(--fail-bg)}
+.gck tr.au-Y td{background:var(--pass-bg)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:12px}
+.kv .cell{border:1px solid var(--rule);border-radius:var(--r-md);padding:8px 10px;background:var(--fx-bg)}
+.kv .cell .t{font-size:calc(10.5px*var(--scale));color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kv .cell .v{font-family:var(--mono);font-weight:700;font-size:calc(15px*var(--scale));color:var(--calc);margin-top:3px}
 
 /* ---------- appearance panel ---------- */
 .apRow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -397,6 +424,7 @@ function apApply(){
   if(document.body) document.body.classList.toggle("hidefx",!AP.fx);
   /* the live charts are SVG strings, so they have to be redrawn to re-colour */
   if(was!==now && typeof drawCharts==="function") drawCharts();
+  if(was!==now && typeof drawGuide==="function") drawGuide();
 }
 function apSync(){                                   // reflect AP back into the controls
   const g=id=>document.getElementById(id);
@@ -451,6 +479,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
   <div class="modebar">
     <button class="on" data-mode="generic" onclick="setMode('generic')">Generic validation</button>
     <button data-mode="siemens" onclick="setMode('siemens')">Siemens <span class="n">Type 2</span></button>
+    <button data-mode="guide" onclick="setMode('guide')">PTC-10 guide <span class="n">Colby 2005</span></button>
   </div>
 
   <!-- Backdrop behind the drawer nav on small screens; inert above 860px. -->
@@ -476,6 +505,19 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <div class="grp" data-m="siemens">Siemens validation</div>
     <button data-m="siemens" data-v="v-sie-cmp"><span class="ico">⇄</span>Actual vs Test</button>
     <button data-m="siemens" data-v="v-sie-calc"><span class="ico">⛓</span>Stage calculation</button>
+
+    <div class="grp" data-m="guide">Theory</div>
+    <button data-m="guide" data-v="v-g-theory"><span class="ico">◐</span>Volume reduction</button>
+    <button data-m="guide" data-v="v-g-cond"><span class="ico">⚙</span>Determining test conditions</button>
+    <div class="grp" data-m="guide">Test design review</div>
+    <button data-m="guide" data-v="v-g-stage"><span class="ico">≣</span>Stage-by-stage review</button>
+    <button data-m="guide" data-v="v-g-press"><span class="ico">↓</span>Suction pressure</button>
+    <button data-m="guide" data-v="v-g-loop"><span class="ico">↻</span>Test loop &amp; recirculation</button>
+    <button data-m="guide" data-v="v-g-proc"><span class="ico">△</span>Procedure &amp; surge</button>
+    <button data-m="guide" data-v="v-g-type1"><span class="ico">①</span>Type 1 testing</button>
+    <div class="grp" data-m="guide">Validation</div>
+    <button data-m="guide" data-v="v-g-pre"><span class="ico">□</span>Pre-test — vendor procedure</button>
+    <button data-m="guide" data-v="v-g-post"><span class="ico">▣</span>Post-test — vendor report</button>
   </nav>
 
   <main>
@@ -925,7 +967,7 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <p class="sub">How to run an ASME PTC-10 Type 2 performance-test validation, start to finish. New users can follow the steps in order.</p>
 
     <div class="card"><h2>What this tool does</h2><div class="body">
-      <p class="note" style="font-size:13px">It validates a shop performance test of a centrifugal compressor run on a substitute gas (an ASME PTC-10 <b>Type 2</b> test), against the contract guarantee per API 617. It sizes the required test gas and speed, checks that the test stays inside the code's allowable similitude limits (volume ratio, flow coefficient, Machine Mach and Reynolds numbers), compares corrected/as-measured performance to the guarantee, carries the API 617 + ADNOC AGES mechanical-running-test checklist, and produces a printable A4 report. Every calculated value shows the formula with your numbers substituted — nothing is hidden.</p>
+      <p class="note" style="font-size:13px">It validates a shop performance test of a centrifugal compressor run on a substitute gas (an ASME PTC-10 <b>Type 2</b> test), against the contract guarantee per API 617. It sizes the required test gas and speed, checks that the test stays inside the code's allowable similitude limits (volume ratio, flow coefficient, Machine Mach and Reynolds numbers), compares corrected/as-measured performance to the guarantee, carries the API 617 + ADNOC AGES mechanical-running-test checklist, validates the vendor's test procedure and test report against the ASME PTC-10 Type 2 tutorial by Colby (2005), and produces a printable A4 report. Every calculated value shows the formula with your numbers substituted — nothing is hidden.</p>
     </div></div>
 
     <div class="card"><h2>Step-by-step workflow</h2><div class="body">
@@ -937,12 +979,13 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
         <tr><td class="k">4</td><td class="k">Verify — with / without Re<sub>m</sub></td><td>Enter the shop test readings. "With correction" applies vendor Reynolds-correction factors to head, efficiency, work and flow coefficients; "without" compares as-measured data directly (conservative). Similitude deviations are checked against PTC-10 limits, and the Mach / Reynolds points are plotted live on the Fig. 3.3 and 3.5 charts beside the original PTC-10 snaps.</td></tr>
         <tr><td class="k">5</td><td class="k">MRT / AGES checklist</td><td>Work through the mechanical-running-test check points (API 617 cl. 6.3.5 + ADNOC AGES). Set Y / N / N/A, add comments, edit text, add or delete rows, or import/export as JSON or CSV. Status, comments and edits are saved with the project.</td></tr>
         <tr><td class="k">6</td><td class="k">Attachments</td><td>Drag-drop images, paste screenshots (Ctrl + V), or browse. Images merge into the report PDF, one per page. PDF files are indexed on an appendix page (they can't be embedded — screenshot them or merge afterwards).</td></tr>
-        <tr><td class="k">7</td><td class="k">Report of test</td><td>Set manufacturer / witness / date and the correction basis, then "Open full A4 report". Print → Save as PDF (Edge: margins <b>None</b>). The report includes cover, all calculations with formulas, the comparison table, both verification programs, the allowable-departure charts with snaps, the scorecard with the ACCEPTED / NOT ACCEPTED determination, the checklist, and attachments.</td></tr>
+        <tr><td class="k">7</td><td class="k">PTC-10 guide</td><td>The third tab on the top bar. It works the ASME PTC-10 Type 2 tutorial by Gary M. Colby (34th Turbomachinery Symposium, 2005) into two instruments — a <b>pre-test</b> validation of the vendor's test procedure and a <b>post-test</b> validation of the vendor's test report — plus the theory behind the code limits, all of the paper's figures redrawn, and three calculators the code does not require but the paper argues for: the <b>stage-by-stage volume-reduction review</b>, the suction-pressure trade-off between Reynolds correction and heat loss, and the seal pseudo clearance. Rows the project's own numbers can settle are pre-filled with their evidence; the rest are the reviewer's judgement.</td></tr>
+        <tr><td class="k">8</td><td class="k">Report of test</td><td>Set manufacturer / witness / date and the correction basis, then "Open full A4 report". Print → Save as PDF (Edge: margins <b>None</b>). The report includes cover, all calculations with formulas, the comparison table, both verification programs, the allowable-departure charts with snaps, the scorecard with the ACCEPTED / NOT ACCEPTED determination, the checklist, the PTC-10 guide validations, and attachments.</td></tr>
         </tbody></table>
     </div></div>
 
     <div class="card"><h2>Saving your work</h2><div class="body">
-      <p class="note" style="font-size:13px"><b>Save project</b> writes a <span class="k">.t2p.json</span> file holding every input, the unit system, the mode selections, the full checklist (statuses and comments), and attachments. <b>Open</b> restores it exactly. There is no auto-save — nothing is written to disk until you click Save, which avoids corporate policy issues. Keep the file on a network drive or email it to move a project between machines.</p>
+      <p class="note" style="font-size:13px"><b>Save project</b> writes a <span class="k">.t2p.json</span> file holding every input, the unit system, the mode selections, the full checklist (statuses and comments), the PTC-10 guide stage table and both validation checklists, and attachments. <b>Open</b> restores it exactly. There is no auto-save — nothing is written to disk until you click Save, which avoids corporate policy issues. Keep the file on a network drive or email it to move a project between machines.</p>
     </div></div>
 
     <div class="card"><h2>Reading the colours</h2><div class="body">
@@ -973,8 +1016,546 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
         <li>The gas-property presets are representative screening values at low test pressure. For a contractual calculation, confirm MW, k and Z₁ from a proper equation of state (e.g. NIST REFPROP) for your exact gas, pressure and temperature — especially for CO₂, R-134a and mixtures.</li>
         <li>The Fig. 3.3 / 3.5 curves are digitised reproductions for working use, shown beside the original snaps for cross-checking. They are not a substitute for the purchased ASME PTC-10 code text.</li>
         <li>Per PTC-10 Table 3.2 (1997) / 3-2.1-2 (2022) Note (1), the <b>test</b> Machine Reynolds number must be at least 90,000; the tool fails the check when it isn't. If the <i>design</i> Reynolds number is below 90,000 the Fig. 3.5 band is extrapolated beyond the digitised curve, and the tool says so as a caution without failing the check.</li>
+        <li>The PTC-10 guide tab summarises a published tutorial and redraws its figures from curve data digitised out of the paper. It is a working aid, not a reproduction, and not a substitute for reading the paper. Where its Fig. 3.3 / 3.5 allowable limits differ from the values printed in that paper — they do at the upper end — the guide says so on the page and neither reading overrides the purchased code.</li>
         <li>This tool supports engineering judgement — it does not replace the governing standards or the reviewing engineer's sign-off.</li>
       </ul>
+    </div></div>
+  </div>
+
+  <!-- ================= PTC-10 GUIDE — Colby (2005) =================
+       A reading of the tutorial "Hydraulic Shop Performance Testing of Centrifugal
+       Compressors" turned into working checks. Every figure below is redrawn as SVG from
+       the curve data digitised out of the paper, so it themes and prints with the rest of
+       the tool; PAPER_SNAPS holds the original scans beside them once supplied. Nothing
+       here writes to the generic Type 2 state — it only reads it. -->
+  <div class="view" id="v-g-theory">
+    <h1>Volume reduction &amp; similitude</h1>
+    <p class="sub">Why a Type 2 test runs slower than the machine ever will, and what the code limits are actually protecting.</p>
+
+    <div class="card"><h2>The premise</h2><div class="body">
+      <p class="note" style="font-size:13px">A Type 2 test is built on <b>similitude of volume reduction</b>. In a multistage
+        machine the volume reduction of stage 1 fixes the capacity seen by stage 2, which fixes stage 3, and so on to the
+        discharge. Once the selection is frozen, the design volume reduction of the rotor is frozen with it. For the shop test
+        to say anything about field performance, the <b>test volume reduction must equal the design volume reduction</b> —
+        that single requirement generates every other rule on these pages.</p>
+      <div class="rule" style="margin-top:12px">Volume reduction of a stage = <b>V₂ / V₁</b> — the ratio of discharge to
+        inlet volume. It depends on the polytropic head, the efficiency, the gas density and the gas properties.</div>
+    </div></div>
+
+    <div class="card"><h2>Governing relations <span class="r">Colby Eq. 1–5</span></h2><div class="body">
+      <div class="eqlist">
+        <div><b>(1)</b> Head = (1545 / MW) × T₁ × Z₁ × [n/(n−1)] × [ (P₂/P₁)^((n−1)/n) − 1 ]</div>
+        <div><b>(2)</b> n/(n−1) = η<sub>p</sub> × [ k/(k−1) ] &nbsp;&nbsp;<span style="color:var(--muted)">— polytropic volume exponent from efficiency and k</span></div>
+        <div><b>(3)</b> Head = μ × U² / g &nbsp;&nbsp;<span style="color:var(--muted)">— head is the head coefficient times tip speed squared</span></div>
+        <div><b>(4)</b> μ = Head × g / ΣU² &nbsp;&nbsp;<span style="color:var(--muted)">— overall μ for a multistage rotor</span></div>
+        <div><b>(5)</b> M<sub>m</sub> = U / A₀ = U / √(k g R T Z) &nbsp;&nbsp;<span style="color:var(--muted)">— machine Mach number, first-stage tip speed over inlet sonic velocity</span></div>
+      </div>
+      <div class="note" style="margin-top:10px">Read Eq. (1) as an identity that must balance. Hold everything constant but
+        one variable and the pressure ratio — and therefore the volume reduction — has to move to keep it balanced. That is
+        the whole of Table 1 below.</div>
+    </div></div>
+
+    <div class="card"><h2>Table 1 — effect on volume reduction <span class="r">Colby (2005), Table 1</span></h2><div class="body">
+      <table>
+        <colgroup><col style="width:34%"><col style="width:26%"><col></colgroup>
+        <thead><tr><th>Variable</th><th>Change</th><th>Effect on volume reduction</th></tr></thead>
+        <tbody id="tG1"></tbody>
+      </table>
+      <div class="warnbox" style="margin-top:12px"><b>Inlet pressure has no effect on volume reduction.</b> The discharge
+        pressure moves proportionately and the ratio is unchanged. Pressure reaches the volume reduction only through its
+        effect on the gas properties k and Z. That is why suction pressure is free to be chosen for other reasons —
+        Reynolds number, heat loss and available shop power (see <i>Suction pressure</i>).</div>
+      <div id="snapT1"></div>
+    </div></div>
+
+    <div class="card"><h2>Figure 1 — three-stage compressor, design vs. high mole weight</h2><div class="body">
+      <div id="figG1"></div>
+      <div class="figcap"><b>Figure 1.</b> Stage curves of head versus inlet capacity. The solid marker on each stage is the
+        design capacity; the dashed marker is where the stage actually operates when the gas mole weight is above specified.
+        Stage 1 is barely displaced, but its extra volume reduction pushes stage 2 to a lower capacity, where it makes more
+        head and reduces volume further — the error compounds stage by stage. A test on a heavier gas therefore has to have
+        its head, and so its speed, reduced to bring the overall volume reduction back to design.</div>
+      <div id="snapF1"></div>
+    </div></div>
+
+    <div class="card"><h2>Figure 2 — stage map at three machine Mach numbers</h2><div class="body">
+      <div id="figG2"></div>
+      <div class="figcap"><b>Figure 2.</b> Normalised head coefficient and efficiency against normalised inlet flow
+        coefficient. Machine Mach number changes both the level and the width of the map: the higher the Mach number the
+        narrower the operating range and the steeper the head curve. Because μ sets the head and the head sets the volume
+        reduction, a Mach number departure between test and design is a volume-reduction error — which is exactly why
+        PTC-10 Fig. 3.3 tightens the allowable departure as design Mach number rises, and why the departure is checked at
+        the <b>first stage only</b>, all later stages being assumed to depart by the same percentage.</div>
+      <div class="note" style="margin-top:10px">The digitised Fig. 3.3 envelope with your live test point is on
+        <b>Generic validation → Verify</b>. It is not duplicated here.</div>
+      <div id="snapF2"></div>
+    </div></div>
+
+    <div class="card"><h2>Nomenclature &amp; source</h2><div class="body">
+      <table><colgroup><col style="width:90px"><col></colgroup><tbody>
+        <tr><td class="unit">MW</td><td class="note">Molecular weight</td></tr>
+        <tr><td class="unit">Z</td><td class="note">Compressibility factor</td></tr>
+        <tr><td class="unit">n</td><td class="note">Polytropic volume exponent</td></tr>
+        <tr><td class="unit">k</td><td class="note">Isentropic exponent</td></tr>
+        <tr><td class="unit">U</td><td class="note">Impeller tip speed</td></tr>
+        <tr><td class="unit">μ</td><td class="note">Polytropic head coefficient</td></tr>
+        <tr><td class="unit">A₀</td><td class="note">Sonic velocity at inlet</td></tr>
+        <tr><td class="unit">V</td><td class="note">Specific volume</td></tr>
+        <tr><td class="unit">φ = Q/N</td><td class="note">Flow coefficient (Q/ND³ with D constant test-to-design)</td></tr>
+        <tr><td class="unit">GHP</td><td class="note">Gas horsepower</td></tr>
+      </tbody></table>
+      <div class="cite" style="margin-top:12px">Colby, G. M., 2005, “Hydraulic Shop Performance Testing of Centrifugal
+        Compressors,” <i>Proceedings of the Thirty-Fourth Turbomachinery Symposium</i>, Turbomachinery Laboratory, Texas
+        A&amp;M University, pp. 147–154.<br/>
+        ASME PTC-10, 1997, “Performance Test Code on Compressors and Exhausters.”<br/>
+        API Standard 617, 2002, 7th Edition.<br/>
+        <span style="color:var(--warn-ink)">This tab is a working summary of a published tutorial. It is not a substitute
+        for the paper or for the purchased code text.</span></div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-cond">
+    <h1>Determining the test conditions</h1>
+    <p class="sub">What the manufacturer controls, how the test speed falls out of volume-ratio similitude, and where the inherent errors are.</p>
+
+    <div class="card"><h2>What the manufacturer can choose</h2><div class="body">
+      <table><colgroup><col style="width:26%"><col></colgroup><tbody>
+        <tr><td class="k">Inlet temperature</td><td class="note">Set by the cooling capacity of the test stand — typically about 100 °F (38 °C). Any difference from design is absorbed by the test speed.</td></tr>
+        <tr><td class="k">Test gas medium</td><td class="note">Almost always <b>higher</b> in mole weight than the specified gas, so the required speed stays below MCS. Second criterion is the closest k value.</td></tr>
+        <tr><td class="k">Inlet pressure</td><td class="note">No effect on volume reduction. Chosen for mass flow, and hence power draw, Reynolds number and heat loss. Often near 10 % of the specified value.</td></tr>
+        <tr><td class="k">Test speed</td><td class="note">The dependent variable — set so the test volume ratio equals the design volume ratio.</td></tr>
+      </tbody></table>
+    </div></div>
+
+    <div class="card"><h2>Table 2 — typical inert test media <span class="r">Colby (2005), Table 2</span></h2><div class="body">
+      <table>
+        <colgroup><col style="width:26%"><col style="width:110px"><col style="width:110px"><col></colgroup>
+        <thead><tr><th>Gas</th><th>Mole weight</th><th>k</th><th>Against your specified gas</th></tr></thead>
+        <tbody id="tG2"></tbody>
+      </table>
+      <div class="warnbox" style="margin-top:12px"><b>Why not helium.</b> On the paper's sample compressor helium (MW 4.0
+        against a specified 26.3) collapses the test volume reduction so far that the required test speed would exceed
+        maximum continuous speed. The test gas is chosen heavier than the specified gas for exactly this reason.</div>
+      <div class="note" style="margin-top:10px">Values as tabulated in the paper — representative screening figures.
+        Confirm MW, k and Z from a referenced equation of state at the actual test pressure and temperature before use in a
+        contractual calculation.</div>
+      <div id="snapT2"></div>
+    </div></div>
+
+    <div class="card"><h2>Deriving the test speed <span class="r">Colby Eq. 6–10</span></h2><div class="body">
+      <div class="eqlist">
+        <div><b>(6)</b> P V<sup>n</sup> = constant</div>
+        <div><b>(7)</b> P₁ V₁<sup>n</sup> = P₂ V₂<sup>n</sup></div>
+        <div><b>(8)</b> V₁/V₂ = (P₂/P₁)<sup>1/n</sup></div>
+        <div><b>(9)</b> (V₁/V₂)<sub>test</sub> = (V₁/V₂)<sub>specified</sub> &nbsp;&nbsp;<span style="color:var(--muted)">— the similitude condition</span></div>
+        <div><b>(10)</b> N<sub>test</sub> = N<sub>specified</sub> × √( Head<sub>test</sub> / Head<sub>specified</sub> )</div>
+      </div>
+      <div class="rule" style="margin-top:12px">The sequence: efficiency is taken as equal test-to-design, so
+        <b>Eq. (2)</b> gives the test polytropic exponent n from the test gas k. <b>Eq. (8) with (9)</b> then gives the test
+        pressure ratio that reproduces the design volume ratio. <b>Eq. (1)</b> converts that to the required test head, and
+        <b>Eq. (10)</b> converts head to speed, head being proportional to speed squared.</div>
+      <div id="gCondLive"></div>
+    </div></div>
+
+    <div class="card"><h2>The paper's worked example <span class="r">Tables 3 &amp; 4</span></h2><div class="body">
+      <p class="note" style="margin:0 0 12px">A five-stage straight-through process compressor, tested on carbon dioxide at
+        44 psia and 100 °F. This is the same machine the tool ships with as its default project, so the numbers on the
+        Generic validation tabs can be read straight against this table.</p>
+      <table>
+        <colgroup><col style="width:34%"><col style="width:100px"><col><col></colgroup>
+        <thead><tr><th>Parameter</th><th>U.M.</th><th>Specified (Table 3)</th><th>Test at 11,070 rpm (Table 4)</th></tr></thead>
+        <tbody id="tG34"></tbody>
+      </table>
+      <div id="snapT34"></div>
+    </div></div>
+
+    <div class="card"><h2>Inherent errors in a Type 2 test</h2><div class="body">
+      <ul class="note" style="font-size:13px;line-height:1.8;margin:0;padding-left:20px">
+        <li>The speed calculation assumes a <b>straight-line polytropic path</b> on the pressure–enthalpy diagram between
+          the endpoints. The real path is slightly curved.</li>
+        <li>The <b>Mach number departure is checked at the first stage only</b>. It is not equal at every stage of a
+          multistage machine.</li>
+        <li>The <b>compressibility change from inlet to discharge</b> is normally larger at the specified condition than at
+          the low-pressure test condition.</li>
+        <li>Each of these perturbs the individual stage volume reductions away from design. Their combined effect only shows
+          up in a <b>stage-by-stage calculation</b> — which is the next page.</li>
+      </ul>
+    </div></div>
+
+    <div class="card"><h2>Departures at the design point <span class="r">layout of Colby Tables 5 &amp; 6</span></h2><div class="body">
+      <div class="bar">
+        <span class="note">Source of the test column</span>
+        <select class="mode" id="gCondSrc" style="width:230px" onchange="drawGuide()">
+          <option value="W">Verify — with Re correction</option>
+          <option value="O">Verify — without correction</option>
+        </select>
+      </div>
+      <table>
+        <colgroup><col style="width:30%"><col style="width:82px"><col style="width:110px"><col style="width:110px"><col style="width:120px"><col style="width:140px"><col style="width:76px"></colgroup>
+        <thead><tr><th>Parameter</th><th>Symbol</th><th>Design</th><th>Test</th><th>Departure<br/>ratio or delta</th><th>Allowable per Table 3.2<br/>ASME PTC 10-1997</th><th>Result</th></tr></thead>
+        <tbody id="tGDep"></tbody>
+      </table>
+      <div class="note" style="margin-top:10px">Live from your project. Left at the shipped defaults the <b>measured</b>
+        columns reproduce the paper's Table 5 (11,070 rpm) on the with-correction path and Table 6 (10,849 rpm) on the
+        without-correction path exactly — volume ratio 1.034 / 0.988, flow coefficient 1.000, Mach departure +0.035 /
+        +0.021, Reynolds ratio 0.284 / 0.278.</div>
+      <div class="warnbox" style="margin-top:12px"><b>The allowable columns do not match the paper, and you should know
+        why.</b> This tool reads its Fig. 3.3 and Fig. 3.5 envelopes from its own digitisation of the ASME curves; Colby's
+        Tables 5 and 6 quote values read off the printed figures. At this machine's design point the two readings differ —
+        Mach upper limit <b>+0.122</b> here against <b>+0.108</b> in the paper, and Reynolds upper limit <b>37.85</b> here
+        against <b>1.38</b> in the paper. The lower limits agree (Reynolds 0.10 in both). The verdicts are unaffected on
+        this example, because the test point sits well inside both readings. Where a test point lands near an upper limit,
+        settle it against the purchased ASME PTC-10 figures — not against this tool and not against the paper.</div>
+      <div id="snapT56"></div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-stage">
+    <h1>Stage-by-stage volume-reduction review</h1>
+    <p class="sub">The check the code does not ask for and that decides whether the test is representative. Ask the vendor for it by name.</p>
+
+    <div class="card"><h2>Why the code limits are not enough</h2><div class="body">
+      <p class="note" style="font-size:13px">The paper's sample compressor sits <b>inside every PTC-10 Table 3.2 limit</b>
+        at its code-derived test speed of 11,070 rpm — and still produces a test curve that does not lie on the specified
+        curve. The overall departures pass; the stage-by-stage behaviour does not. The only way to see it is to have the
+        manufacturer calculate the test condition <b>stage by stage</b>, convert to μ, η and φ, and plot the test curve on
+        the predicted specified-gas curve.</p>
+      <div class="rule" style="margin-top:12px">What to request in the test agenda: <b>(a)</b> the predicted test curve
+        plotted on the predicted specified-gas curve in dimensionless form (μ and η versus φ), and <b>(b)</b> the
+        normalised flow coefficient at every stage, inlet flange to discharge flange, at the design inlet flow coefficient.</div>
+    </div></div>
+
+    <div class="card"><h2>Figure 4 — test curve at 11,070 rpm, the code speed <span class="r">poor match</span></h2><div class="body">
+      <div id="figG4"></div>
+      <div class="figcap"><b>Figure 4.</b> Head coefficient and efficiency against inlet flow coefficient. The predicted
+        CO₂ test curve is displaced from the design-condition curve: at a given φ the test makes measurably more μ. The
+        test condition is legal under Table 3.2 and still fails the objective of the test.</div>
+      <div id="snapF4"></div>
+    </div></div>
+
+    <div class="card"><h2>Figure 5 — normalised stage flow coefficient at 11,070 rpm</h2><div class="body">
+      <div id="figG5"></div>
+      <div class="figcap"><b>Figure 5.</b> Each stage's test flow coefficient normalised on its own design value. A perfect
+        test lies on the design line at 1.000. Here the first stage's volume reduction is larger under test than under
+        specified conditions, so stage 2 runs at a lower φ — where it makes more head, hence still more volume reduction.
+        The error compounds until stages 4 and 5 run at nearly <b>3 % below</b> their design capacity.</div>
+      <div id="snapF5"></div>
+    </div></div>
+
+    <div class="card"><h2>Figures 6 &amp; 7 — corrected test speed 10,849 rpm <span class="r">good match</span></h2><div class="body">
+      <div class="figwrap paired">
+        <div><div class="cflab">Fig. 6 — μ and η vs. φ</div><div id="figG6"></div></div>
+        <div><div class="cflab">Fig. 7 — normalised stage φ</div><div id="figG7"></div></div>
+      </div>
+      <div class="figcap"><b>Figures 6 and 7.</b> Lowering the test speed by 221 rpm — about 2 % — reduces the overall
+        volume reduction back to design. The predicted test curve now falls on the specified curve, and no <i>stage</i>
+        operates more than 1 % from its design flow coefficient. The departures were then re-checked against Table 3.2 and
+        still pass, with the volume ratio improving from 1.033 to 0.988.</div>
+      <div id="snapF67"></div>
+    </div></div>
+
+    <div class="card"><h2>Your vendor's stage-by-stage data <span class="r">enter the normalised φ per station</span></h2><div class="body">
+      <div class="bar">
+        <button class="btn" onclick="gStageAdd()">Add station</button>
+        <button class="btn" onclick="gStageReset()">Load the paper's 10,849 rpm example — good match</button>
+        <button class="btn" onclick="gStageReset('bad')">Load the 11,070 rpm example — poor match</button>
+        <span class="note">Acceptance band ±</span>
+        <input id="gBand" style="width:64px" onchange="gStageSet()"/>
+        <span class="note">% — the paper's working criterion is 1 %.</span>
+      </div>
+      <table class="stg">
+        <colgroup><col style="width:26%"><col><col><col style="width:110px"><col style="width:90px"><col style="width:46px"></colgroup>
+        <thead><tr><th>Station</th><th>Test φ</th><th>Design φ</th><th>Normalised φ<sub>t</sub>/φ<sub>d</sub></th><th>Deviation</th><th></th></tr></thead>
+        <tbody id="tGStage"></tbody>
+      </table>
+      <div class="note" style="margin-top:8px">Enter the vendor's absolute flow coefficients, or enter the normalised value
+        directly in the test column and leave the design column at 1. A station whose name contains <b>flange</b> is plotted
+        but left out of the pass/fail — the paper's criterion is that no <i>stage</i> departs by more than the band.</div>
+      <div style="margin-top:14px" id="figGStage"></div>
+      <div id="gStageVerdict" style="margin-top:12px"></div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-press">
+    <h1>Choosing the test suction pressure</h1>
+    <p class="sub">Volume reduction does not care about inlet pressure. Power draw, Reynolds number and heat loss to atmosphere care a great deal.</p>
+
+    <div class="card"><h2>The three competing constraints</h2><div class="body">
+      <table><colgroup><col style="width:24%"><col></colgroup><tbody>
+        <tr><td class="k">Shop driver power</td><td class="note">Inlet pressure sets inlet density, hence mass flow, hence power. The test must run inside the power limit of the available shop driver — an upper bound on pressure.</td></tr>
+        <tr><td class="k">Reynolds number</td><td class="note">Test Re is directly proportional to inlet pressure. A Type 2 test is nearly always at a <b>lower</b> Re than specified, which raises frictional losses and depresses both head and efficiency below what the field will see — a lower bound on pressure.</td></tr>
+        <tr><td class="k">Heat loss to atmosphere</td><td class="note">Convection and radiation through the casing subtract from the measured enthalpy rise. Since the loss is roughly fixed while the mass throughput grows with pressure, the loss as a <i>percentage</i> of work input falls as pressure rises — another lower bound.</td></tr>
+      </tbody></table>
+      <div class="rule" style="margin-top:12px">On the paper's sample compressor the two effects very nearly cancel: at
+        44 psia the Reynolds correction is about <b>+0.5 %</b> and the heat loss about <b>0.44 %</b> of total heat input.
+        That is not an accident — it is what a well-chosen suction pressure looks like.</div>
+    </div></div>
+
+    <div class="card"><h2>Figure 8 — Reynolds number correction <span class="r">Colby (2005), Fig. 8</span></h2><div class="body">
+      <div id="figG8"></div>
+      <div class="figcap"><b>Figure 8.</b> Head and efficiency correction factor against test Reynolds number for the sample
+        compressor, with the corresponding test suction pressure and percentage of specified Reynolds number on the same
+        abscissa. <b>The correction is not linear</b> — it grows exponentially as absolute Reynolds number falls. For this
+        machine the allowable test range is 10 % to 138 % of the specified value; at the 10 % floor the correction would be
+        about 1.2 %. The absolute floor set by the code is <b>Re<sub>m</sub> = 90,000</b> on the test value.
+        The suction-pressure and percent-of-specified traces share the abscissa but carry their own scales — 0…160 psia
+        and 0…120 % respectively, mapped onto the plot height — exactly as the figure is published.</div>
+      <div class="warnbox" style="margin-top:12px">Most users do not permit the manufacturer to correct test data for
+        Reynolds number. Whether or not correction is allowed, the manufacturer should pick a suction pressure that keeps
+        the correction at its lowest practical level, and the user should know what that level is. Both verification
+        programs on the Generic tabs exist for exactly this — one with correction applied, one without.</div>
+      <div id="snapF8"></div>
+    </div></div>
+
+    <div class="card"><h2>Figure 9 — convection and radiation losses <span class="r">Colby (2005), Fig. 9</span></h2><div class="body">
+      <div id="figG9"></div>
+      <div class="figcap"><b>Figure 9.</b> Casing heat loss as a percentage of total heat input, against test suction
+        pressure. Below roughly 30 psia the loss climbs steeply. Heat lost to atmosphere subtracts from the measured work
+        input, so if it is not minimised, eliminated or accounted for, the <b>heat-balance efficiency comes out falsely
+        high</b>. Where the loss cannot be brought down, insulate the casing for the performance test.</div>
+      <div class="note" style="margin-top:10px">Curve digitised from the paper's sample compressor. Treat it as indicative
+        of the shape and magnitude, not as a calculation for your machine — ask the manufacturer for their estimate at the
+        proposed test suction pressure.</div>
+      <div id="snapF9"></div>
+    </div></div>
+
+    <div class="card"><h2>Screening a candidate suction pressure <span class="r">against your project</span></h2><div class="body">
+      <div class="bar">
+        <span class="note">Candidate test suction pressure</span>
+        <input id="gP1" style="width:96px" onchange="gPressSet()"/>
+        <span class="note" id="gP1u">—</span>
+        <button class="btn" onclick="gPressUse()">Use the value from Test gas selection</button>
+      </div>
+      <div class="kv" id="gPressKv"></div>
+      <table>
+        <colgroup><col style="width:34%"><col style="width:150px"><col style="width:160px"><col style="width:76px"></colgroup>
+        <thead><tr><th>Check</th><th>Value</th><th>Limit</th><th>Result</th></tr></thead>
+        <tbody id="tGPress"></tbody>
+      </table>
+      <div class="note" style="margin-top:10px">Reynolds number is scaled from the specified value in proportion to inlet
+        pressure, as the paper states. The correction factor and heat-loss percentage are read from the digitised Figs. 8
+        and 9 — they belong to the paper's sample machine and are shown here as an order-of-magnitude screen, not as a
+        substitute for the manufacturer's own calculation.</div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-loop">
+    <h1>Test loop &amp; recirculation</h1>
+    <p class="sub">API 617 guarantees power, not efficiency. Power is mass × work input — so the leakages have to be measured, not assumed.</p>
+
+    <div class="card"><h2>Why leakage is a power question</h2><div class="body">
+      <div class="eqlist">
+        <div><b>(11)</b> GHP = Head × Mass / (33,000 × η)</div>
+        <div><b>(12)</b> mass = C × π × D × S × √( (P<sub>h</sub> − P<sub>l</sub>) × ρ<sub>h</sub> ) &nbsp;&nbsp;<span style="color:var(--muted)">— seal leakage, orifice-like</span></div>
+      </div>
+      <p class="note" style="font-size:13px;margin-top:12px">At the specified operating point API 617 7th Edition requires
+        the power to be guaranteed within <b>4 %</b> of quoted; efficiency is <b>not</b> guaranteed. Power is the product of
+        the total mass compressed and the work input, so any recirculation or leakage that is mispredicted lands directly on
+        the power number. Wherever the loop permits it, leakages should be <b>measured during the shop test</b> and the
+        measured values used when converting results to the specified condition.</p>
+      <div class="rule" style="margin-top:12px">Manufacturers do not all use the same leakage equation, but the physics is
+        common. With the leakage measured, invert the equation to get a <b>pseudo clearance</b> — pseudo because it also
+        absorbs any error in the constant C — and use that to convert the results.</div>
+    </div></div>
+
+    <div class="card"><h2>Figure 10 — straight-through compressor test loop</h2><div class="body">
+      <div id="figG10"></div>
+      <div class="figcap"><b>Figure 10.</b> Inlet flowmeter, discharge throttle valve and heat exchanger. The balance-piston
+        return line is piped through its own flowmeter and returns upstream of the main inlet flowmeter, so the balance
+        piston seal leakage is measured directly. Take compressor discharge pressure as the seal upstream condition and the
+        flowmeter upstream pressure as the downstream condition.</div>
+      <div id="snapF10"></div>
+    </div></div>
+
+    <div class="card"><h2>Figure 11 — back-to-back compressor test loop</h2><div class="body">
+      <div id="figG11"></div>
+      <div class="figcap"><b>Figure 11.</b> A back-to-back machine has two recirculation paths that must both be accounted
+        for: the <b>division wall</b> leakage (second-section discharge into first-section discharge, recompressed by
+        section 2) and the <b>end seal</b> leakage (section-2 inlet back to section-1 inlet, recompressed by section 1).
+        Each section gets its own loop; an orifice in the seal balance line measures the end seal directly, and the loop
+        balance line between section-1 discharge and section-2 inlet is orificed too. The division wall leakage is the
+        <b>difference</b> between the loop balance line and the end seal flowmeter.</div>
+      <table style="margin-top:14px">
+        <colgroup><col style="width:24%"><col><col></colgroup>
+        <thead><tr><th>Valve</th><th>Testing section 2</th><th>Testing section 1</th></tr></thead><tbody>
+        <tr><td class="k">Seal balance line</td><td class="out">open</td><td class="out">closed</td></tr>
+        <tr><td class="k">Discharge → inlet loop balance</td><td class="out">open</td><td class="out">closed</td></tr>
+        <tr><td class="k">Discharge → discharge balance</td><td class="out">closed</td><td class="out">open</td></tr>
+        <tr><td class="k">Purpose</td><td class="note">Section-2 suction sits close to section-1 discharge so both seals leak and can be metered. Flow through the section-2 impellers is the section-2 main orifice minus the seal balance orifice.</td>
+            <td class="note">Recycles are eliminated so a true enthalpy rise can be observed. Opposing discharges are held at the same pressure, which kills the division wall leakage; leaving the valves open would mix division wall leakage into the section-1 discharge and corrupt the measured discharge temperature.</td></tr>
+      </tbody></table>
+      <div id="snapF11"></div>
+    </div></div>
+
+    <div class="card"><h2>Pseudo clearance from a measured leakage <span class="r">Eq. 12 inverted</span></h2><div class="body">
+      <div class="grid2">
+        <div><table><colgroup><col style="width:52%"><col><col style="width:84px"></colgroup><tbody id="tGLeakIn"></tbody></table></div>
+        <div><table><colgroup><col style="width:52%"><col><col style="width:70px"></colgroup><tbody id="tGLeakOut"></tbody></table></div>
+      </div>
+      <div class="note" style="margin-top:10px">Units are consistent throughout — enter the seal diameter and clearance in
+        the same length unit and the pressures in the same pressure unit, and the pseudo clearance comes back in the
+        clearance unit you used. The ratio of pseudo to predicted clearance is the number that matters: it tells you how far
+        the seal as built departs from the seal as calculated, and it is what should carry into the conversion of results.</div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-proc">
+    <h1>The standard test procedure &amp; surge</h1>
+    <p class="sub">What a normal test agenda contains, when to ask for more, and the five ways of finding the minimum stable flow.</p>
+
+    <div class="card"><h2>The standard agenda</h2><div class="body">
+      <ul class="note" style="font-size:13px;line-height:1.85;margin:0;padding-left:20px">
+        <li>Conducted at the <b>design point speed</b> only, in the normal case.</li>
+        <li><b>Five test points</b> at equally spaced capacities from overload to surge, one of them at the design inlet
+          flow coefficient.</li>
+        <li>The compressor is brought to <b>thermal equilibrium</b> before each point is recorded.</li>
+        <li><b>Surge points at two alternate speeds</b>, to define the slope of the surge line. These are normally not
+          thermally stable when recorded — head and flow coefficient are the objective there, not efficiency.</li>
+        <li>For a constant-speed machine the alternate points establish the surge line slope for off-design mole weight.</li>
+      </ul>
+      <div class="rule" style="margin-top:12px">The three surge points also say <b>where</b> surge begins. Surge points
+        close together in flow coefficient mean surge is initiated early — stage 1 or 2. A wide spread between them points
+        to one of the later stages.</div>
+    </div></div>
+
+    <div class="card"><h2>Figure 12 — the transition into surge</h2><div class="body">
+      <div id="figG12"></div>
+      <div class="figcap"><b>Figure 12.</b> A unit throttled slowly toward surge with the data system recomputing
+        performance every four seconds. The head coefficient stops rising and <b>droops</b>, then recovers and rises again
+        until audible surge is finally reached. Subsynchronous vibration appeared at the bottom of the droop. The minimum
+        stable flow was recorded at the <b>initial peak head</b> — some <b>10 % higher in capacity</b> than the audible
+        surge point. Determining surge by ear alone would have understated the machine's turndown requirement.</div>
+      <div id="snapF12"></div>
+    </div></div>
+
+    <div class="card"><h2>Five criteria for the minimum stable flow point</h2><div class="body">
+      <table><colgroup><col style="width:30%"><col></colgroup><tbody>
+        <tr><td class="k">Audible surge</td><td class="note">Flow reversal is plainly audible. Historically the only method — and often not the capacity at which the machine actually surges in the field.</td></tr>
+        <tr><td class="k">Onset of subsynchronous vibration</td><td class="note">Appears at the onset of surge provided there is enough energy input. The <b>frequency identifies the source</b>: 6–16 % of running speed suggests a stall in the stationary flow-path components; 70–90 % indicates the instability starts in the impellers.</td></tr>
+        <tr><td class="k">Peak head</td><td class="note">In many cases the head falls away before anything else is noticed — often the earliest and most defensible indicator.</td></tr>
+        <tr><td class="k">Flow instability</td><td class="note">Readily evident on the flow measurement.</td></tr>
+        <tr><td class="k">Pressure instability</td><td class="note">Readily evident on the pressure measurement.</td></tr>
+      </tbody></table>
+      <div class="warnbox" style="margin-top:12px">Modern data acquisition and vibration monitoring make surge determination
+        a measurement rather than a judgement. The test report should state <b>which criterion was used</b> — the choice can
+        move the declared minimum stable flow by around 10 %.</div>
+    </div></div>
+
+    <div class="card"><h2>When to buy an extra speed line</h2><div class="body">
+      <p class="note" style="font-size:13px">It is a risk-assessment question, and it starts with the process engineer:
+        which operating conditions actually matter for the process to run. The paper's rule of thumb — <b>compare the
+        machine Mach number at the alternate condition with that at the specified point. If the variance is greater than
+        the code would allow between test and design, an additional speed line may be warranted.</b> Also review how the
+        manufacturer extrapolates the design-point test data to alternate operating points; the method varies by
+        manufacturer and a weak extrapolation is itself an argument for testing the second line.</p>
+      <div id="gAltLine"></div>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-type1">
+    <h1>Type 1 testing</h1>
+    <p class="sub">Same principles, specified gas, and a tolerance the author recommends tightening well inside the code.</p>
+
+    <div class="card"><h2>What changes, and what does not</h2><div class="body">
+      <p class="note" style="font-size:13px">A Type 1 test is run on the specified gas at or very near the specified
+        conditions, with deviations limited by Tables 3.1 and 3.2 of the code. Every principle from the Type 2 discussion
+        still applies. In practice the specified gas is rarely available and the specified inlet temperature is often out
+        of reach of the test stand's cooling capacity, so a substitute is blended — typically from a local near-methane
+        supply with carbon dioxide, propane or another gas added to hit the target mole weight.</p>
+      <div class="rule" style="margin-top:12px">The blend must carry a <b>mixture k value very close to the specified
+        gas</b>. That is what keeps the machine Mach number right and makes the thermodynamic conversion of work input
+        produce the same pressure ratio. If the test inlet temperature has to be higher than specified, the test mole
+        weight must go up to offset it — while still holding the k value.</div>
+    </div></div>
+
+    <div class="card"><h2>The R·T·Z product <span class="r">Colby's recommendation</span></h2><div class="body">
+      <p class="note" style="margin:0 0 12px">Equations (1) and (5) share the product of the gas constant R = 1545/MW, the
+        inlet temperature and the inlet compressibility. If a blend has the same k <b>and</b> the same inlet R·T·Z product,
+        the performance will be the same as on the specified gas. The author recommends holding the inlet R·T·Z product and
+        the inlet pressure within <b>± 2 %</b> of specified — considerably tighter than PTC-10 Table 3.2 permits.</p>
+      <table>
+        <colgroup><col style="width:34%"><col style="width:130px"><col style="width:130px"><col style="width:120px"><col style="width:150px"><col style="width:76px"></colgroup>
+        <thead><tr><th>Parameter</th><th>Specified</th><th>Test</th><th>Test / specified</th><th>Recommended</th><th>Result</th></tr></thead>
+        <tbody id="tGType1"></tbody>
+      </table>
+      <div class="note" style="margin-top:10px">Computed from the specified conditions and the test gas you have entered on
+        the Generic tabs. On a Type 2 test these will not — and are not meant to — pass; the row is a Type 1 criterion,
+        shown here so the distinction between the two test types stays visible.</div>
+    </div></div>
+
+    <div class="card"><h2>What to require in a Type 1 test agenda</h2><div class="body">
+      <ul class="note" style="font-size:13px;line-height:1.8;margin:0;padding-left:20px">
+        <li>Comparable performance maps — <b>polytropic head, efficiency, pressure ratio and power</b> — produced for both
+          the specified gas and the planned test blend, showing how the machine on the test blend conforms to the machine on
+          the specified gas. These curves belong <b>in the test agenda</b>.</li>
+        <li>The test point or points agreed between user and manufacturer according to the <b>objective</b> of the test.</li>
+        <li>That objective settled <b>as early in the project as possible</b> — it drives the test stand loop design, and a
+          loop that was not built for the objective cannot be made to serve it later.</li>
+      </ul>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-pre">
+    <h1>Pre-test validation — vendor test procedure</h1>
+    <p class="sub">Review the test agenda and the vendor's test-condition calculation before the machine goes on the stand. Rows the tool can evaluate from your project are pre-filled; the rest are yours to judge.</p>
+
+    <div class="card"><h2>Status <span class="r" id="gPreCount">—</span></h2><div class="body">
+      <div class="bar">
+        <button class="btn" onclick="gCkAuto('pre')">Apply the automatic verdicts</button>
+        <button class="btn" onclick="gCkClear('pre')">Clear all statuses</button>
+        <button class="btn" onclick="gCkExport('pre','json')">Export JSON</button>
+        <button class="btn" onclick="gCkExport('pre','csv')">Export CSV</button>
+        <span class="note" id="gPreStat"></span>
+      </div>
+      <div class="warnbox">An <b>automatic</b> verdict comes from the numbers already in your project and is shown with the
+        evidence beside it. It is a starting point, not a signature — override any row where the evidence is thin, and use
+        the comment column to record why.</div>
+    </div></div>
+
+    <div class="card"><h2>Check points</h2><div class="body">
+      <table class="ck gck">
+        <colgroup><col style="width:38px"><col style="width:34%"><col style="width:92px"><col><col style="width:104px"><col style="width:17%"></colgroup>
+        <thead><tr><th>#</th><th>Check point</th><th>Ref.</th><th>Automatic evidence</th><th>Status</th><th>Comment</th></tr></thead>
+        <tbody id="gPreBody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="view" id="v-g-post">
+    <h1>Post-test validation — vendor test report</h1>
+    <p class="sub">Review the issued report against what the test was supposed to demonstrate.</p>
+
+    <div class="card"><h2>Status <span class="r" id="gPostCount">—</span></h2><div class="body">
+      <div class="bar">
+        <button class="btn" onclick="gCkAuto('post')">Apply the automatic verdicts</button>
+        <button class="btn" onclick="gCkClear('post')">Clear all statuses</button>
+        <button class="btn" onclick="gCkExport('post','json')">Export JSON</button>
+        <button class="btn" onclick="gCkExport('post','csv')">Export CSV</button>
+        <span class="note" id="gPostStat"></span>
+      </div>
+      <div class="rule">The paper's closing advice on evaluation: reduce the pressure and temperature readings to head and
+        efficiency using <b>real gas laws and an equation of state that is well referenced for the test medium</b>, and
+        follow the evaluation procedures of ASME PTC-10. A report that does not say which equation of state it used has not
+        been evaluated, only arithmetic.</div>
+    </div></div>
+
+    <div class="card"><h2>Check points</h2><div class="body">
+      <table class="ck gck">
+        <colgroup><col style="width:38px"><col style="width:34%"><col style="width:92px"><col><col style="width:104px"><col style="width:17%"></colgroup>
+        <thead><tr><th>#</th><th>Check point</th><th>Ref.</th><th>Automatic evidence</th><th>Status</th><th>Comment</th></tr></thead>
+        <tbody id="gPostBody"></tbody>
+      </table>
+    </div></div>
+
+    <div class="card"><h2>Carry into the determination</h2><div class="body">
+      <table><colgroup><col style="width:44%"><col></colgroup><tbody>
+        <tr><td class="lbl">Include the guide validations in the report scorecard</td>
+          <td><label class="note"><input type="checkbox" id="gIncl" checked style="width:auto;background:none" onchange="gInclSet()"/>
+            Add the pre-test and post-test results to the ACCEPTED / NOT ACCEPTED determination</label></td></tr>
+      </tbody></table>
+      <div class="note" style="margin-top:10px">With this off, the verdict on the Report of test tab is exactly what it was
+        before this tab existed — the guide sections still print, they just do not vote. A check point left blank never
+        counts as a failure; only an explicit <b>N</b> does.</div>
     </div></div>
   </div>
 
@@ -1140,8 +1721,8 @@ function svgChart(o){
     s+=`<text x="${X}" y="${H-m.b+15}" text-anchor="middle" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.xfmt(v)}</text>`;});
   o.yt.forEach(v=>{const Y=py(v);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${p.grid}" stroke-width="1"/>`;
     s+=`<text x="${m.l-7}" y="${Y+3}" text-anchor="end" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.yfmt(v)}</text>`;});
-  // zero line for mach
-  if(o.y0<0){const Y=py(0);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${p.zero}" stroke-width="1"/>`;}
+  // zero line for mach — meaningless on the log Reynolds axis, where py(0) is -Infinity
+  if(o.y0<0 && !o.ylog){const Y=py(0);s+=`<line x1="${m.l}" y1="${Y}" x2="${W-m.r}" y2="${Y}" stroke="${p.zero}" stroke-width="1"/>`;}
   // limit bands
   const band=(fn,key)=>{ let d=""; o.samples.forEach((xv,i)=>{ const yv=fn(xv)[key]; d+=(i?"L":"M")+px(xv).toFixed(1)+" "+py(yv).toFixed(1)+" "; }); return d; };
   // shaded acceptable region between lo and up
@@ -1687,6 +2268,7 @@ function calc(){
 
   // PTC-10 charts + captions
   drawCharts();
+  if(typeof drawGuide==="function") drawGuide();   // guide reads S and R, so it follows calc()
   const capRe=(id,ReT,ok)=>{ const c=remCheck(s.Rem,ReT);
     set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test Re<sub>M</sub> <b>${f(ReT,0)}</b> · test/design ratio <b>${f(c.rat,3)}</b> · allowable <b>${f(c.lim.lo,3)}–${f(c.lim.up,2)}</b> · ${c.floorOK?"":"<span style='color:var(--fail)'>test below the 90,000 minimum [Table 3.2 Note (1)] · </span>"}${c.extrap?"<span style='color:var(--warn)'>design below 90,000 — Fig. 3.5 band extrapolated · </span>":""}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
   const capMm=(id,MmT,ok)=>{ const lim=machLimits(s.Mm), dev=MmT-s.Mm;
@@ -1721,6 +2303,17 @@ function scorecard(){
      generic result is bit-for-bit what it was before the Siemens section existed. */
   if(typeof SIE!=="undefined" && SIE.inclInVerdict)
     sieScore().rows.forEach(r=>rows.push(["Siemens — "+r[0],r[1],r[2]]));
+  /* Guide validations vote only when asked to, and a blank check point is never a failure —
+     only an explicit N is. Same contract as the MRT / AGES checklist above. */
+  if(typeof GINCL!=="undefined" && GINCL && typeof GPRE!=="undefined"){
+    const pre=gCkScore("pre"), post=gCkScore("post"), st=gStageEval();
+    rows.push(["PTC-10 guide — pre-test procedure validation",pre.bad===0,
+      `${pre.done} of ${pre.n} completed, ${pre.bad} failed`]);
+    rows.push(["PTC-10 guide — post-test report validation",post.bad===0,
+      `${post.done} of ${post.n} completed, ${post.bad} failed`]);
+    if(st.n) rows.push(["Stage-by-stage volume reduction within band",!st.bad,
+      `worst ${st.worstName} at ${st.worst>=0?"+":""}${f(st.worst*100,2)} % · band ± ${f(st.band,2)} %`]);
+  }
   return {useW,rows,all:rows.every(r=>r[1])};
 }
 function report(){
@@ -2224,7 +2817,7 @@ function buildReport(){
   const per=17;
   for(let i=0;i<CK.length;i+=per){
     const chunk=CK.slice(i,i+per);
-    page(`6. MRT / AGES checklist${CK.length>per?` (${Math.floor(i/per)+1} of ${Math.ceil(CK.length/per)})`:""}`,`
+    page(`7. MRT / AGES checklist${CK.length>per?` (${Math.floor(i/per)+1} of ${Math.ceil(CK.length/per)})`:""}`,`
       <h3>API 617 Part 1, cl. 6.3.5 — mechanical running test, with ADNOC AGES amendments</h3>
       <table><tr><th style="width:5%">#</th><th style="width:50%">Check point</th><th style="width:14%">Clause</th>
         <th style="width:8%">Status</th><th>Comment</th></tr>
@@ -2239,10 +2832,97 @@ function buildReport(){
         Confirm with COMPANY which seals are to be pulled and record the agreed position in the test agenda.</div>`:""}`);
   }
 
+  /* 8 — PTC-10 guide validations (Colby 2005) */
+  {
+    const gs=gStageEval(), gp=gPressEval(), gl=gLeakEval(), gd=gSrc();
+    const ckPage=(title,arr,note)=>{
+      // these rows are single-line text, not the MRT sheet's textareas, so a page holds more
+      const per=24;
+      for(let i=0;i<arr.length;i+=per){
+        const chunk=arr.slice(i,i+per);
+        page(`${title}${arr.length>per?` (${Math.floor(i/per)+1} of ${Math.ceil(arr.length/per)})`:""}`,`
+          ${i===0&&note?`<div class="fxp">${note}</div>`:""}
+          <table>
+            <colgroup><col style="width:26px"><col style="width:46%"><col style="width:90px"><col style="width:52px"><col></colgroup>
+            <tr><th>#</th><th>Check point</th><th>Reference</th><th>Status</th><th>Comment</th></tr>
+            ${chunk.map((c,j)=>`<tr><td class="k">${i+j+1}</td><td>${esc(c.txt)}</td>
+              <td class="k">${esc(c.ref||"—")}</td>
+              <td>${c.st==="Y"?RES(true,"Y"):c.st==="N"?RES(false,"N"):c.st==="NA"?'<span class="k">N/A</span>':'<span class="k">—</span>'}</td>
+              <td>${esc(c.cm||"—")}</td></tr>`).join("")}
+          </table>`);
+      }
+    };
+    page("8. PTC-10 guide — test design review",`
+      <div class="fxp">Reviewed against Colby, G. M. (2005), “Hydraulic Shop Performance Testing of Centrifugal
+        Compressors,” Proceedings of the Thirty-Fourth Turbomachinery Symposium, pp. 147–154.</div>
+      <h3>8.1 Departures at the design point</h3>
+      <table>
+        <colgroup><col style="width:30%"><col style="width:64px"><col style="width:88px"><col style="width:88px"><col style="width:78px"><col><col style="width:56px"></colgroup>
+        <tr><th>Parameter</th><th>Symbol</th><th>Design</th><th>Test</th><th>Departure</th><th>Allowable, Table 3.2</th><th>Result</th></tr>
+        ${(()=>{
+          const vrR=R.vr?gd.vr/R.vr:0, phiR=gd.phiSp?gd.phi/gd.phiSp:0;
+          const ml=machLimits(s.Mm), dM=gd.Mm-s.Mm, rc=remCheck(s.Rem,gd.Rem);
+          return [
+            ["Specific volume ratio","V₁/V₂",f(R.vr,3),f(gd.vr,3),f(vrR,3),"0.95 to 1.05",vrR>=0.95&&vrR<=1.05],
+            ["Flow coefficient","Q/N",f(gd.phiSp,4),f(gd.phi,4),f(phiR,3),"0.96 to 1.04",phiR>=0.96&&phiR<=1.04],
+            ["Machine Mach number","Mₘ",f(s.Mm,3),f(gd.Mm,3),`${dM>=0?"+":"−"}${f(Math.abs(dM),3)}`,`${f(ml.lo,3)} to ${f(ml.up,3)}`,dM>=ml.lo&&dM<=ml.up],
+            ["Machine Reynolds number","Reₘ",s.Rem.toExponential(2),gd.Rem.toExponential(2),f(rc.rat,3),`${f(rc.lim.lo,2)} to ${f(rc.lim.up,2)}`,rc.ok]
+          ].map(r=>`<tr><td>${r[0]}</td><td class="k">${r[1]}</td><td class="k">${r[2]}</td><td class="k">${r[3]}</td>
+            <td class="k">${r[4]}</td><td>${r[5]}</td><td>${RES(r[6])}</td></tr>`).join("");
+        })()}
+      </table>
+      <h3>8.2 Stage-by-stage volume-reduction review</h3>
+      ${gs.n?`<table>
+        <colgroup><col style="width:34%"><col style="width:100px"><col style="width:100px"><col style="width:110px"><col></colgroup>
+        <tr><th>Station</th><th>Test φ</th><th>Design φ</th><th>Normalised</th><th>Deviation</th></tr>
+        ${S.gStage.rows.map((r,i)=>{const v=gs.vals[i],d=(v-1)*100;
+          const fl=gIsFlange(r.n), ok=Math.abs(d)<=gs.band+1e-9;
+          const flag=fl?'<span class="k">context</span>':(ok?"":RES(false,"OUT"));
+          return `<tr><td>${esc(r.n)}</td><td class="k">${f(r.t,4)}</td><td class="k">${f(r.d,4)}</td>
+            <td class="k">${isFinite(v)?f(v,4):"—"}</td>
+            <td class="k">${isFinite(d)?(d>=0?"+":"")+f(d,2)+" %":"—"} ${flag}</td></tr>`;}).join("")}
+      </table>
+      <div class="fxp">Acceptance band ± ${f(gs.band,2)} % on the normalised flow coefficient — the working criterion in
+        Colby (2005), which is stated for stages. Inlet and discharge flange stations bound the machine rather than being
+        impellers, so they are shown as context and excluded from the verdict. Worst stage: ${esc(gs.worstName)} at
+        ${gs.worst>=0?"+":""}${f(gs.worst*100,2)} %. Result: ${RES(!gs.bad)}. The code's Table 3.2 limits are overall
+        parameters; this check is what shows whether the test volume reduction actually tracks the design volume
+        reduction through the machine.</div>`
+      :`<div class="fxp">No stage-by-stage data was entered. Request the manufacturer's stage-by-stage calculation of the
+        test condition, converted to μ, η and φ, plotted against the predicted specified-gas curve.</div>`}
+      <h3>8.3 Test suction pressure — Reynolds number and heat loss</h3>
+      <table>
+        <colgroup><col style="width:40%"><col style="width:140px"><col style="width:150px"><col style="width:56px"></colgroup>
+        <tr><th>Check</th><th>Value</th><th>Limit or target</th><th>Result</th></tr>
+        <tr><td>Candidate test suction pressure</td><td class="k">${f(gp.P1,3)} ${u.P}</td><td>${f(gp.frac*100,1)} % of specified</td><td class="k">—</td></tr>
+        <tr><td>Test Reynolds number ratio</td><td class="k">${f(gp.chk.rat,3)}</td><td>${f(gp.lim.lo,3)} to ${f(gp.lim.up,2)}</td><td>${RES(gp.chk.rat>=gp.lim.lo&&gp.chk.rat<=gp.lim.up)}</td></tr>
+        <tr><td>Test Reynolds number absolute</td><td class="k">${gp.ReT.toExponential(2)}</td><td>≥ 90,000 [Table 3.2 Note 1]</td><td>${RES(gp.floorOK)}</td></tr>
+        <tr><td>Reynolds correction on head and efficiency</td><td class="k">${(gp.corr>=1?"+":"")+f((gp.corr-1)*100,2)} %</td><td>as low as the stand allows</td><td>${RES((gp.corr-1)<=0.012)}</td></tr>
+        <tr><td>Heat loss to atmosphere</td><td class="k">≈ ${f(gp.loss,2)} %</td><td>≈ 0.5 % or insulate the casing</td><td>${RES(gp.loss<=0.6)}</td></tr>
+      </table>
+      <div class="fxp">Reynolds number is scaled from the specified value in proportion to inlet pressure. The correction
+        factor and the heat-loss percentage are read from the digitised Figs. 8 and 9 of the paper, which belong to its
+        sample compressor — they are an order-of-magnitude screen, not a substitute for the manufacturer's calculation.</div>
+      <h3>8.4 Seal leakage — pseudo clearance</h3>
+      <table>
+        <colgroup><col style="width:46%"><col style="width:140px"><col></colgroup>
+        <tr><th>Quantity</th><th>Value</th><th>Basis</th></tr>
+        <tr><td>Differential across the seal</td><td class="k">${f(gl.dP,3)} ${u.P}</td><td>Pₕ − P₁</td></tr>
+        <tr><td>Predicted leakage</td><td class="k">${f(gl.pred,3)} ${u.W}</td><td>Eq. 12</td></tr>
+        <tr><td>Measured leakage</td><td class="k">${f(S.gLeak.meas,3)} ${u.W}</td><td>loop flowmeter</td></tr>
+        <tr><td>Pseudo clearance</td><td class="k">${isFinite(gl.sPseudo)?f(gl.sPseudo,5):"—"}</td><td>Eq. 12 inverted — absorbs any error in the constant</td></tr>
+        <tr><td>Pseudo / predicted clearance</td><td class="k">${isFinite(gl.ratio)?f(gl.ratio,3):"—"}</td><td>carried into the conversion of results</td></tr>
+      </table>`);
+    ckPage("9. PTC-10 guide — pre-test validation of the vendor test procedure",GPRE,
+      "Reviewed before the machine goes on the stand. Rows marked with an automatic verdict on screen were derived from this project's own numbers; a blank status is not a failure.");
+    ckPage("10. PTC-10 guide — post-test validation of the vendor test report",GPOST,
+      "Reviewed against the issued test report.");
+  }
+
   /* 8 — attachments */
   const imgs=ATT.filter(a=>a.kind==="img"), pdfs=ATT.filter(a=>a.kind==="pdf");
   if(ATT.length){
-    page("7. Attachments — index",`
+    page("11. Attachments — index",`
       <h3>Attachment index</h3>
       <table><tr><th style="width:8%">#</th><th style="width:34%">File</th><th style="width:14%">Type</th><th>Caption</th></tr>
         ${ATT.map((a,i)=>`<tr><td>${i+1}</td><td>${esc(a.name)}</td>
@@ -2584,11 +3264,858 @@ function drawSie(){
   ].map(e=>`<div>${e}</div>`).join("");
 }
 
+/* ================= PTC-10 GUIDE — Colby (2005) =================
+   Additive, like the Siemens block: it reads S / R and never writes to them. The figure
+   curve data below is digitised from the vector paths of the published paper, so the
+   redrawn SVGs carry the author's actual curves rather than a freehand impression.
+   Cross-checks against values stated in the text: the correction at the 10 % Reynolds
+   floor comes out 1.17 % (paper: "1.2 percent"); heat loss at 44 psia comes out 0.48 %
+   (paper: "approximate 0.44 percent"); stage 5 at 11,070 rpm comes out 3.3 % low
+   (paper: "almost 3 percent"). */
+const PAPER={
+  f1:   [[0.067,0.843],[0.102,0.831],[0.136,0.817],[0.17,0.803],[0.204,0.788],[0.239,0.772],[0.273,0.755],[0.307,0.737],[0.342,0.718],[0.376,0.698],[0.41,0.678],[0.444,0.656],[0.479,0.634],[0.513,0.612],[0.547,0.588],[0.582,0.562],[0.616,0.533],[0.65,0.503],[0.684,0.469],[0.719,0.433],[0.753,0.394],[0.787,0.349],[0.822,0.299],[0.856,0.246],[0.89,0.189],[0.924,0.128],[0.959,0.057]],
+  f2muL:[[0.74,1.1763],[0.756,1.1703],[0.771,1.164],[0.787,1.1572],[0.803,1.1501],[0.819,1.143],[0.834,1.1353],[0.85,1.1273],[0.866,1.1188],[0.882,1.1097],[0.897,1.1008],[0.913,1.0912],[0.929,1.0814],[0.945,1.0712],[0.96,1.0608],[0.976,1.0506],[0.992,1.0397],[1.008,1.0285],[1.023,1.0168],[1.039,1.0043],[1.055,0.9915],[1.07,0.9777],[1.086,0.9627],[1.102,0.947],[1.118,0.9302],[1.133,0.912],[1.149,0.8926],[1.165,0.8706],[1.181,0.8469],[1.196,0.822],[1.212,0.7953],[1.228,0.7675],[1.244,0.7382],[1.259,0.7071],[1.275,0.6743]],
+  f2muM:[[0.775,1.2294],[0.787,1.2223],[0.799,1.2148],[0.811,1.2073],[0.823,1.1993],[0.835,1.1913],[0.847,1.1831],[0.858,1.1745],[0.87,1.1659],[0.882,1.157],[0.894,1.1478],[0.906,1.1384],[0.918,1.1287],[0.93,1.1185],[0.942,1.1076],[0.954,1.096],[0.966,1.0833],[0.978,1.0702],[0.989,1.0562],[1.001,1.0416],[1.013,1.0261],[1.025,1.0102],[1.037,0.9938],[1.049,0.9757],[1.061,0.9567],[1.073,0.936],[1.085,0.9139],[1.097,0.89],[1.109,0.8635],[1.12,0.8345],[1.132,0.8034],[1.144,0.7701],[1.156,0.7345],[1.168,0.6966],[1.18,0.6551]],
+  f2muH:[[0.85,1.2975],[0.857,1.2893],[0.864,1.2811],[0.871,1.2724],[0.878,1.2635],[0.885,1.2546],[0.892,1.2458],[0.899,1.2364],[0.906,1.2272],[0.913,1.2177],[0.921,1.2081],[0.928,1.1982],[0.935,1.1879],[0.942,1.1771],[0.949,1.165],[0.956,1.1526],[0.963,1.1399],[0.97,1.1256],[0.977,1.1107],[0.984,1.0946],[0.991,1.0786],[0.998,1.0614],[1.005,1.0428],[1.012,1.0228],[1.019,1.0019],[1.026,0.9799],[1.034,0.9562],[1.041,0.93],[1.048,0.9024],[1.055,0.872],[1.062,0.8357],[1.069,0.795],[1.076,0.7508],[1.083,0.6982],[1.09,0.6381]],
+  f2etL:[[0.74,0.9176],[0.756,0.929],[0.771,0.9396],[0.787,0.949],[0.803,0.958],[0.819,0.9663],[0.834,0.9737],[0.85,0.98],[0.866,0.9858],[0.882,0.9905],[0.897,0.9946],[0.913,0.9978],[0.929,1.0003],[0.945,1.0021],[0.96,1.003],[0.976,1.0028],[0.992,1.0019],[1.007,1],[1.023,0.9972],[1.039,0.9935],[1.055,0.9885],[1.07,0.9823],[1.086,0.9749],[1.102,0.9663],[1.118,0.9569],[1.133,0.9459],[1.149,0.9335],[1.165,0.9191],[1.181,0.9031],[1.196,0.8854],[1.212,0.8664],[1.228,0.8457],[1.243,0.8238],[1.259,0.7997],[1.275,0.7726]],
+  f2etM:[[0.775,0.9202],[0.787,0.9291],[0.799,0.9372],[0.811,0.9451],[0.823,0.9524],[0.835,0.9593],[0.847,0.9658],[0.858,0.9719],[0.87,0.9775],[0.882,0.9827],[0.894,0.9876],[0.906,0.9918],[0.918,0.9955],[0.93,0.9986],[0.942,1.0005],[0.954,1.0016],[0.966,1.0012],[0.978,0.9997],[0.989,0.9977],[1.001,0.9948],[1.013,0.9914],[1.025,0.9876],[1.037,0.9832],[1.049,0.9782],[1.061,0.9724],[1.073,0.966],[1.085,0.9586],[1.097,0.9504],[1.109,0.9404],[1.12,0.9291],[1.132,0.9161],[1.144,0.9021],[1.156,0.8866],[1.168,0.8695],[1.18,0.8501]],
+  f2etH:[[0.85,0.9513],[0.857,0.9559],[0.864,0.9601],[0.871,0.9641],[0.878,0.9679],[0.885,0.9717],[0.892,0.9752],[0.899,0.9786],[0.906,0.9817],[0.913,0.9844],[0.921,0.987],[0.928,0.9898],[0.935,0.9922],[0.942,0.9943],[0.949,0.9959],[0.956,0.9973],[0.963,0.9987],[0.97,0.9997],[0.977,1.0001],[0.984,0.9999],[0.991,0.9981],[0.998,0.996],[1.005,0.9939],[1.012,0.9892],[1.019,0.9834],[1.026,0.9764],[1.034,0.9683],[1.04,0.9601],[1.048,0.9502],[1.055,0.9385],[1.062,0.9247],[1.069,0.9104],[1.076,0.8936],[1.083,0.8734],[1.09,0.8502]],
+  f4muD:[[0.73,1.1049],[0.742,1.1027],[0.755,1.1003],[0.768,1.0978],[0.78,1.0949],[0.793,1.0918],[0.806,1.0885],[0.818,1.0848],[0.831,1.0809],[0.844,1.077],[0.856,1.0729],[0.869,1.0686],[0.881,1.064],[0.894,1.0593],[0.907,1.0542],[0.919,1.0486],[0.932,1.0425],[0.945,1.0359],[0.957,1.0289],[0.97,1.0213],[0.983,1.013],[0.995,1.0039],[1.008,0.9942],[1.02,0.9841],[1.033,0.9735],[1.046,0.9622],[1.058,0.9506],[1.071,0.9384],[1.084,0.9254],[1.096,0.9114],[1.109,0.8954],[1.121,0.8774],[1.134,0.858],[1.147,0.8369],[1.159,0.813]],
+  f4muT:[[0.75,1.1033],[0.762,1.1012],[0.775,1.0988],[0.787,1.0962],[0.8,1.0934],[0.812,1.0903],[0.825,1.0869],[0.837,1.0834],[0.85,1.0797],[0.862,1.0759],[0.875,1.0718],[0.887,1.0676],[0.899,1.0633],[0.912,1.0586],[0.924,1.0538],[0.937,1.0484],[0.949,1.0425],[0.962,1.0362],[0.974,1.0293],[0.986,1.0221],[0.999,1.0139],[1.011,1.005],[1.024,0.9956],[1.036,0.9857],[1.049,0.9754],[1.061,0.9645],[1.073,0.9531],[1.086,0.9412],[1.098,0.9285],[1.111,0.9147],[1.123,0.8988],[1.136,0.8811],[1.148,0.8613],[1.161,0.8398],[1.173,0.8155]],
+  f4etD:[[0.73,0.9951],[0.742,0.9971],[0.755,0.9991],[0.768,1.0009],[0.78,1.0026],[0.793,1.0041],[0.806,1.0054],[0.818,1.0067],[0.831,1.0077],[0.844,1.0086],[0.856,1.0095],[0.869,1.0102],[0.881,1.0109],[0.894,1.0114],[0.907,1.0116],[0.919,1.0114],[0.932,1.0108],[0.945,1.0099],[0.957,1.0085],[0.97,1.0067],[0.983,1.0043],[0.995,1.0012],[1.008,0.9978],[1.02,0.994],[1.033,0.9895],[1.046,0.9848],[1.058,0.9795],[1.071,0.9737],[1.084,0.9671],[1.096,0.9596],[1.109,0.9502],[1.121,0.9393],[1.134,0.9267],[1.147,0.9129],[1.159,0.8967]],
+  f4etT:[[0.75,0.9949],[0.763,0.9968],[0.775,0.9986],[0.787,1.0003],[0.8,1.0018],[0.812,1.0032],[0.825,1.0044],[0.837,1.0055],[0.85,1.0065],[0.862,1.0074],[0.875,1.0082],[0.887,1.009],[0.9,1.0095],[0.912,1.01],[0.924,1.0102],[0.937,1.01],[0.949,1.0095],[0.962,1.0085],[0.974,1.0074],[0.987,1.0056],[0.999,1.0033],[1.012,1.0003],[1.024,0.997],[1.037,0.9931],[1.049,0.9889],[1.062,0.9843],[1.074,0.9792],[1.087,0.9735],[1.099,0.9671],[1.111,0.9596],[1.124,0.9504],[1.136,0.9394],[1.149,0.9267],[1.161,0.9123],[1.174,0.8954]],
+  f6muD:[[0.73,1.105],[0.742,1.1028],[0.755,1.1004],[0.767,1.0979],[0.78,1.095],[0.793,1.0918],[0.805,1.0885],[0.818,1.0849],[0.831,1.0811],[0.843,1.0771],[0.856,1.073],[0.869,1.0686],[0.881,1.0641],[0.894,1.0593],[0.907,1.0543],[0.919,1.0486],[0.932,1.0426],[0.945,1.0361],[0.957,1.029],[0.97,1.0214],[0.982,1.0131],[0.995,1.004],[1.008,0.9943],[1.02,0.9841],[1.033,0.9735],[1.046,0.9624],[1.058,0.9508],[1.071,0.9385],[1.084,0.9255],[1.096,0.9114],[1.109,0.8955],[1.121,0.8776],[1.134,0.8581],[1.147,0.837],[1.159,0.8131]],
+  f6muT:[[0.731,1.1045],[0.743,1.1024],[0.756,1.1],[0.768,1.0975],[0.781,1.0947],[0.793,1.0917],[0.806,1.0884],[0.818,1.0848],[0.831,1.0811],[0.844,1.0773],[0.856,1.0732],[0.869,1.069],[0.881,1.0645],[0.894,1.0598],[0.906,1.0549],[0.919,1.0495],[0.931,1.0436],[0.944,1.0372],[0.957,1.0303],[0.969,1.0229],[0.982,1.0149],[0.994,1.0061],[1.007,0.9965],[1.019,0.9866],[1.032,0.9762],[1.044,0.9653],[1.057,0.9538],[1.069,0.942],[1.082,0.9294],[1.095,0.9158],[1.107,0.9004],[1.12,0.8832],[1.132,0.8642],[1.145,0.8437],[1.157,0.8206]],
+  f6etD:[[0.73,0.9952],[0.742,0.9972],[0.755,0.9992],[0.767,1.001],[0.78,1.0027],[0.793,1.0042],[0.805,1.0055],[0.818,1.0067],[0.831,1.0078],[0.843,1.0087],[0.856,1.0096],[0.869,1.0103],[0.881,1.011],[0.894,1.0115],[0.907,1.0116],[0.919,1.0114],[0.932,1.0109],[0.945,1.01],[0.957,1.0086],[0.97,1.0068],[0.982,1.0044],[0.995,1.0013],[1.008,0.9979],[1.02,0.994],[1.033,0.9896],[1.046,0.9849],[1.058,0.9796],[1.071,0.9738],[1.084,0.9672],[1.096,0.9596],[1.109,0.9503],[1.121,0.9393],[1.134,0.9269],[1.147,0.913],[1.159,0.8968]],
+  f6etT:[[0.731,0.9947],[0.743,0.9968],[0.756,0.9987],[0.768,1.0005],[0.781,1.0021],[0.793,1.0035],[0.806,1.0049],[0.818,1.0061],[0.831,1.0072],[0.844,1.0081],[0.856,1.0089],[0.869,1.0097],[0.881,1.0104],[0.894,1.0107],[0.906,1.011],[0.919,1.0108],[0.931,1.0103],[0.944,1.0095],[0.957,1.0082],[0.969,1.0065],[0.982,1.0042],[0.994,1.0014],[1.007,0.998],[1.019,0.9942],[1.032,0.99],[1.044,0.9853],[1.057,0.9803],[1.069,0.9747],[1.082,0.9685],[1.095,0.9613],[1.107,0.9524],[1.12,0.9419],[1.132,0.93],[1.145,0.9165],[1.157,0.9011]],
+  f8corr:[[354972,1.0117],[474867,1.0093],[594762,1.0076],[714657,1.0063],[834552,1.0054],[954447,1.0046],[1074341,1.0041],[1194236,1.0036],[1314131,1.0032],[1434026,1.0028],[1553921,1.0024],[1673816,1.0021],[1793710,1.0019],[1913605,1.0017],[2033500,1.0014],[2153395,1.0013],[2273290,1.0011],[2393185,1.001],[2513079,1.0008],[2632974,1.0007],[2752869,1.0006],[2872764,1.0005],[2992659,1.0004],[3112554,1.0003],[3232448,1.0002],[3352343,1.0001],[3472238,1]],
+  f8psia:[[357023,14.94],[476917,20.02],[596811,24.99],[716705,30.07],[836599,35.17],[956493,40.21],[1076387,45.22],[1196281,50.29],[1316175,55.36],[1436069,60.38],[1555963,65.44],[1675857,70.49],[1795751,75.51],[1915645,80.59],[2035539,85.66],[2155433,90.67],[2275327,95.72],[2395221,100.79],[2515115,105.82],[2635009,110.88],[2754903,115.95],[2874797,121.03],[2994691,126.04],[3114585,131.1],[3234479,136.17],[3354373,141.17],[3474267,146.24]],
+  f8pct: [[354972,10.36],[474867,13.78],[594762,17.22],[714657,20.67],[834552,24.12],[954447,27.55],[1074341,31.02],[1194236,34.49],[1314131,37.95],[1434026,41.38],[1553921,44.83],[1673816,48.29],[1793710,51.75],[1913605,55.19],[2033500,58.63],[2153395,62.1],[2273290,65.54],[2393185,69.03],[2513079,72.46],[2632974,75.9],[2752869,79.36],[2872764,82.78],[2992659,86.24],[3112554,89.72],[3232448,93.18],[3352343,96.61],[3472238,100.04]],
+  f9loss:[[15,1.4058],[19.7,1.0708],[24.4,0.8652],[29,0.7247],[33.7,0.6246],[38.4,0.5483],[43.1,0.4885],[47.8,0.4402],[52.5,0.4019],[57.2,0.3709],[61.9,0.3435],[66.6,0.3188],[71.2,0.2968],[75.9,0.2772],[80.6,0.2611],[85.3,0.2469],[90,0.2345],[94.7,0.2226],[99.4,0.2117],[104.1,0.2024],[108.8,0.1939],[113.4,0.1859],[118.1,0.1784],[122.8,0.1714],[127.5,0.165],[132.2,0.1591],[136.9,0.1532],[141.6,0.1485],[146.3,0.1436]],
+  /* Fig. 5 / 7 — normalised stage flow coefficient, inlet flange → discharge flange */
+  stations:["Inlet flange","Stage one","Stage two","Stage three","Stage four","Stage five","Discharge flange"],
+  f5:[1.000,1.0019,0.9859,0.9768,0.9706,0.9671,0.9701],   // 11,070 rpm — the code speed
+  f7:[1.000,1.0019,0.9953,0.9952,0.9977,1.0043,1.0140],   // 10,849 rpm — corrected speed
+  /* Table 1 — effect on volume reduction */
+  t1:[["Head","Increase","Increase"],["Head","Decrease","Decrease"],
+      ["Mole weight","Increase","Increase"],["Mole weight","Decrease","Decrease"],
+      ["Inlet temperature","Increase","Decrease"],["Inlet temperature","Decrease","Increase"],
+      ["Inlet compressibility","Increase","Decrease"],["Inlet compressibility","Decrease","Increase"],
+      ["Isentropic exponent (k)","Increase","Decrease"],["Isentropic exponent (k)","Decrease","Increase"],
+      ["Inlet pressure","Increase","No effect"],["Inlet pressure","Decrease","No effect"]],
+  /* Table 2 — typical inert test media */
+  t2:[["Helium",4.01,1.66],["Nitrogen",28.01,1.40],["Air",28.97,1.40],
+      ["Carbon Dioxide",44.01,1.26],["R134a",102,1.12]],
+  /* Tables 3 & 4 — the paper's sample compressor, US customary as published */
+  t34:[["Inlet pressure","psia","150","44.0"],["Discharge pressure","psia","510","170.2"],
+       ["Inlet temperature","°F","110","100.0"],["Discharge temperature","°F","274","348.9"],
+       ["Molecular weight","—","26.3","44.01"],["Inlet compressibility","—","0.961","0.987"],
+       ["Inlet capacity","aft³/min","1999","1799"],["Mass flow rate","lb/min","1342.8","587.9"],
+       ["Discharge capacity","aft³/min","747.0","672.0"],["Polytropic head","ft·lbf/lb","44,401","31,707"],
+       ["Power","gas hp","2362","743"],["Bearing loss","hp","52","37"],
+       ["Speed","rpm","13,100","11,070"],["Machine Mach number","—","0.658","0.693"],
+       ["Machine Reynolds number","—","3.63E+06","1.03E+06"],["Isentropic exponent (k)","—","1.187","1.261"]],
+  /* the paper's sample: test Reynolds number and suction pressure are proportional */
+  reSpec:3.63e6, p1Spec:150, p1Test:44
+};
+
+/* Original scans from the paper. Empty until supplied; each figure card renders the snap
+   beside its redrawn SVG the moment its slot holds a data URI, exactly like SNAP_RE /
+   SNAP_MM above. Keys: f1..f12 figures, t1..t6 tables. */
+const PAPER_SNAPS={f1:"",f2:"",f4:"",f5:"",f6:"",f7:"",f8:"",f9:"",f10:"",f11:"",f12:"",
+                  t1:"",t2:"",t3:"",t4:"",t5:"",t6:""};
+/* Renders "the original, for cross-checking" under a figure — or nothing at all while the
+   slot is empty, so an unfilled slot costs no screen space. */
+function snapBlock(keys,label){
+  const have=[].concat(keys).filter(k=>PAPER_SNAPS[k]);
+  if(!have.length) return "";
+  return `<div class="cflab" style="margin-top:14px">${label||"The original, for cross-checking"}</div>
+    <div class="figwrap${have.length>1?" paired":""}">
+      ${have.map(k=>`<img class="snap" alt="Colby (2005) ${k}" src="${PAPER_SNAPS[k]}"/>`).join("")}
+    </div>`;
+}
+
+/* ---- general multi-series XY chart ----
+   svgChart() above draws one thing well: a code limit envelope with a single test point.
+   The paper's figures are families of curves, so they get their own renderer. Both share
+   chartPal(), the same box metrics and the same typography, so a guide figure and a
+   Fig. 3.3 chart sit together without looking like they came from different tools. */
+function svgLines(o){
+  const W=o.w||560,H=o.h||360,m=o.m||{l:60,r:o.legend==="right"?152:18,t:34,b:50};
+  const p=o.pal||chartPal(document.documentElement.dataset.theme==="dark");
+  const px=v=>m.l+(v-o.x0)/(o.x1-o.x0)*(W-m.l-m.r);
+  const py=v=>H-m.b-(v-o.y0)/(o.y1-o.y0)*(H-m.t-m.b);
+  const cl=v=>Math.min(Math.max(v,o.y0),o.y1);
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(o.title||"")}" style="width:100%;height:auto;background:${p.bg};border:1px solid var(--rule);border-radius:var(--r-md)">`;
+  if(o.title) s+=`<text x="${W/2}" y="20" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12.5" font-weight="600" fill="${p.title}">${esc(o.title)}</text>`;
+  // acceptance band, drawn under everything
+  if(o.band) s+=`<rect x="${m.l}" y="${py(o.band[1])}" width="${W-m.l-m.r}" height="${Math.abs(py(o.band[0])-py(o.band[1]))}" fill="${p.band}" fill-opacity="${p.bandOp}"/>`;
+  (o.xt||[]).forEach(v=>{const X=px(v);
+    s+=`<line x1="${X.toFixed(1)}" y1="${m.t}" x2="${X.toFixed(1)}" y2="${H-m.b}" stroke="${p.grid}" stroke-width="1"/>`;
+    s+=`<text x="${X.toFixed(1)}" y="${H-m.b+15}" text-anchor="middle" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.xfmt?o.xfmt(v):v}</text>`;});
+  (o.yt||[]).forEach(v=>{const Y=py(v);
+    s+=`<line x1="${m.l}" y1="${Y.toFixed(1)}" x2="${W-m.r}" y2="${Y.toFixed(1)}" stroke="${p.grid}" stroke-width="1"/>`;
+    s+=`<text x="${m.l-7}" y="${(Y+3).toFixed(1)}" text-anchor="end" font-family="Consolas,monospace" font-size="9.5" fill="${p.tick}">${o.yfmt?o.yfmt(v):v}</text>`;});
+  // category labels along x (Fig. 5 / 7 style) replace numeric ticks
+  (o.xcat||[]).forEach((lab,i)=>{const X=px(i);
+    s+=`<line x1="${X.toFixed(1)}" y1="${m.t}" x2="${X.toFixed(1)}" y2="${H-m.b}" stroke="${p.grid}" stroke-width="1"/>`;
+    String(lab).split(" ").forEach((w,j)=>{
+      s+=`<text x="${X.toFixed(1)}" y="${H-m.b+14+j*10}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="8.5" fill="${p.tick}">${esc(w)}</text>`;});});
+  s+=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${p.gridEdge}" stroke-width="1"/>`;
+  (o.series||[]).forEach(se=>{
+    const pts=(se.pts||[]).filter(q=>isFinite(q[0])&&isFinite(q[1]));
+    if(pts.length>1){
+      const d=pts.map((q,i)=>(i?"L":"M")+px(q[0]).toFixed(1)+" "+py(cl(q[1])).toFixed(1)).join(" ");
+      s+=`<path d="${d}" fill="none" stroke="${se.stroke}" stroke-width="${se.w||2}" ${se.dash?`stroke-dasharray="${se.dash}"`:""} stroke-linejoin="round"/>`;
+    }
+    if(se.marker) pts.forEach(q=>{
+      s+=`<circle cx="${px(q[0]).toFixed(1)}" cy="${py(cl(q[1])).toFixed(1)}" r="${se.r||4}" fill="${se.fill||se.stroke}" stroke="${p.halo}" stroke-width="1.5"/>`;});
+  });
+  (o.notes||[]).forEach(n=>{
+    s+=`<text x="${px(n.x).toFixed(1)}" y="${py(cl(n.y)).toFixed(1)}" text-anchor="${n.anchor||"middle"}" font-family="Segoe UI,sans-serif" font-size="${n.size||9.5}" font-weight="${n.bold?600:400}" fill="${n.fill||p.axis}">${esc(n.t)}</text>`;});
+  (o.marks||[]).forEach(k=>{
+    s+=`<line x1="${px(k.x1).toFixed(1)}" y1="${py(cl(k.y1)).toFixed(1)}" x2="${px(k.x2).toFixed(1)}" y2="${py(cl(k.y2)).toFixed(1)}" stroke="${k.stroke||p.zero}" stroke-width="${k.w||1}" ${k.dash?`stroke-dasharray="${k.dash}"`:""}/>`;});
+  if(o.xlab) s+=`<text x="${m.l+(W-m.l-m.r)/2}" y="${H-6}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="${p.axis}">${esc(o.xlab)}</text>`;
+  if(o.ylab) s+=`<text transform="translate(14 ${m.t+(H-m.t-m.b)/2}) rotate(-90)" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="${p.axis}">${esc(o.ylab)}</text>`;
+  const leg=(o.series||[]).filter(se=>se.label);
+  if(leg.length){
+    const right=o.legend==="right";
+    const lx=right?W-m.r+10:m.l+10, ly=right?m.t+12:m.t+12;
+    leg.forEach((se,i)=>{
+      const Y=ly+i*15;
+      s+=`<line x1="${lx}" y1="${Y-3}" x2="${lx+20}" y2="${Y-3}" stroke="${se.stroke}" stroke-width="2" ${se.dash?`stroke-dasharray="${se.dash}"`:""}/>`;
+      s+=`<text x="${lx+25}" y="${Y}" font-family="Segoe UI,sans-serif" font-size="9.5" fill="${p.axis}">${esc(se.label)}</text>`;});
+  }
+  return s+`</svg>`;
+}
+/* The paper's curves are one accent family plus one contrast, so design and test never
+   read as "two arbitrary colours" — the design condition is always the accent. */
+function gPal(){
+  const dark=document.documentElement.dataset.theme==="dark";
+  const p=chartPal(dark);
+  return Object.assign({},p,{
+    c1:p.title, c2:dark?"#E0A45C":"#B3621B", c3:dark?"#7FD1A8":"#2F7D57",
+    ink:p.axis, soft:p.tick});
+}
+
+/* ---- the paper's figures ---- */
+function gFig1(){
+  const p=gPal();
+  // three panels side by side: one stage curve shape, three pairs of capacity markers
+  const marks=[{d:0.500,h:0.504,t:"Stage 1"},{d:0.501,h:0.416,t:"Stage 2"},{d:0.500,h:0.334,t:"Stage 3"}];
+  const W=690,H=274,pw=200,gap=30,L=48,T=34,B=76;
+  const at=(pts,y)=>pts;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stage curves for a three-stage compressor" style="width:100%;height:auto;background:${p.bg};border:1px solid var(--rule);border-radius:var(--r-md)">`;
+  s+=`<text x="${W/2}" y="20" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12.5" font-weight="600" fill="${p.title}">Fig. 1 — volume reduction through a three-stage compressor</text>`;
+  marks.forEach((mk,i)=>{
+    const x0=L+i*(pw+gap), x1=x0+pw, y0=H-B, y1=T+6;
+    const PX=v=>x0+v*(x1-x0), PY=v=>y0-v*(y0-y1);
+    s+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="${p.axis}" stroke-width="1.2"/>`;
+    s+=`<line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="${p.axis}" stroke-width="1.2"/>`;
+    const d=PAPER.f1.map((q,j)=>(j?"L":"M")+PX(q[0]).toFixed(1)+" "+PY(q[1]).toFixed(1)).join(" ");
+    s+=`<path d="${d}" fill="none" stroke="${p.c1}" stroke-width="2"/>`;
+    s+=`<line x1="${PX(mk.d).toFixed(1)}" y1="${y0}" x2="${PX(mk.d).toFixed(1)}" y2="${y1}" stroke="${p.c1}" stroke-width="1.6"/>`;
+    s+=`<line x1="${PX(mk.h).toFixed(1)}" y1="${y0}" x2="${PX(mk.h).toFixed(1)}" y2="${y1}" stroke="${p.c2}" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+    s+=`<text x="${(x0+x1)/2}" y="${y0+16}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="${p.axis}">Capacity</text>`;
+    s+=`<text x="${(x0+x1)/2}" y="${y0+30}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" font-weight="600" fill="${p.title}">${mk.t}</text>`;
+    s+=`<text transform="translate(${x0-9} ${(y0+y1)/2}) rotate(-90)" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="${p.axis}">Head</text>`;
+    if(i===2){
+      s+=`<text x="${PX(mk.h).toFixed(1)}" y="${y1-2}" text-anchor="middle" font-family="Consolas,monospace" font-size="9" fill="${p.c2}">−17 %</text>`;
+    }
+  });
+  s+=`<line x1="${L}" y1="${H-16}" x2="${L+20}" y2="${H-16}" stroke="${p.c1}" stroke-width="2"/>`;
+  s+=`<text x="${L+25}" y="${H-13}" font-family="Segoe UI,sans-serif" font-size="9.5" fill="${p.axis}">design volume reduction</text>`;
+  s+=`<line x1="${L+185}" y1="${H-16}" x2="${L+205}" y2="${H-16}" stroke="${p.c2}" stroke-width="2" stroke-dasharray="5 4"/>`;
+  s+=`<text x="${L+210}" y="${H-13}" font-family="Segoe UI,sans-serif" font-size="9.5" fill="${p.axis}">operating point on a higher mole weight</text>`;
+  return s+`</svg>`;
+}
+function gFig2(){
+  const p=gPal();
+  const mk=(muK,etK,c,dash,lab)=>[
+    {pts:PAPER[muK],stroke:c,dash,label:lab},
+    {pts:PAPER[etK],stroke:c,dash,w:1.4}];
+  return svgLines({
+    title:"Fig. 2 — stage map at three machine Mach numbers", h:400, legend:"right",
+    x0:0.70,x1:1.30,y0:0.60,y1:1.45,
+    xt:[0.7,0.8,0.9,1.0,1.1,1.2,1.3], yt:[0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4],
+    xfmt:v=>v.toFixed(1), yfmt:v=>v.toFixed(1),
+    xlab:"normalised flow coefficient", ylab:"normalised head coefficient  ·  efficiency",
+    series:[].concat(
+      mk("f2muL","f2etL",p.c3,"","Low Mach number"),
+      mk("f2muM","f2etM",p.c1,"","Medium Mach number"),
+      mk("f2muH","f2etH",p.c2,"","High Mach number")),
+    notes:[{x:1.24,y:1.05,t:"μ",bold:true,size:12,fill:p.ink},
+           {x:1.26,y:0.83,t:"η",bold:true,size:12,fill:p.ink}],
+    pal:p
+  });
+}
+function gFig46(which){
+  const p=gPal(), n=which===4?"f4":"f6";
+  const rpm=which===4?"11,070":"10,849";
+  return svgLines({
+    title:`Fig. ${which} — μ and η vs. φ, test on CO₂ at ${rpm} rpm`, h:370, legend:"right",
+    x0:0.70,x1:1.20,y0:0.80,y1:1.16,
+    xt:[0.7,0.8,0.9,1.0,1.1,1.2], yt:[0.80,0.85,0.90,0.95,1.00,1.05,1.10,1.15],
+    xfmt:v=>v.toFixed(1), yfmt:v=>v.toFixed(2),
+    xlab:"normalised flow coefficient", ylab:"normalised μ and efficiency",
+    series:[
+      {pts:PAPER[n+"muD"],stroke:p.c1,label:"Design condition curve"},
+      {pts:PAPER[n+"muT"],stroke:p.c2,dash:"6 4",label:`CO₂ test at ${rpm} rpm`},
+      {pts:PAPER[n+"etD"],stroke:p.c1,w:1.4},
+      {pts:PAPER[n+"etT"],stroke:p.c2,dash:"6 4",w:1.4}],
+    notes:[{x:1.14,y:1.10,t:"μ",bold:true,size:12,fill:p.ink},
+           {x:1.16,y:0.93,t:"η",bold:true,size:12,fill:p.ink}],
+    pal:p
+  });
+}
+/* Fig. 5 / 7 and the live vendor chart are the same picture with different data, so they
+   share one builder — that is also what keeps the user's plot looking like the paper's. */
+function gStageFig(title,vals,band,label){
+  const p=gPal(), b=(band||1)/100;
+  const lo=Math.min(1-b*1.6,...vals)-0.004, hi=Math.max(1+b*1.6,...vals)+0.004;
+  return svgLines({
+    title, h:330, legend:"right", m:{l:60,r:152,t:34,b:62},
+    x0:-0.35,x1:PAPER.stations.length-0.65,
+    y0:Math.min(0.958,lo), y1:Math.max(1.022,hi),
+    yt:[0.96,0.97,0.98,0.99,1.00,1.01,1.02].filter(v=>v>=Math.min(0.958,lo)&&v<=Math.max(1.022,hi)),
+    yfmt:v=>v.toFixed(2), xcat:PAPER.stations, ylab:"normalised flow coefficient",
+    band:[1-b,1+b],
+    series:[
+      {pts:vals.map((_,i)=>[i,1]),stroke:p.c1,label:"Design condition",marker:true,r:3.5},
+      {pts:vals.map((v,i)=>[i,v]),stroke:p.c2,dash:"6 4",label:label||"Test condition",marker:true,r:4}],
+    notes:[{x:-0.28,y:1+b,t:`± ${(band||1).toFixed(2)} %`,anchor:"start",size:9,fill:p.soft}],
+    pal:p
+  });
+}
+function gFig8(){
+  const p=gPal();
+  // three quantities share the abscissa; suction pressure and % of specified Re are
+  // rescaled onto the correction-factor axis so they read as one figure, as published.
+  const y0=0.994,y1=1.016, sc=(v,max)=>y0+(v/max)*(y1-y0);
+  return svgLines({
+    title:"Fig. 8 — Reynolds number correction, the paper's sample compressor", h:390, legend:"right",
+    m:{l:60,r:184,t:34,b:50},
+    x0:0,x1:4e6,y0,y1,
+    xt:[0,1e6,2e6,3e6,4e6], yt:[0.995,1.000,1.005,1.010,1.015],
+    xfmt:v=>v?(v/1e6).toFixed(1)+"E6":"0", yfmt:v=>v.toFixed(3),
+    xlab:"test Machine Reynolds number", ylab:"head and efficiency correction factor",
+    series:[
+      {pts:PAPER.f8corr,stroke:p.c1,label:"Correction factor (left axis)"},
+      {pts:PAPER.f8psia.map(q=>[q[0],sc(q[1],160)]),stroke:p.c2,dash:"6 4",label:"Test suction pressure"},
+      {pts:PAPER.f8pct.map(q=>[q[0],sc(q[1],120)]),stroke:p.c3,dash:"2 3",label:"% of specified Reₘ"}],
+    marks:[{x1:PAPER.reSpec*0.10,y1:y0,x2:PAPER.reSpec*0.10,y2:y1,stroke:p.bad,dash:"3 3"},
+           {x1:9e4,y1:y0,x2:9e4,y2:y1,stroke:p.bad,w:1.4}],
+    notes:[{x:PAPER.reSpec*0.10+9e4,y:1.0155,t:"10 % of specified — the lower limit",anchor:"start",size:8.5,fill:p.bad},
+           {x:1.15e6,y:1.0128,t:"correction at the 10 % floor ≈ 1.2 %",anchor:"start",size:9,fill:p.soft}],
+    pal:p
+  });
+}
+function gFig9(){
+  const p=gPal();
+  return svgLines({
+    title:"Fig. 9 — convection and radiation losses to atmosphere", h:330,
+    x0:0,x1:160,y0:0,y1:1.6,
+    xt:[0,20,40,60,80,100,120,140,160], yt:[0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6],
+    xfmt:v=>String(v), yfmt:v=>v.toFixed(1),
+    xlab:"test suction pressure — psia", ylab:"heat loss, % of total heat input",
+    series:[{pts:PAPER.f9loss,stroke:p.c1,label:"Sample compressor"}],
+    marks:[{x1:PAPER.p1Test,y1:0,x2:PAPER.p1Test,y2:1.6,stroke:p.c2,dash:"4 4"}],
+    notes:[{x:PAPER.p1Test+4,y:1.15,t:"44 psia selected — ≈ 0.44 % loss",anchor:"start",size:9,fill:p.c2}],
+    pal:p
+  });
+}
+function gFig12(){
+  const p=gPal();
+  // the transition curve is qualitative in the paper — drawn here to carry the three
+  // annotated events rather than to assert numbers the paper never gave.
+  // x is inlet flow coefficient, so throttling walks the trace from right to left:
+  // head rises to a peak, droops, recovers, and only then reaches audible surge.
+  const c=[[0.634,1.009],[0.642,1.0025],[0.652,0.9945],[0.665,0.9865],[0.680,0.9795],
+           [0.695,0.9815],[0.715,0.9885],[0.735,0.9955],[0.755,1.000],
+           [0.790,0.988],[0.830,0.966],[0.870,0.938],[0.910,0.905]];
+  return svgLines({
+    title:"Fig. 12 — head coefficient through the transition into surge", h:330,
+    m:{l:60,r:26,t:34,b:50},
+    x0:0.585,x1:0.955,y0:0.875,y1:1.045, xt:[], yt:[],
+    xlab:"inlet flow coefficient  —  throttling moves left  ←", ylab:"polytropic head coefficient",
+    series:[{pts:c,stroke:p.c1,w:2.2}],
+    marks:[{x1:0.755,y1:0.875,x2:0.755,y2:1.000,stroke:p.c3,dash:"3 3"},
+           {x1:0.680,y1:0.875,x2:0.680,y2:0.9795,stroke:p.c2,dash:"3 3"},
+           {x1:0.634,y1:0.875,x2:0.634,y2:1.009,stroke:p.bad,dash:"3 3"},
+           {x1:0.634,y1:0.892,x2:0.755,y2:0.892,stroke:p.soft,w:1},
+           {x1:0.634,y1:0.888,x2:0.634,y2:0.896,stroke:p.soft,w:1},
+           {x1:0.755,y1:0.888,x2:0.755,y2:0.896,stroke:p.soft,w:1}],
+    notes:[{x:0.762,y:1.014,t:"Peak head — minimum stable flow recorded here",anchor:"start",size:9.5,bold:true,fill:p.c3},
+           {x:0.688,y:0.9735,t:"Onset of subsynchronous vibration",anchor:"start",size:9.5,fill:p.c2},
+           {x:0.628,y:1.021,t:"Audible surge",anchor:"start",size:9.5,bold:true,fill:p.bad},
+           {x:0.6945,y:0.9035,t:"≈ 10 % of capacity",anchor:"middle",size:9,fill:p.soft}],
+    pal:p
+  });
+}
+
+/* ---- test-loop schematics ----
+   Drawn rather than digitised: the value of Figs. 10 and 11 is which meter sits in which
+   line and which valve is shut for which section, and that reads far better as a clean
+   diagram than as a facsimile of a 2005 scan. */
+function loopSvg(kind){
+  const p=gPal(), back=kind==="btb"?760:640, H=kind==="btb"?330:300;
+  const L=(x1,y1,x2,y2,dash)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${p.ink}" stroke-width="1.6" ${dash?`stroke-dasharray="${dash}"`:""}/>`;
+  const box=(x,y,w,h,t,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${fill||p.bg}" stroke="${p.c1}" stroke-width="1.6"/>
+    <text x="${x+w/2}" y="${y+h/2+4}" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" font-weight="600" fill="${p.title}">${esc(t)}</text>`;
+  // a flow meter is an orifice symbol on the line plus a label
+  const fm=(x,y,t)=>`<line x1="${x}" y1="${y-9}" x2="${x}" y2="${y+9}" stroke="${p.c2}" stroke-width="2.4"/>
+    <circle cx="${x}" cy="${y}" r="3" fill="${p.c2}"/>
+    <text x="${x}" y="${y-13}" text-anchor="middle" font-family="Consolas,monospace" font-size="8.5" fill="${p.c2}">${esc(t)}</text>`;
+  const vlv=(x,y,t)=>`<path d="M${x-7} ${y-7} L${x+7} ${y+7} L${x+7} ${y-7} L${x-7} ${y+7} Z" fill="none" stroke="${p.c3}" stroke-width="1.8"/>
+    <text x="${x}" y="${y-11}" text-anchor="middle" font-family="Consolas,monospace" font-size="8.5" fill="${p.c3}">${esc(t)}</text>`;
+  const cap=(x,y,t,anchor)=>`<text x="${x}" y="${y}" text-anchor="${anchor||"middle"}" font-family="Segoe UI,sans-serif" font-size="9" fill="${p.soft}">${esc(t)}</text>`;
+  let s=`<svg viewBox="0 0 ${back} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${kind==="btb"?"Back-to-back":"Straight-through"} compressor test loop" style="width:100%;height:auto;background:${p.bg};border:1px solid var(--rule);border-radius:var(--r-md)">`;
+  s+=`<text x="${back/2}" y="20" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12.5" font-weight="600" fill="${p.title}">${kind==="btb"?"Fig. 11 — back-to-back compressor test loop":"Fig. 10 — straight-through compressor test loop"}</text>`;
+  if(kind!=="btb"){
+    s+=box(250,74,140,52,"COMPRESSOR");
+    s+=L(70,100,250,100)+L(390,100,560,100);       // suction / discharge headers
+    // return leg, broken around the cooler so the exchanger reads as in-line
+    s+=L(560,100,560,205)+L(560,205,490,205)+L(380,205,70,205)+L(70,205,70,100);
+    s+=box(380,183,110,44,"Heat exchanger");
+    s+=fm(170,100,"main inlet FE");
+    s+=vlv(520,100,"discharge throttle");
+    // balance-piston return, metered and admitted upstream of the main inlet meter
+    s+=L(330,126,330,262)+L(330,262,130,262)+L(130,262,130,100);
+    s+=fm(240,262,"balance-piston FE");
+    s+=cap(330,285,"Balance-piston return is metered and admitted upstream of the main inlet meter, so the seal leakage is measured, not assumed.","middle");
+  }else{
+    s+=box(120,70,150,50,"SECTION 1");
+    s+=box(490,70,150,50,"SECTION 2");
+    // section 1 loop
+    s+=L(40,95,120,95)+L(270,95,360,95)+L(360,95,360,168)+L(360,168,40,168)+L(40,168,40,95);
+    s+=fm(80,95,"S1 main FE")+vlv(320,95,"S1 throttle")+box(150,146,120,42,"HX 1");
+    // section 2 loop
+    s+=L(410,95,490,95)+L(640,95,720,95)+L(720,95,720,168)+L(720,168,410,168)+L(410,168,410,95);
+    s+=fm(450,95,"S2 main FE")+vlv(680,95,"S2 throttle")+box(520,146,120,42,"HX 2");
+    // loop balance line: S1 discharge → S2 inlet
+    s+=L(360,95,410,95,"6 4");
+    s+=fm(385,95,"loop bal. FE");
+    // seal balance line: S2 inlet → S1 inlet
+    s+=L(430,70,430,42)+L(430,42,100,42)+L(100,42,100,95,"");
+    s+=fm(300,42,"end-seal FE")+vlv(200,42,"seal bal.");
+    // discharge to discharge balance
+    s+=L(290,120,290,236)+L(290,236,610,236)+L(610,236,610,120);
+    s+=vlv(450,236,"disch → disch");
+    s+=cap(380,258,"opened when testing section 1 — equalises the opposing discharges and eliminates division-wall leakage","middle");
+    s+=cap(380,300,"Division-wall leakage = loop balance FE − end-seal FE.  Section-2 impeller flow = S2 main FE − seal balance FE.","middle");
+  }
+  return s+`</svg>`;
+}
+
+/* ---- guide state ---- */
+/* Kept on S so Save project picks it up with everything else; seeded from the paper so a
+   fresh session shows the worked example rather than an empty grid. */
+S.gStage={band:1.0,rows:PAPER.stations.map((n,i)=>({n,t:PAPER.f7[i],d:1}))};
+S.gPress={P1:0};                         // 0 = follow the test gas selection
+S.gLeak={C:1,D:12,S:0.012,Ph:170.2,Pl:46,rho:1.05,meas:38};
+let GINCL=true;
+
+/* Reynolds number scales with inlet pressure (Colby), so a candidate suction pressure maps
+   straight onto a Reynolds ratio without needing the machine's geometry. */
+const gInterp=(tab,x)=>{
+  if(!tab.length) return NaN;
+  if(x<=tab[0][0]) return tab[0][1];
+  if(x>=tab[tab.length-1][0]) return tab[tab.length-1][1];
+  for(let i=1;i<tab.length;i++) if(x<=tab[i][0]){
+    const a=tab[i-1],b=tab[i];
+    return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);
+  }
+  return tab[tab.length-1][1];
+};
+/* Fig. 8 and Fig. 9 belong to the paper's sample machine, whose test Reynolds number and
+   suction pressure are proportional. Reading them for another machine means going in on
+   the *equivalent* point of that sample — the same fraction of specified Reynolds number
+   — which is what these two do. */
+const gCorrAt=ratio=>gInterp(PAPER.f8corr,ratio*PAPER.reSpec);
+const gLossAt=p1Frac=>gInterp(PAPER.f9loss,p1Frac*PAPER.p1Spec);
+
+/* ---- validation check points ----
+   `auto` returns {st,ev} where st is the verdict the project's own numbers support and ev
+   is the evidence string shown beside the row. Returning only {ev} states a fact without
+   claiming a verdict — used where the tool can quote a number but cannot judge it. The
+   reviewer's status always wins; `auto` only ever pre-fills. */
+const GPRE_DEF=()=>[
+ {txt:"Test gas mole weight is above the specified gas mole weight, so the required test speed stays below MCS",
+  ref:"Colby p.149", auto:()=>({st:S.gas.MW>=S.spec.MW?"Y":"N",
+    ev:`MW test ${f(S.gas.MW,2)} vs. specified ${f(S.spec.MW,2)}`})},
+ {txt:"Test gas has the closest available k value to the specified gas",
+  ref:"Colby p.149", auto:()=>{const b=R.best;
+    return {st:b&&b[0]===S.gas.name?"Y":"", ev:b?`closest eligible: ${b[0]} (k ${f(b[2],3)}) · selected ${S.gas.name} (k ${f(S.gas.k,3)})`:"no eligible candidate"};}},
+ {txt:"Required test speed is within maximum continuous speed",
+  ref:"Colby Eq. 10", auto:()=>({st:R.Nt<=S.gas.MCS?"Y":"N",
+    ev:`Nₜ ${f(R.Nt,0)} rpm vs. MCS ${f(S.gas.MCS,0)} rpm`})},
+ {txt:"Test inlet temperature is achievable with the test stand's cooling capacity and is stated in the agenda",
+  ref:"Colby p.149", auto:()=>({ev:`test T₁ ${f(S.gas.T1,1)} · specified T₁ ${f(S.spec.T1,1)}`})},
+ {txt:"Test suction pressure is justified — around 10 % of specified is the usual starting point",
+  ref:"Colby p.149", auto:()=>{const fr=S.spec.P1?S.gas.P1/S.spec.P1*100:0;
+    return {ev:`test P₁ is ${f(fr,1)} % of specified`};}},
+ {txt:"Specific volume ratio departure is within 95–105 % of design",
+  ref:"PTC-10 Table 3.2", auto:()=>{const v=gSrc(); const pct=R.vr?v.vr/R.vr*100:0;
+    return {st:pct>=95&&pct<=105?"Y":"N", ev:`${f(pct,1)} % of design`};}},
+ {txt:"Flow coefficient departure is within 96–104 % of design",
+  ref:"PTC-10 Table 3.2", auto:()=>{const v=gSrc(); const pct=v.phiSp?v.phi/v.phiSp*100:0;
+    return {st:pct>=96&&pct<=104?"Y":"N", ev:`${f(pct,1)} % of design`};}},
+ {txt:"Machine Mach number departure is inside the Fig. 3.3 envelope",
+  ref:"PTC-10 Fig. 3.3", auto:()=>{const v=gSrc(),l=machLimits(S.spec.Mm),d=v.Mm-S.spec.Mm;
+    return {st:d>=l.lo&&d<=l.up?"Y":"N", ev:`Δ ${d>=0?"+":""}${f(d,3)} · allow ${f(l.lo,3)}…${f(l.up,3)}`};}},
+ {txt:"Machine Reynolds number ratio is inside the Fig. 3.5 envelope and the test value is at least 90,000",
+  ref:"PTC-10 Fig. 3.5, Note (1)", auto:()=>{const v=gSrc(),c=remCheck(S.spec.Rem,v.Rem);
+    return {st:c.ok?"Y":"N", ev:`ratio ${f(c.rat,3)} · allow ${f(c.lim.lo,3)}…${f(c.lim.up,2)} · test Rem ${v.Rem.toExponential(2)}`};}},
+ {txt:"A stage-by-stage calculation of the test condition has been requested and supplied",
+  ref:"Colby p.150", auto:()=>({st:S.gStage.rows.length?"":"", ev:`${S.gStage.rows.length} stations entered on the stage review tab`})},
+ {txt:"The predicted test curve is plotted on the predicted specified-gas curve in dimensionless form (μ, η vs. φ)",
+  ref:"Colby p.151", auto:()=>null},
+ {txt:"No stage departs from its design normalised flow coefficient by more than the agreed band",
+  ref:"Colby Fig. 5 / Fig. 7", auto:()=>{const g=gStageEval();
+    return {st:g.n?(g.bad?"N":"Y"):"", ev:g.n?`worst ${g.worstName} at ${f(g.worst*100,2)} % · band ± ${f(S.gStage.band,2)} %`:"no stage data entered"};}},
+ {txt:"Reynolds-number correction magnitude at the proposed suction pressure is declared, and whether correction may be applied is agreed",
+  ref:"Colby p.151", auto:()=>{const c=gPressEval();
+    return {ev:`correction ≈ ${f((c.corr-1)*100,2)} % at ${f(c.ratio*100,1)} % of specified Rem`};}},
+ {txt:"Heat loss to atmosphere is quantified; casing insulated for the test if it cannot be minimised",
+  ref:"Colby p.151–152", auto:()=>{const c=gPressEval();
+    return {ev:`≈ ${f(c.loss,2)} % of total heat input at the candidate suction pressure`};}},
+ {txt:"The test runs within the power limit of the available shop driver",
+  ref:"Colby p.151", auto:()=>({ev:`test gas power ${f(S.t2.pwr||0,1)} · specified absorbed ${f(R.Pabs,1)}`})},
+ {txt:"The loop meters the balance-piston / seal leakage so it can be measured, not assumed",
+  ref:"Colby Fig. 10", auto:()=>null},
+ {txt:"For a back-to-back machine, division-wall and end-seal leakages are separately metered and the valve line-up per tested section is defined",
+  ref:"Colby Fig. 11", auto:()=>null},
+ {txt:"Five test points from overload to surge, one of them at the design inlet flow coefficient",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"Thermal equilibrium is reached before each performance point is recorded",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"Surge points at two alternate speeds are included to define the slope of the surge line",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"Any alternate speed line is justified — or its absence accepted — by comparing the Mach number at the alternate condition with the specified point",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"The equation of state used for the specified gas and for the test medium is named in the agenda",
+  ref:"Colby p.154", auto:()=>({ev:`specified: ${S.t2.eosSp||"—"} · test: ${S.t2.eosT||"—"}`})}
+];
+const GPOST_DEF=()=>[
+ {txt:"Results reduced using real gas laws and an equation of state well referenced for the test medium",
+  ref:"Colby p.154", auto:()=>({ev:`declared: ${S.t2.eosT||"—"} (test) · ${S.t2.eosSp||"—"} (specified)`})},
+ {txt:"The method used to determine power input is stated — heat balance or torquemeter",
+  ref:"Colby p.151", auto:()=>null},
+ {txt:"Heat loss to atmosphere is quantified and accounted for in the efficiency",
+  ref:"Colby p.151–152", auto:()=>null},
+ {txt:"Whether the Reynolds-number correction was applied matches what was agreed before the test",
+  ref:"Colby p.151", auto:()=>({st:"", ev:`report basis on this project: ${$("corrApplied")&&$("corrApplied").value==="Y"?"correction applied":"as-measured, no correction"}`})},
+ {txt:"As-tested specific volume ratio is re-verified against Table 3.2",
+  ref:"PTC-10 Table 3.2", auto:()=>{const v=gSrc(),pct=R.vr?v.vr/R.vr*100:0;
+    return {st:pct>=95&&pct<=105?"Y":"N", ev:`${f(pct,1)} % of design`};}},
+ {txt:"As-tested flow coefficient is re-verified against Table 3.2",
+  ref:"PTC-10 Table 3.2", auto:()=>{const v=gSrc(),pct=v.phiSp?v.phi/v.phiSp*100:0;
+    return {st:pct>=96&&pct<=104?"Y":"N", ev:`${f(pct,1)} % of design`};}},
+ {txt:"As-tested Machine Mach and Reynolds numbers are re-verified against Figs. 3.3 and 3.5",
+  ref:"PTC-10 Figs. 3.3, 3.5", auto:()=>{const v=gSrc(),l=machLimits(S.spec.Mm),d=v.Mm-S.spec.Mm,c=remCheck(S.spec.Rem,v.Rem);
+    return {st:(d>=l.lo&&d<=l.up&&c.ok)?"Y":"N", ev:`ΔMm ${d>=0?"+":""}${f(d,3)} · Rem ratio ${f(c.rat,3)}`};}},
+ {txt:"Measured leakages are reported and compared with the predicted values",
+  ref:"Colby p.152", auto:()=>null},
+ {txt:"A pseudo clearance is derived from the measured leakage and used in the conversion of results to specified conditions",
+  ref:"Colby Eq. 12", auto:()=>{const l=gLeakEval();
+    return {ev:isFinite(l.sPseudo)?`pseudo clearance ${f(l.sPseudo,5)} vs. predicted ${f(S.gLeak.S,5)} — ratio ${f(l.ratio,3)}`:"enter the measured leakage on the test loop tab"};}},
+ {txt:"Gas power is computed per Eq. 11 and the absorbed power is within ± 4 % of the guarantee",
+  ref:"API 617 7th Ed.", auto:()=>{const useW=$("corrApplied")&&$("corrApplied").value==="Y";
+    const ok=useW?R.pOK_W:R.pOK_O, dev=useW?R.pDev_W:R.pDev_O;
+    return {st:ok?"Y":"N", ev:`${dev>0?"+":""}${f(dev,2)} % against the guarantee`};}},
+ {txt:"Efficiency is reported and understood to be informational — API 617 does not guarantee it",
+  ref:"API 617 7th Ed.", auto:()=>({ev:`specified η ${f(R.eff,4)} · test η ${f(S.w.eta,4)}`})},
+ {txt:"The report states which of the five criteria established the minimum stable flow point",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"Where subsynchronous vibration was used, the frequency is reported — 6–16 % of running speed indicates a stationary-component stall, 70–90 % indicates the impellers",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"If minimum stable flow was taken at audible surge rather than peak head, the difference is acknowledged — it can be about 10 % of capacity",
+  ref:"Colby Fig. 12", auto:()=>null},
+ {txt:"Three surge points are reported and their spread is used to say where surge initiates",
+  ref:"Colby p.153", auto:()=>null},
+ {txt:"The test curve is plotted on the predicted specified-gas curve, not merely tabulated",
+  ref:"Colby p.151", auto:()=>null},
+ {txt:"The method used to extrapolate design-point test data to alternate operating points is declared",
+  ref:"Colby p.153–154", auto:()=>null},
+ {txt:"For a back-to-back machine, the valve line-up in force for each tested section is recorded",
+  ref:"Colby Fig. 11", auto:()=>null},
+ {txt:"Instrumentation, calibration and measurement uncertainty are stated",
+  ref:"PTC-10 §4", auto:()=>null}
+];
+let GPRE=GPRE_DEF().map(o=>Object.assign({st:"",cm:""},o));
+let GPOST=GPOST_DEF().map(o=>Object.assign({st:"",cm:""},o));
+
+/* ---- evaluators ---- */
+/* Which verification program the guide reads. The departure table has its own selector;
+   everything else follows the report basis chosen on the Report of test tab. */
+function gSrc(){
+  const sel=$("gCondSrc");
+  const useW = sel ? sel.value==="W" : ($("corrApplied")?$("corrApplied").value==="Y":true);
+  return useW?S.w:S.o;
+}
+/* Colby's criterion is that no *stage* runs more than ~1 % from its design flow
+   coefficient. The inlet and discharge flange stations are plotted for context — they
+   bound the machine, they are not impellers — so they are excluded from the verdict.
+   A station counts as a flange when its name says so, which is what the paper's own
+   station labels do. */
+const gIsFlange=name=>/flange/i.test(String(name||""));
+function gStageEval(){
+  const rows=S.gStage.rows, band=S.gStage.band/100;
+  let worst=0, worstName="—", bad=false, n=0, nSt=0, flangeWorst=0, flangeName="—";
+  const vals=[];
+  rows.forEach(r=>{
+    const v=r.d?r.t/r.d:0;
+    vals.push(v);
+    if(!isFinite(v)||!v) return;
+    n++;
+    const dev=v-1;
+    if(gIsFlange(r.n)){
+      if(Math.abs(dev)>Math.abs(flangeWorst)){ flangeWorst=dev; flangeName=r.n; }
+      return;
+    }
+    nSt++;
+    if(Math.abs(dev)>Math.abs(worst)){ worst=dev; worstName=r.n; }
+    if(Math.abs(dev)>band+1e-12) bad=true;
+  });
+  return {vals,worst,worstName,bad,n,nSt,flangeWorst,flangeName,band:S.gStage.band};
+}
+function gPressEval(){
+  const s=S.spec, g=S.gas;
+  const P1 = S.gPress.P1>0 ? S.gPress.P1 : g.P1;
+  const frac = s.P1 ? P1/s.P1 : 0;               // fraction of the specified inlet pressure
+  const ratio = frac;                             // Rem ∝ inlet pressure (Colby)
+  const ReT = s.Rem*ratio;
+  const lim = reLimits(s.Rem);
+  const chk = remCheck(s.Rem,ReT);
+  return {P1,frac,ratio,ReT,lim,chk,
+          corr:gCorrAt(ratio), loss:gLossAt(frac),
+          floorOK:ReT>=9e4};
+}
+function gLeakEval(){
+  const L=S.gLeak, dP=L.Ph-L.Pl;
+  // Eq. 12 forward, then inverted on the measured flow to give the pseudo clearance.
+  const base = L.C*Math.PI*L.D*Math.sqrt(Math.max(dP,0)*L.rho);
+  const pred = base*L.S;
+  const sPseudo = base>0 ? L.meas/base : NaN;
+  return {dP,pred,sPseudo,ratio:L.S?sPseudo/L.S:NaN};
+}
+function gType1Eval(){
+  const k=K(),s=S.spec,g=S.gas;
+  const rtzSp=(k.R/s.MW)*(s.T1+k.T0)*s.Z1;
+  const rtzT =(k.R/g.MW)*(g.T1+k.T0)*g.Z1;
+  return {rtzSp,rtzT,rtzRat:rtzSp?rtzT/rtzSp:0,
+          pRat:s.P1?g.P1/s.P1:0, kRat:s.k?g.k/s.k:0, dk:g.k-s.k};
+}
+
+/* ---- renderers ---- */
+function gRow(cells){ return `<tr>${cells.join("")}</tr>`; }
+const gTd=(v,cls)=>`<td${cls?` class="${cls}"`:""}>${v}</td>`;
+
+function drawGuideTables(){
+  const s=S.spec;
+  set("tG1",PAPER.t1.map(r=>{
+    const eff=r[2], col=eff==="Increase"?"var(--pass)":eff==="Decrease"?"var(--fail)":"var(--muted)";
+    return gRow([gTd(r[0],"k"),gTd(r[1],"note"),`<td class="out" style="color:${col}">${eff}</td>`]);
+  }).join(""));
+  set("snapT1",snapBlock("t1","Table 1 as published"));
+
+  set("tG2",PAPER.t2.map(r=>{
+    const dMW=r[1]-s.MW, dk=r[2]-s.k, ok=r[1]>=s.MW, sel=r[0]===S.gas.name;
+    const verdict = sel ? `<span class="badge b-pass">SELECTED</span>`
+      : ok ? `<span class="badge b-chk">eligible — MW ${dMW>0?"+":""}${f(dMW,2)}, Δk ${dk>0?"+":""}${f(dk,3)}</span>`
+           : `<span class="badge b-fail">MW below specified — test speed would exceed MCS</span>`;
+    return gRow([gTd(r[0],"k"),`<td class="out">${f(r[1],2)}</td>`,`<td class="out">${f(r[2],3)}</td>`,gTd(verdict)]);
+  }).join(""));
+  set("snapT2",snapBlock("t2","Table 2 as published"));
+
+  set("tG34",PAPER.t34.map(r=>gRow([gTd(r[0],"k"),gTd(r[1],"unit"),
+    `<td class="out">${r[2]}</td>`,`<td class="out">${r[3]}</td>`])).join(""));
+  set("snapT34",snapBlock(["t3","t4"],"Tables 3 and 4 as published"));
+  set("snapT56",snapBlock(["t5","t6"],"Tables 5 and 6 as published"));
+}
+
+function drawGuideDep(){
+  const s=S.spec, v=gSrc();
+  const vrPct=R.vr?v.vr/R.vr:0, vrOK=vrPct>=0.95&&vrPct<=1.05;
+  const phiPct=v.phiSp?v.phi/v.phiSp:0, phiOK=phiPct>=0.96&&phiPct<=1.04;
+  const mmL=machLimits(s.Mm), dMm=v.Mm-s.Mm, mmOK=dMm>=mmL.lo&&dMm<=mmL.up;
+  const rc=remCheck(s.Rem,v.Rem);
+  const rows=[
+    ["Specific volume ratio","V₁ / V₂",f(R.vr,3),f(v.vr,3),f(vrPct,3),"0.95 to 1.05",vrOK],
+    ["Flow coefficient<br/><span class=\"note\">(total flow including recycle)</span>","Q / N",
+      f(v.phiSp,4),f(v.phi,4),f(phiPct,3),"0.96 to 1.04",phiOK],
+    ["Machine Mach number","Mₘ",f(s.Mm,3),f(v.Mm,3),`${dMm>=0?"":"−"}${f(Math.abs(dMm),3)}`,
+      `${f(mmL.lo,3)} to ${f(mmL.up,3)}`,mmOK],
+    ["Machine Reynolds number","Reₘ",s.Rem.toExponential(2).replace("e+","E+"),
+      v.Rem.toExponential(2).replace("e+","E+"),f(rc.rat,3),
+      `${f(rc.lim.lo,2)} to ${f(rc.lim.up,2)}`,rc.ok]
+  ];
+  set("tGDep",rows.map(r=>gRow([gTd(r[0]),gTd(r[1],"unit"),
+    `<td class="out">${r[2]}</td>`,`<td class="out">${r[3]}</td>`,`<td class="out">${r[4]}</td>`,
+    gTd(r[5],"note"),gTd(badge(r[6]))])).join(""));
+}
+
+function drawGuideCond(){
+  const k=K(),u=U(),s=S.spec,g=S.gas;
+  set("gCondLive",`<div class="kv" style="margin-top:12px">
+    ${[["Design volume ratio",f(R.vr,4),""],
+       ["Test polytropic exponent nₜ",f(R.nt,4),"Eq. 2"],
+       ["Required test pressure ratio",f(R.rpt,4),"Eq. 8 + 9"],
+       ["Required test head",f(R.headT,2)+" "+u.H,"Eq. 1"],
+       ["Required test speed",f(R.Nt,0)+" rpm","Eq. 10"],
+       ["Against MCS",f(g.MCS,0)+" rpm",R.Nt<=g.MCS?"within":"EXCEEDED"]]
+      .map(c=>`<div class="cell"><div class="t">${c[0]}</div><div class="v">${c[1]}</div>
+        <div class="t" style="margin-top:2px">${c[2]}</div></div>`).join("")}
+  </div>
+  <div class="fx" style="margin-top:4px">Nₜ = N × √(Headₜ / Head) = <b>${f(s.N,0)}</b> × √(<b>${f(R.headT,2)}</b> / <b>${f(s.Head,2)}</b>) = <b>${f(R.Nt,1)}</b> rpm</div>`);
+}
+
+function drawGuideStage(){
+  const tb=$("tGStage"); if(!tb) return;
+  tb.innerHTML="";
+  const ev=gStageEval();
+  S.gStage.rows.forEach((r,i)=>{
+    const v=r.d?r.t/r.d:0, dev=(v-1)*100, ok=Math.abs(dev)<=S.gStage.band+1e-9;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="k"></td><td></td><td></td>
+      <td class="out">${isFinite(v)?f(v,4):"—"}</td>
+      <td class="out" style="color:${ok?"var(--pass)":"var(--fail)"}">${isFinite(dev)?(dev>=0?"+":"")+f(dev,2)+" %":"—"}</td>
+      <td class="act"><button title="Delete">✕</button></td>`;
+    const nm=document.createElement("input"); nm.type="text"; nm.value=r.n;
+    nm.addEventListener("input",()=>{ r.n=nm.value; });
+    tr.children[0].appendChild(nm);
+    [["t",1],["d",2]].forEach(([key,col])=>{
+      const el=document.createElement("input"); el.type="text"; el.inputMode="decimal"; el.value=r[key];
+      el.addEventListener("input",()=>{ r[key]=num(el.value); drawGuideStage(); report(); });
+      tr.children[col].appendChild(el);
+    });
+    tr.querySelector(".act button").onclick=()=>{ S.gStage.rows.splice(i,1); drawGuideStage(); report(); };
+    tb.appendChild(tr);
+  });
+  const bandEl=$("gBand"); if(bandEl && document.activeElement!==bandEl) bandEl.value=S.gStage.band;
+  set("figGStage", S.gStage.rows.length
+    ? gStageFigLive(ev)
+    : `<div class="snapph">No stage data entered. Load one of the paper's examples above, or type in the vendor's normalised flow coefficients.</div>`);
+  set("gStageVerdict", ev.n
+    ? `<div class="${ev.bad?"warnbox":"rule"}">${badge(!ev.bad)} &nbsp;Worst <b>stage</b>: <b>${esc(ev.worstName)}</b> at
+        <b>${ev.worst>=0?"+":""}${f(ev.worst*100,2)} %</b> from its design flow coefficient, against a
+        ± ${f(S.gStage.band,2)} % band.${ev.nSt<ev.n?` Flange stations are plotted for context and excluded from the
+        verdict — worst of those is ${esc(ev.flangeName)} at ${ev.flangeWorst>=0?"+":""}${f(ev.flangeWorst*100,2)} %.`:""}
+        ${ev.bad
+          ? "The test volume reduction does not track the design volume reduction through the machine. Ask the manufacturer to adjust the test speed and recompute — on the paper's example a 2 % speed reduction was enough."
+          : "The test volume reduction tracks the design volume reduction through the machine."}</div>`
+    : "");
+}
+/* The live chart is the paper's Fig. 5 / 7 with the user's stations, so a vendor's numbers
+   land in the same picture the paper argues from. */
+function gStageFigLive(ev){
+  const p=gPal(), b=S.gStage.band/100;
+  const names=S.gStage.rows.map(r=>r.n), vals=ev.vals;
+  const lo=Math.min(1-b*1.6,...vals)-0.004, hi=Math.max(1+b*1.6,...vals)+0.004;
+  const y0=Math.min(0.958,lo), y1=Math.max(1.022,hi);
+  const yt=[]; for(let v=Math.ceil(y0*100)/100;v<=y1+1e-9;v+=0.01) yt.push(Math.round(v*1000)/1000);
+  return svgLines({
+    title:"Your vendor's stage-by-stage review", h:340, legend:"right", m:{l:60,r:152,t:34,b:62},
+    x0:-0.35,x1:names.length-0.65,y0,y1,yt,yfmt:v=>v.toFixed(2),
+    xcat:names, ylab:"normalised flow coefficient", band:[1-b,1+b],
+    series:[
+      {pts:vals.map((_,i)=>[i,1]),stroke:p.c1,label:"Design condition",marker:true,r:3.5},
+      {pts:vals.map((v,i)=>[i,v]),stroke:ev.bad?p.bad:p.c3,dash:"6 4",label:"Test condition",marker:true,r:4}],
+    notes:[{x:-0.28,y:1+b,t:`± ${f(S.gStage.band,2)} %`,anchor:"start",size:9,fill:p.soft}],
+    pal:p
+  });
+}
+function gStageSet(){ S.gStage.band=Math.max(0.01,num($("gBand").value)||1); drawGuideStage(); report(); }
+function gStageAdd(){ S.gStage.rows.push({n:"Stage "+(S.gStage.rows.length),t:1,d:1}); drawGuideStage(); report(); }
+function gStageReset(which){
+  const src=which==="bad"?PAPER.f5:PAPER.f7;
+  S.gStage.rows=PAPER.stations.map((n,i)=>({n,t:src[i],d:1}));
+  drawGuideStage(); report();
+}
+
+function drawGuidePress(){
+  const u=U(), c=gPressEval(), s=S.spec;
+  const el=$("gP1"); if(el && document.activeElement!==el) el.value=S.gPress.P1>0?S.gPress.P1:f(S.gas.P1,4);
+  set("gP1u",u.P);
+  set("gPressKv",[
+    ["Candidate suction pressure",f(c.P1,3)+" "+u.P],
+    ["Fraction of specified P₁",f(c.frac*100,1)+" %"],
+    ["Implied test Reₘ",c.ReT.toExponential(2).replace("e+","E+")],
+    ["Fraction of specified Reₘ",f(c.ratio*100,1)+" %"],
+    ["Reynolds correction",(c.corr>=1?"+":"")+f((c.corr-1)*100,2)+" %"],
+    ["Heat loss to atmosphere","≈ "+f(c.loss,2)+" %"]
+  ].map(r=>`<div class="cell"><div class="t">${r[0]}</div><div class="v">${r[1]}</div></div>`).join(""));
+  const rows=[
+    ["Test Reynolds number within the Fig. 3.5 envelope",f(c.chk.rat,3)+" of specified",
+      `${f(c.lim.lo,3)} to ${f(c.lim.up,2)}`, c.chk.rat>=c.lim.lo&&c.chk.rat<=c.lim.up],
+    ["Test Reynolds number above the absolute floor",c.ReT.toExponential(2).replace("e+","E+"),
+      "≥ 90,000", c.floorOK],
+    ["Reynolds correction kept small",(c.corr>=1?"+":"")+f((c.corr-1)*100,2)+" %",
+      "as low as the stand allows", (c.corr-1)<=0.012],
+    ["Heat loss to atmosphere kept small","≈ "+f(c.loss,2)+" %",
+      "≈ 0.5 % or insulate the casing", c.loss<=0.6]
+  ];
+  set("tGPress",rows.map(r=>`<tr><td>${r[0]}</td><td class="out">${r[1]}</td>
+    <td class="note">${r[2]}</td><td>${badge(r[3])}</td></tr>`).join(""));
+}
+function gPressSet(){ S.gPress.P1=num($("gP1").value); drawGuide(); report(); }
+function gPressUse(){ S.gPress.P1=0; drawGuide(); report(); }
+
+function drawGuideLeak(){
+  const u=U(), L=S.gLeak, e=gLeakEval();
+  const tin=$("tGLeakIn"); if(!tin) return;
+  tin.innerHTML="";
+  [["C","Leakage constant C","—"],["D","Seal diameter D",u.D],["S","Predicted radial clearance S",u.D],
+   ["Ph","Upstream (high side) pressure Pₕ",u.P],["Pl","Downstream (low side) pressure P₁",u.P],
+   ["rho","Upstream density ρₕ","—"],["meas","Measured leakage from the loop flowmeter",u.W]
+  ].forEach(([key,lab,un])=>{
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.className="lbl"; a.innerHTML=lab;
+    const b=document.createElement("td");
+    const i=document.createElement("input"); i.type="text"; i.inputMode="decimal"; i.value=L[key];
+    i.addEventListener("input",()=>{ L[key]=num(i.value); drawGuideLeak(); });
+    b.appendChild(i);
+    const c=document.createElement("td"); c.className="unit"; c.textContent=un;
+    tr.append(a,b,c); tin.appendChild(tr);
+  });
+  set("tGLeakOut",[
+    ["Differential across the seal","ΔP = Pₕ − P₁",f(e.dP,3),u.P],
+    ["Predicted leakage","Eq. 12",f(e.pred,3),u.W],
+    ["Measured / predicted","—",e.pred?f(L.meas/e.pred,3):"—","—"],
+    ["Pseudo clearance","Eq. 12 inverted",isFinite(e.sPseudo)?f(e.sPseudo,5):"—",u.D],
+    ["Pseudo / predicted clearance","—",isFinite(e.ratio)?f(e.ratio,3):"—","—"]
+  ].map(r=>`<tr><td class="lbl">${r[0]}<div class="note">${r[1]}</div></td>
+    <td class="out">${r[2]}</td><td class="unit">${r[3]}</td></tr>`).join(""));
+}
+
+function drawGuideType1(){
+  const t=gType1Eval();
+  const rows=[
+    ["Isentropic exponent k",f(S.spec.k,4),f(S.gas.k,4),f(t.kRat,4),"as close as achievable",Math.abs(t.dk)<=0.02],
+    ["Inlet R·T·Z product",f(t.rtzSp,3),f(t.rtzT,3),f(t.rtzRat,4),"± 2 % (author's recommendation)",Math.abs(t.rtzRat-1)<=0.02],
+    ["Inlet pressure",f(S.spec.P1,3),f(S.gas.P1,3),f(t.pRat,4),"± 2 % (author's recommendation)",Math.abs(t.pRat-1)<=0.02]
+  ];
+  set("tGType1",rows.map(r=>`<tr><td>${r[0]}</td><td class="out">${r[1]}</td><td class="out">${r[2]}</td>
+    <td class="out">${r[3]}</td><td class="note">${r[4]}</td><td>${badge(r[5])}</td></tr>`).join(""));
+}
+
+function drawGuideAlt(){
+  const s=S.spec, v=gSrc(), l=machLimits(s.Mm);
+  set("gAltLine",`<div class="rule" style="margin-top:12px">On this project the code would allow the test machine Mach
+    number to sit between <b>${f(s.Mm+l.lo,3)}</b> and <b>${f(s.Mm+l.up,3)}</b> against a specified
+    <b>${f(s.Mm,3)}</b> — a window of <b>${f(l.lo,3)}</b> to <b>+${f(l.up,3)}</b>. Apply the same window to any alternate
+    process condition you are considering: if its machine Mach number falls outside it, the design-point speed line does not
+    speak for that condition and a second speed line is worth buying. Your current test point sits at
+    <b>${f(v.Mm,3)}</b>, a departure of <b>${v.Mm-s.Mm>=0?"+":""}${f(v.Mm-s.Mm,3)}</b>.</div>`);
+}
+
+/* ---- checklist rendering ---- */
+function gList(which){ return which==="pre"?GPRE:GPOST; }
+function gCkDraw(which){
+  const arr=gList(which), tb=$(which==="pre"?"gPreBody":"gPostBody"); if(!tb) return;
+  tb.innerHTML="";
+  arr.forEach((c,i)=>{
+    let a=null; try{ a=c.auto?c.auto():null; }catch(e){ a=null; }
+    const tr=document.createElement("tr");
+    if(a&&a.st) tr.className="au-"+a.st;
+    tr.innerHTML=`<td class="out" style="color:var(--muted)">${i+1}</td>
+      <td class="txt">${esc(c.txt)}</td><td class="ref">${esc(c.ref||"—")}</td>
+      <td class="auto">${a?esc(a.ev||""):'<span style="opacity:.5">judgement</span>'}</td>
+      <td class="st"><div class="seg">
+        ${["Y","N","NA"].map(v=>`<button data-v="${v}" class="${c.st===v?"on":""}">${v==="NA"?"N/A":v}</button>`).join("")}
+      </div></td><td class="cm"></td>`;
+    tr.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+      c.st = c.st===b.dataset.v ? "" : b.dataset.v; gCkDraw(which); report();
+    });
+    const cm=document.createElement("input"); cm.type="text"; cm.value=c.cm; cm.placeholder="—";
+    cm.addEventListener("input",()=>{ c.cm=cm.value; });
+    tr.children[5].appendChild(cm);
+    tb.appendChild(tr);
+  });
+  const sc=gCkScore(which);
+  set(which==="pre"?"gPreCount":"gPostCount",`${arr.length} check points`);
+  set(which==="pre"?"gPreStat":"gPostStat",
+    `${sc.done}/${arr.length} completed · <b style="color:${sc.bad?"var(--fail)":"var(--pass)"}">${sc.bad} failed</b>`);
+}
+function gCkScore(which){
+  const arr=gList(which);
+  return {done:arr.filter(c=>c.st).length, bad:arr.filter(c=>c.st==="N").length, n:arr.length};
+}
+/* Only fills rows the project can actually speak to, and only where they are still blank —
+   applying the automatic verdicts must never silently overwrite a reviewer's decision. */
+function gCkAuto(which){
+  gList(which).forEach(c=>{
+    if(c.st) return;
+    let a=null; try{ a=c.auto?c.auto():null; }catch(e){ a=null; }
+    if(a&&a.st) c.st=a.st;
+  });
+  gCkDraw(which); report();
+}
+function gCkClear(which){
+  if(!confirm("Clear every status on this checklist? Comments are kept.")) return;
+  gList(which).forEach(c=>{ c.st=""; });
+  gCkDraw(which); report();
+}
+function gCkExport(which,fmt){
+  const arr=gList(which), name=(which==="pre"?"pre-test":"post-test")+"-validation";
+  const tag=($("tagNo").value||"project").replace(/[^\w-]/g,"_");
+  if(fmt==="json"){
+    dl(`${tag}_${name}.json`,JSON.stringify(arr.map(c=>({check:c.txt,reference:c.ref,status:c.st,comment:c.cm})),null,2),"application/json");
+  }else{
+    const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const rows=[["#","Check point","Reference","Status","Comment"]]
+      .concat(arr.map((c,i)=>[i+1,c.txt,c.ref,c.st,c.cm]));
+    dl(`${tag}_${name}.csv`,rows.map(r=>r.map(q).join(",")).join("\r\n"),"text/csv");
+  }
+}
+function gInclSet(){ GINCL=$("gIncl").checked; report(); }
+
+/* Restores what Save project wrote. Statuses and comments are matched by position against
+   the current definitions, so adding a check point later does not corrupt an older file —
+   the new row simply comes back blank. */
+function gLoad(p){
+  if(!p||typeof p!=="object") return;
+  if(p.stage&&Array.isArray(p.stage.rows)){
+    S.gStage.band=num(p.stage.band)||1;
+    S.gStage.rows=p.stage.rows.map(r=>({n:String(r.n||""),t:num(r.t),d:num(r.d)}));
+  }
+  if(p.press) S.gPress.P1=num(p.press.P1);
+  if(p.leak) Object.keys(S.gLeak).forEach(k=>{ if(p.leak[k]!==undefined) S.gLeak[k]=num(p.leak[k]); });
+  [["pre",GPRE],["post",GPOST]].forEach(([k,arr])=>{
+    if(!Array.isArray(p[k])) return;
+    arr.forEach((c,i)=>{ const v=p[k][i]; if(!v) return; c.st=v.st||""; c.cm=v.cm||""; });
+  });
+  GINCL = p.incl!==false;
+}
+
+/* ---- one entry point ---- */
+function drawGuide(){
+  drawGuideTables(); drawGuideCond(); drawGuideDep(); drawGuideStage();
+  drawGuidePress(); drawGuideLeak(); drawGuideType1(); drawGuideAlt();
+  gCkDraw("pre"); gCkDraw("post");
+  set("figG1",gFig1());   set("snapF1",snapBlock("f1"));
+  set("figG2",gFig2());   set("snapF2",snapBlock("f2"));
+  set("figG4",gFig46(4)); set("snapF4",snapBlock("f4"));
+  set("figG5",gStageFig("Fig. 5 — normalised flow coefficient, 11,070 rpm",PAPER.f5,1,"Test on CO₂ at 11,070 rpm"));
+  set("snapF5",snapBlock("f5"));
+  set("figG6",gFig46(6));
+  set("figG7",gStageFig("Fig. 7 — normalised flow coefficient, 10,849 rpm",PAPER.f7,1,"Test on CO₂ at 10,849 rpm"));
+  set("snapF67",snapBlock(["f6","f7"]));
+  set("figG8",gFig8());   set("snapF8",snapBlock("f8"));
+  set("figG9",gFig9());   set("snapF9",snapBlock("f9"));
+  set("figG10",loopSvg("st")); set("snapF10",snapBlock("f10"));
+  set("figG11",loopSvg("btb")); set("snapF11",snapBlock("f11"));
+  set("figG12",gFig12()); set("snapF12",snapBlock("f12"));
+  const inc=$("gIncl"); if(inc) inc.checked=GINCL;
+}
+
 function saveProject(){
-  const p={v:3,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
+  const p={v:4,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
     witness:$("witness").value,date:$("tdate").value,sys:S.sys,
     units:{P:$("uP").value,T:$("uT").value,Q:$("uQ").value},
-    corr:$("corrApplied").value,state:S,checklist:CK,attachments:ATT,siemens:SIE};
+    corr:$("corrApplied").value,state:S,checklist:CK,attachments:ATT,siemens:SIE,
+    guide:{stage:S.gStage,press:S.gPress,leak:S.gLeak,incl:GINCL,
+           pre:GPRE.map(c=>({st:c.st,cm:c.cm})),post:GPOST.map(c=>({st:c.st,cm:c.cm}))}};
   dl(($("tagNo").value||"project").replace(/[^\w-]/g,"_")+".t2p.json",JSON.stringify(p,null,2),"application/json");
 }
 function loadProject(el){
@@ -2608,7 +4135,8 @@ function loadProject(el){
       ATT=Array.isArray(p.attachments)?p.attachments:[];
       $("qMode").value=S.spec.qMode||"Q2"; $("pMode").value=S.spec.pMode||"ABS";
       if(p.siemens) sieLoad(p.siemens);                        // absent in v2 files — keep defaults
-      applyModes(); refreshInputs(); drawCk(); drawAtt(); drawSie(); calc();
+      if(p.guide) gLoad(p.guide);                              // absent in v3 files — keep defaults
+      applyModes(); refreshInputs(); drawCk(); drawAtt(); drawSie(); drawGuide(); calc();
     }catch(err){alert("Could not open that file: "+err.message);}
     el.value="";
   };
@@ -2676,7 +4204,7 @@ function setMode(m){
 }
 setMode("generic");
 
-buildOnce(); drawCk(); drawAtt(); drawSie(); calc();
+buildOnce(); drawCk(); drawAtt(); drawSie(); calc(); drawGuide();
 </script>
 </body>
 </html>
