@@ -495,6 +495,8 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
     <button data-m="generic" data-v="v-without"><span class="ico">≈</span>Verify — without corr.</button>
     <div class="grp" data-m="generic">Mechanical</div>
     <button data-m="generic" data-v="v-ck"><span class="ico">☑</span>MRT / AGES checklist</button>
+    <div class="grp" data-m="generic">Report review</div>
+    <button data-m="generic" data-v="v-pv"><span class="ico">▤</span>Performance test report verification</button>
     <div class="grp" data-m="generic">Output</div>
     <button data-m="generic" data-v="v-att"><span class="ico">📎</span>Attachments</button>
     <button data-m="generic" data-v="v-report"><span class="ico">▦</span>Report of test</button>
@@ -879,6 +881,56 @@ document.addEventListener("DOMContentLoaded",()=>{ apBuildSwatches(); apApply();
         </table>
       </div>
     </div>
+  </div>
+
+  <!-- ================= Performance test report verification (vendor submittal) =================
+       Independent of the PTC-10 guide tab's post-test checklist (GPOST): this one cites
+       ASME PTC-10 sections and API 617 clauses directly, stays inside Generic mode's own
+       state (S, CK, R — never the guide-only S.gStage/S.gPress/S.gLeak/GPRE/GPOST), and
+       answers a different question — is the *report itself* complete and demonstrably
+       code-compliant — from the numeric similitude/guarantee checks already in
+       Verify-with/without. Where the guide has a live calculator for a topic (heat loss,
+       leakage, surge criteria) this checklist's item text points there rather than
+       recomputing it. -->
+  <div class="view" id="v-pv">
+    <h1>Performance test report verification</h1>
+    <p class="sub">Reviews the vendor's submitted test report against ASME PTC-10 and API 617 — not just the
+      final numbers (that's Verify — with / without correction) but whether the report demonstrates the method
+      and documentation the code requires behind them.</p>
+
+    <div class="card"><h2>Status <span class="r" id="pvCount">—</span></h2><div class="body">
+      <div class="bar">
+        <button class="btn" onclick="pvAuto()">Apply the automatic verdicts</button>
+        <button class="btn" onclick="pvClear()">Clear all statuses</button>
+        <button class="btn" onclick="pvExport('json')">Export JSON</button>
+        <button class="btn" onclick="pvExport('csv')">Export CSV</button>
+        <span class="note" id="pvStat"></span>
+      </div>
+      <div class="warnbox">The two numeric checks on <b>Verify — with / without Re<sub>m</sub> correction</b> —
+        similitude deviation against Table 3.2 and as-measured/corrected performance against the guarantee —
+        are necessary but not sufficient. ASME PTC-10 also governs the instrumentation, gas analysis, power-
+        determination method, and documentation behind those numbers; a report can pass both numeric checks and
+        still fail to demonstrate compliance. An <b>automatic</b> verdict is pre-filled only where this project's
+        own data can prove it, with the evidence shown alongside — it is a starting point, not a signature.</div>
+    </div></div>
+
+    <div class="card"><h2>Check points</h2><div class="body">
+      <table class="ck gck">
+        <colgroup><col style="width:30px"><col style="width:32%"><col style="width:110px"><col><col style="width:104px"><col style="width:18%"></colgroup>
+        <thead><tr><th>#</th><th>Check point</th><th>Reference</th><th>Automatic evidence</th><th>Status</th><th>Comment</th></tr></thead>
+        <tbody id="pvBody"></tbody>
+      </table>
+    </div></div>
+
+    <div class="card"><h2>Carry into the determination</h2><div class="body">
+      <table><colgroup><col style="width:44%"><col></colgroup><tbody>
+        <tr><td class="lbl">Include this checklist in the report scorecard</td>
+          <td><label class="note"><input type="checkbox" id="pvIncl" checked style="width:auto;background:none" onchange="pvInclSet()"/>
+            Add the performance test report verification result to the ACCEPTED / NOT ACCEPTED determination</label></td></tr>
+      </tbody></table>
+      <div class="note" style="margin-top:10px">With this off, the verdict is exactly what it would be without this
+        checklist. A blank check point is never a failure — only an explicit <b>N</b> is.</div>
+    </div></div>
   </div>
 
   <div class="view" id="v-att">
@@ -2269,6 +2321,7 @@ function calc(){
   // PTC-10 charts + captions
   drawCharts();
   if(typeof drawGuide==="function") drawGuide();   // guide reads S and R, so it follows calc()
+  if(typeof pvDraw==="function") pvDraw();          // report verification reads S, CK and R too
   const capRe=(id,ReT,ok)=>{ const c=remCheck(s.Rem,ReT);
     set(id,`Design Re<sub>M</sub> <b>${f(s.Rem,0)}</b> · test Re<sub>M</sub> <b>${f(ReT,0)}</b> · test/design ratio <b>${f(c.rat,3)}</b> · allowable <b>${f(c.lim.lo,3)}–${f(c.lim.up,2)}</b> · ${c.floorOK?"":"<span style='color:var(--fail)'>test below the 90,000 minimum [Table 3.2 Note (1)] · </span>"}${c.extrap?"<span style='color:var(--warn)'>design below 90,000 — Fig. 3.5 band extrapolated · </span>":""}<b style="color:${ok?"var(--pass)":"var(--fail)"}">${ok?"WITHIN ALLOWABLE RANGE":"OUTSIDE ALLOWABLE RANGE"}</b>. Reynolds correction on head and efficiency applied per PTC-10 (ICAAMC).`); };
   const capMm=(id,MmT,ok)=>{ const lim=machLimits(s.Mm), dev=MmT-s.Mm;
@@ -2299,6 +2352,13 @@ function scorecard(){
     ["Absorbed power within ± 4 % of guarantee",pOK,`${pDev>0?"+":""}${f(pDev,2)} %`],
     ["MRT / AGES checklist — no failed items",ckFail===0,`${ckDone} of ${CK.length} completed, ${ckFail} failed`]
   ];
+  /* Report verification votes only when asked to, and only on an explicit N — same contract
+     as every other checklist here. Independent of the PTC-10 guide's GINCL toggle below. */
+  if(typeof PVINCL!=="undefined" && PVINCL && typeof PV!=="undefined"){
+    const pv=pvScore();
+    rows.push(["Performance test report verification — no failed items",pv.bad===0,
+      `${pv.done} of ${pv.n} completed, ${pv.bad} failed`]);
+  }
   /* Siemens checks stay out of the determination unless explicitly opted in, so the
      generic result is bit-for-bit what it was before the Siemens section existed. */
   if(typeof SIE!=="undefined" && SIE.inclInVerdict)
@@ -2387,6 +2447,110 @@ function drawCk(){
 }
 function addItem(){CK.push({ages:false,txt:"New check point",ref:"",st:"",cm:""});drawCk();report();}
 function resetCk(){if(confirm("Replace the current list with the default API 617 + AGES check points?")){CK=JSON.parse(JSON.stringify(DEF));drawCk();report();}}
+
+/* ============ Performance test report verification (vendor submittal) ============
+   Same {txt, ref, auto, st, cm} contract as the PTC-10 guide's GPRE/GPOST (see below),
+   but deliberately independent state and independent citations — this checklist answers
+   "does the report demonstrate PTC-10 / API 617 compliance", not "does it match Colby's
+   worked example". auto() reads only Generic-mode state (S, CK, R, the report fields) —
+   never the guide-only S.gStage / S.gPress / S.gLeak / GPRE / GPOST — so Generic mode
+   never depends on the guide mode being used. */
+const PV_DEF=()=>[
+ {txt:"The report states which test type was performed (Type 1 or Type 2) and cites the specific Table 3.1 / 3.2 limits applied",
+  ref:"PTC-10 §3", auto:()=>null},
+ {txt:"Whether Reynolds-number correction was applied matches what was agreed with the purchaser before the test",
+  ref:"PTC-10 Table 3.2", auto:()=>({ev:`this project's report basis: ${$("corrApplied")&&$("corrApplied").value==="Y"?"correction applied":"as-measured, no correction"}`})},
+ {txt:"An instrument list is furnished — type, range and accuracy class for pressure, temperature, speed and flow measurement",
+  ref:"PTC-10 §4", auto:()=>null},
+ {txt:"Calibration certificates are furnished and were valid at the time of test",
+  ref:"PTC-10 §4", auto:()=>{const hits=CK.filter(c=>/calibrat/i.test(c.txt));
+    if(!hits.length) return {ev:"no calibration-related item found on the MRT / AGES checklist"};
+    const bad=hits.filter(c=>c.st==="N").length;
+    return {ev:`${hits.length} related MRT / AGES item(s), ${hits.filter(c=>c.st==="Y").length} passed, ${bad} failed`};}},
+ {txt:"The flow-measurement device (orifice, venturi or nozzle) type and installation geometry are documented",
+  ref:"PTC-10 §4, ref. PTC 19.5", auto:()=>null},
+ {txt:"The method used to determine gas molecular weight, k and Z is stated — laboratory analysis or calculated composition",
+  ref:"PTC-10 §4", auto:()=>({ev:`declared on this project: specified gas ${S.t2.eosSp||"—"} · test gas ${S.t2.eosT||"—"}`})},
+ {txt:"The speed measurement method and its calibration are stated",
+  ref:"PTC-10 §4", auto:()=>null},
+ {txt:"The method used to determine power input is stated — heat balance, torquemeter, or a calibrated driver",
+  ref:"PTC-10 §4 / §5", auto:()=>null},
+ {txt:"Where the heat-balance method was used, heat loss to atmosphere is quantified and accounted for in the efficiency — see the PTC-10 guide's Suction pressure calculator",
+  ref:"PTC-10 §5", auto:()=>null},
+ {txt:"Where a calibrated driver was used in place of a torquemeter, its loss curve and calibration basis are furnished",
+  ref:"PTC-10 §4", auto:()=>null},
+ {txt:"An overall measurement-uncertainty estimate is stated for head, efficiency and power",
+  ref:"PTC-10 §4, ref. PTC 19.1", auto:()=>null},
+ {txt:"A full-range performance curve — overload to surge — is furnished at the guarantee condition, not a single point",
+  ref:"PTC-10 §7", auto:()=>null},
+ {txt:"The stabilization criteria used before recording each test point are stated",
+  ref:"PTC-10 §6", auto:()=>null},
+ {txt:"Measured recirculation / leakage flows are reported against predicted values and used in the conversion of results — see the PTC-10 guide's Test loop & recirculation calculator",
+  ref:"PTC-10 §5 / §6", auto:()=>null},
+ {txt:"The minimum stable flow determination method and criterion used are stated — see the PTC-10 guide's Procedure & surge page",
+  ref:"PTC-10 §6", auto:()=>null},
+ {txt:"As-tested impeller trims, seal and labyrinth clearances are reconciled against the as-guaranteed configuration",
+  ref:"API 617", auto:()=>null},
+ {txt:"The mechanical running test acceptance status is referenced in, or attached to, the performance test report",
+  ref:"API 617 cl. 6.3.5", auto:()=>{const done=CK.filter(c=>c.st).length, bad=CK.filter(c=>c.st==="N").length;
+    return {st: (done===CK.length&&bad===0) ? "Y" : (bad>0 ? "N" : ""),
+      ev:`${done} of ${CK.length} MRT / AGES items completed, ${bad} failed`};}},
+ {txt:"The report is signed and witnessed, with an attendee list, test date and raw data sheets included as an appendix",
+  ref:"PTC-10 §7", auto:()=>({ev:`this project: witness "${$("witness")?$("witness").value||"—":"—"}" · date "${$("tdate")?$("tdate").value||"—":"—"}"`})},
+ {txt:"The ambient / barometric basis used to convert gauge readings to absolute pressures is stated",
+  ref:"PTC-10 §4", auto:()=>null}
+];
+let PV=PV_DEF().map(o=>Object.assign({st:"",cm:""},o));
+let PVINCL=true;
+function pvScore(){ return {done:PV.filter(c=>c.st).length, bad:PV.filter(c=>c.st==="N").length, n:PV.length}; }
+function pvDraw(){
+  const tb=$("pvBody"); if(!tb) return;
+  tb.innerHTML="";
+  PV.forEach((c,i)=>{
+    let a=null; try{ a=c.auto?c.auto():null; }catch(e){ a=null; }
+    const tr=document.createElement("tr");
+    if(a&&a.st) tr.className="au-"+a.st;
+    tr.innerHTML=`<td class="out" style="color:var(--muted)">${i+1}</td>
+      <td class="txt">${esc(c.txt)}</td><td class="ref">${esc(c.ref||"—")}</td>
+      <td class="auto">${a?esc(a.ev||""):'<span style="opacity:.5">judgement</span>'}</td>
+      <td class="st"><div class="seg">
+        ${["Y","N","NA"].map(v=>`<button data-v="${v}" class="${c.st===v?"on":""}">${v==="NA"?"N/A":v}</button>`).join("")}
+      </div></td><td class="cm"></td>`;
+    tr.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+      c.st = c.st===b.dataset.v ? "" : b.dataset.v; pvDraw(); report();
+    });
+    const cm=document.createElement("input"); cm.type="text"; cm.value=c.cm; cm.placeholder="—";
+    cm.addEventListener("input",()=>{ c.cm=cm.value; });
+    tr.children[5].appendChild(cm);
+    tb.appendChild(tr);
+  });
+  const sc=pvScore();
+  set("pvCount",`${PV.length} check points`);
+  set("pvStat",`${sc.done}/${PV.length} completed · <b style="color:${sc.bad?"var(--fail)":"var(--pass)"}">${sc.bad} failed</b>`);
+  const inc=$("pvIncl"); if(inc) inc.checked=PVINCL;
+}
+function pvAuto(){
+  PV.forEach(c=>{ if(c.st) return; let a=null; try{ a=c.auto?c.auto():null; }catch(e){ a=null; }
+    if(a&&a.st) c.st=a.st; });
+  pvDraw(); report();
+}
+function pvClear(){
+  if(!confirm("Clear every status on this checklist? Comments are kept.")) return;
+  PV.forEach(c=>{ c.st=""; }); pvDraw(); report();
+}
+function pvExport(fmt){
+  const tag=($("tagNo").value||"project").replace(/[^\w-]/g,"_");
+  if(fmt==="json"){
+    dl(`${tag}_performance-test-report-verification.json`,
+      JSON.stringify(PV.map(c=>({check:c.txt,reference:c.ref,status:c.st,comment:c.cm})),null,2),"application/json");
+  }else{
+    const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const rows=[["#","Check point","Reference","Status","Comment"]]
+      .concat(PV.map((c,i)=>[i+1,c.txt,c.ref,c.st,c.cm]));
+    dl(`${tag}_performance-test-report-verification.csv`,rows.map(r=>r.map(q).join(",")).join("\r\n"),"text/csv");
+  }
+}
+function pvInclSet(){ PVINCL=$("pvIncl").checked; report(); }
 function dl(name,txt,type){
   const b=new Blob([txt],{type}),a=document.createElement("a");
   a.href=URL.createObjectURL(b);a.download=name;a.click();URL.revokeObjectURL(a.href);
@@ -2832,7 +2996,26 @@ function buildReport(){
         Confirm with COMPANY which seals are to be pulled and record the agreed position in the test agenda.</div>`:""}`);
   }
 
-  /* 8 — PTC-10 guide validations (Colby 2005) */
+  /* 8 — Performance test report verification (vendor submittal) */
+  {
+    const per=24;      // single-line rows, not the MRT sheet's textareas — a page holds more
+    for(let i=0;i<PV.length;i+=per){
+      const chunk=PV.slice(i,i+per);
+      page(`8. Performance test report verification${PV.length>per?` (${Math.floor(i/per)+1} of ${Math.ceil(PV.length/per)})`:""}`,`
+        ${i===0?`<div class="fxp">Reviewed against ASME PTC-10 and API 617 — the report itself, not only the
+          numeric similitude and guarantee checks in sections 4 and 4a above.</div>`:""}
+        <table>
+          <colgroup><col style="width:26px"><col style="width:46%"><col style="width:90px"><col style="width:52px"><col></colgroup>
+          <tr><th>#</th><th>Check point</th><th>Reference</th><th>Status</th><th>Comment</th></tr>
+          ${chunk.map((c,j)=>`<tr><td class="k">${i+j+1}</td><td>${esc(c.txt)}</td>
+            <td class="k">${esc(c.ref||"—")}</td>
+            <td>${c.st==="Y"?RES(true,"Y"):c.st==="N"?RES(false,"N"):c.st==="NA"?'<span class="k">N/A</span>':'<span class="k">—</span>'}</td>
+            <td>${esc(c.cm||"—")}</td></tr>`).join("")}
+        </table>`);
+    }
+  }
+
+  /* 9-11 — PTC-10 guide validations (Colby 2005) */
   {
     const gs=gStageEval(), gp=gPressEval(), gl=gLeakEval(), gd=gSrc();
     const ckPage=(title,arr,note)=>{
@@ -2852,10 +3035,10 @@ function buildReport(){
           </table>`);
       }
     };
-    page("8. PTC-10 guide — test design review",`
+    page("9. PTC-10 guide — test design review",`
       <div class="fxp">Reviewed against Colby, G. M. (2005), “Hydraulic Shop Performance Testing of Centrifugal
         Compressors,” Proceedings of the Thirty-Fourth Turbomachinery Symposium, pp. 147–154.</div>
-      <h3>8.1 Departures at the design point</h3>
+      <h3>9.1 Departures at the design point</h3>
       <table>
         <colgroup><col style="width:30%"><col style="width:64px"><col style="width:88px"><col style="width:88px"><col style="width:78px"><col><col style="width:56px"></colgroup>
         <tr><th>Parameter</th><th>Symbol</th><th>Design</th><th>Test</th><th>Departure</th><th>Allowable, Table 3.2</th><th>Result</th></tr>
@@ -2871,7 +3054,7 @@ function buildReport(){
             <td class="k">${r[4]}</td><td>${r[5]}</td><td>${RES(r[6])}</td></tr>`).join("");
         })()}
       </table>
-      <h3>8.2 Stage-by-stage volume-reduction review</h3>
+      <h3>9.2 Stage-by-stage volume-reduction review</h3>
       ${gs.n?`<table>
         <colgroup><col style="width:34%"><col style="width:100px"><col style="width:100px"><col style="width:110px"><col></colgroup>
         <tr><th>Station</th><th>Test φ</th><th>Design φ</th><th>Normalised</th><th>Deviation</th></tr>
@@ -2890,7 +3073,7 @@ function buildReport(){
         reduction through the machine.</div>`
       :`<div class="fxp">No stage-by-stage data was entered. Request the manufacturer's stage-by-stage calculation of the
         test condition, converted to μ, η and φ, plotted against the predicted specified-gas curve.</div>`}
-      <h3>8.3 Test suction pressure — Reynolds number and heat loss</h3>
+      <h3>9.3 Test suction pressure — Reynolds number and heat loss</h3>
       <table>
         <colgroup><col style="width:40%"><col style="width:140px"><col style="width:150px"><col style="width:56px"></colgroup>
         <tr><th>Check</th><th>Value</th><th>Limit or target</th><th>Result</th></tr>
@@ -2903,7 +3086,7 @@ function buildReport(){
       <div class="fxp">Reynolds number is scaled from the specified value in proportion to inlet pressure. The correction
         factor and the heat-loss percentage are read from the digitised Figs. 8 and 9 of the paper, which belong to its
         sample compressor — they are an order-of-magnitude screen, not a substitute for the manufacturer's calculation.</div>
-      <h3>8.4 Seal leakage — pseudo clearance</h3>
+      <h3>9.4 Seal leakage — pseudo clearance</h3>
       <table>
         <colgroup><col style="width:46%"><col style="width:140px"><col></colgroup>
         <tr><th>Quantity</th><th>Value</th><th>Basis</th></tr>
@@ -2913,16 +3096,16 @@ function buildReport(){
         <tr><td>Pseudo clearance</td><td class="k">${isFinite(gl.sPseudo)?f(gl.sPseudo,5):"—"}</td><td>Eq. 12 inverted — absorbs any error in the constant</td></tr>
         <tr><td>Pseudo / predicted clearance</td><td class="k">${isFinite(gl.ratio)?f(gl.ratio,3):"—"}</td><td>carried into the conversion of results</td></tr>
       </table>`);
-    ckPage("9. PTC-10 guide — pre-test validation of the vendor test procedure",GPRE,
+    ckPage("10. PTC-10 guide — pre-test validation of the vendor test procedure",GPRE,
       "Reviewed before the machine goes on the stand. Rows marked with an automatic verdict on screen were derived from this project's own numbers; a blank status is not a failure.");
-    ckPage("10. PTC-10 guide — post-test validation of the vendor test report",GPOST,
+    ckPage("11. PTC-10 guide — post-test validation of the vendor test report",GPOST,
       "Reviewed against the issued test report.");
   }
 
   /* 8 — attachments */
   const imgs=ATT.filter(a=>a.kind==="img"), pdfs=ATT.filter(a=>a.kind==="pdf");
   if(ATT.length){
-    page("11. Attachments — index",`
+    page("12. Attachments — index",`
       <h3>Attachment index</h3>
       <table><tr><th style="width:8%">#</th><th style="width:34%">File</th><th style="width:14%">Type</th><th>Caption</th></tr>
         ${ATT.map((a,i)=>`<tr><td>${i+1}</td><td>${esc(a.name)}</td>
@@ -4110,12 +4293,13 @@ function drawGuide(){
 }
 
 function saveProject(){
-  const p={v:4,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
+  const p={v:5,project:$("projName").value,tag:$("tagNo").value,oem:$("oem").value,
     witness:$("witness").value,date:$("tdate").value,sys:S.sys,
     units:{P:$("uP").value,T:$("uT").value,Q:$("uQ").value},
     corr:$("corrApplied").value,state:S,checklist:CK,attachments:ATT,siemens:SIE,
     guide:{stage:S.gStage,press:S.gPress,leak:S.gLeak,incl:GINCL,
-           pre:GPRE.map(c=>({st:c.st,cm:c.cm})),post:GPOST.map(c=>({st:c.st,cm:c.cm}))}};
+           pre:GPRE.map(c=>({st:c.st,cm:c.cm})),post:GPOST.map(c=>({st:c.st,cm:c.cm}))},
+    pv:PV.map(c=>({st:c.st,cm:c.cm})),pvIncl:PVINCL};
   dl(($("tagNo").value||"project").replace(/[^\w-]/g,"_")+".t2p.json",JSON.stringify(p,null,2),"application/json");
 }
 function loadProject(el){
@@ -4136,7 +4320,10 @@ function loadProject(el){
       $("qMode").value=S.spec.qMode||"Q2"; $("pMode").value=S.spec.pMode||"ABS";
       if(p.siemens) sieLoad(p.siemens);                        // absent in v2 files — keep defaults
       if(p.guide) gLoad(p.guide);                              // absent in v3 files — keep defaults
-      applyModes(); refreshInputs(); drawCk(); drawAtt(); drawSie(); drawGuide(); calc();
+      if(Array.isArray(p.pv))                                  // absent in v3/v4 files — keep defaults
+        PV.forEach((c,i)=>{ const v=p.pv[i]; if(v){ c.st=v.st||""; c.cm=v.cm||""; } });
+      PVINCL = p.pvIncl!==false;
+      applyModes(); refreshInputs(); drawCk(); drawAtt(); drawSie(); drawGuide(); pvDraw(); calc();
     }catch(err){alert("Could not open that file: "+err.message);}
     el.value="";
   };
@@ -4204,7 +4391,7 @@ function setMode(m){
 }
 setMode("generic");
 
-buildOnce(); drawCk(); drawAtt(); drawSie(); calc(); drawGuide();
+buildOnce(); drawCk(); drawAtt(); drawSie(); calc(); drawGuide(); pvDraw();
 </script>
 </body>
 </html>
