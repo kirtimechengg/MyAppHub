@@ -15,6 +15,11 @@
     <!-- Fonts & Styles -->
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF export for the train report. Same pinned versions as the DGS and
+         TVA tools on this hub; the click handler guards against a CDN miss so
+         a blocked network only loses the PDF button, never the page. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <style>
         :root {
             --surface: #ffffff;
@@ -287,6 +292,10 @@
             <button class="tab" data-view="v-machine">Machine &amp; Limits</button>
             <button class="tab" data-view="v-selection">Selection</button>
             <button class="tab" data-view="v-results">Results</button>
+            <button class="tab" data-view="v-driver">Driver</button>
+            <button class="tab" data-view="v-gearbox">Gearbox</button>
+            <button class="tab" data-view="v-lube">Lube Oil</button>
+            <button class="tab" data-view="v-seal">Seals</button>
             <button class="tab" data-view="v-charts">Charts</button>
             <button class="tab" data-view="v-report">Report</button>
             <button class="tab" data-view="v-help">Help &amp; Formulas</button>
@@ -348,6 +357,126 @@
                     section's inlet temperature and pressure drop.
                 </p>
                 <div id="sectionRows" class="space-y-3"></div>
+            </div>
+
+            <!-- Train configuration: which accessories surround the compressor.
+                 The detailed numbers live on the Driver / Gearbox / Lube Oil /
+                 Seals tabs; this card only picks the combination. -->
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Train configuration</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Driver, gearbox, coupling and seal system for the complete train. Each choice feeds its own
+                    tab — Driver, Gearbox, Lube Oil and Seals — and the train report. With a gearbox (or a
+                    fixed-speed motor direct drive) in the train, the compressor is re-solved at the exact
+                    output-shaft speed the selected gear ratio gives.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Driver type</label>
+                        <select id="inDriverType">
+                            <option value="motor_ind">Electric motor — induction (API 541)</option>
+                            <option value="motor_sync">Electric motor — synchronous (API 546)</option>
+                            <option value="steam">Steam turbine (API 612)</option>
+                            <option value="gasturbine">Gas turbine (API 616)</option>
+                        </select>
+                    </div>
+                    <div class="field" id="fldFreq">
+                        <label>Grid frequency</label>
+                        <select id="inFreq">
+                            <option value="50">50 Hz</option>
+                            <option value="60">60 Hz</option>
+                        </select>
+                    </div>
+                    <div class="field" id="fldDriverSpeed">
+                        <label>Driver rated speed (rpm)</label>
+                        <input type="number" id="inDriverSpeed" value="" step="any" placeholder="auto (= compressor speed)">
+                        <span class="hint">Turbine output-shaft speed. Blank lets a variable-speed turbine follow the compressor directly.</span>
+                    </div>
+                    <div class="field">
+                        <label>Gearbox</label>
+                        <select id="inGearboxStd">
+                            <option value="auto">Auto (when speeds require one)</option>
+                            <option value="none">None — direct drive</option>
+                            <option value="api613">API 613 special purpose</option>
+                            <option value="api677">API 677 general purpose</option>
+                        </select>
+                        <span class="hint">Ignored for an integrally geared machine — its gear train is internal.</span>
+                    </div>
+                    <div class="field" id="fldGearRatio">
+                        <label>Gear ratio override</label>
+                        <input type="number" id="inGearRatio" value="" step="any" min="1" placeholder="auto (tooth-count snap)">
+                        <span class="hint">Blank sizes the ratio from the speeds and snaps it to real tooth counts.</span>
+                    </div>
+                    <div class="field" id="fldGearMaterial">
+                        <label>Gear material</label>
+                        <select id="inGearMaterial">
+                            <option value="carburised">Carburised, hardened &amp; ground</option>
+                            <option value="throughHardened">Through-hardened (~320 HB)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Coupling type (API 671)</label>
+                        <select id="inCouplingType">
+                            <option value="disc">Flexible disc pack</option>
+                            <option value="diaphragm">Flexible diaphragm</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Shaft seal system</label>
+                        <select id="inSealSystem">
+                            <option value="dgs">Dry gas seals (API 692)</option>
+                            <option value="none">None / out of scope</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-fields mt-4" id="steamFields">
+                    <div class="field">
+                        <label>Steam inlet pressure <span class="unit" data-unit="pressure"></span></label>
+                        <input type="number" id="inSteamPin" value="40" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Steam inlet temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inSteamTin" value="400" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Exhaust pressure <span class="unit" data-unit="pressure"></span></label>
+                        <input type="number" id="inSteamPexh" value="3.5" step="any">
+                        <span class="hint">Condensing sets ~0.1 bara; back-pressure sets the export header.</span>
+                    </div>
+                </div>
+
+                <div class="grid-fields mt-4" id="gtFields">
+                    <div class="field">
+                        <label>GT ISO rating <span class="unit" data-unit="power"></span></label>
+                        <input type="number" id="inGtIso" value="25000" step="any">
+                        <span class="hint">Sea level, 15 °C, 60% RH, no losses — the catalogue number.</span>
+                    </div>
+                    <div class="field">
+                        <label>Site altitude (m)</label>
+                        <input type="number" id="inGtAltitude" value="0" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Ambient temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inGtTamb" value="30" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Relative humidity (%)</label>
+                        <input type="number" id="inGtRH" value="60" step="any" min="0" max="100">
+                    </div>
+                </div>
+
+                <div class="grid-fields mt-4" id="sealVolFields">
+                    <div class="field">
+                        <label>Suction system volume <span class="unit" data-unit="volume"></span></label>
+                        <input type="number" id="inVsuction" value="10" step="any">
+                        <span class="hint">Piping + vessels between suction block valve and the machine — sets settle-out pressure.</span>
+                    </div>
+                    <div class="field">
+                        <label>Discharge system volume <span class="unit" data-unit="volume"></span></label>
+                        <input type="number" id="inVdischarge" value="5" step="any">
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -530,17 +659,10 @@
                         <input type="number" id="inEtaMech" value="0.985" step="0.005" min="0.9" max="1">
                         <span class="hint">Bearing and seal losses.</span>
                     </div>
-                    <div class="field" id="gearboxField">
-                        <label>Gearbox in the train</label>
-                        <select id="inGearbox">
-                            <option value="0">No</option>
-                            <option value="1">Yes (+2% loss)</option>
-                        </select>
-                    </div>
                     <div class="field">
                         <label>Driver margin</label>
                         <input type="number" id="inMargin" value="0.10" step="0.05" min="0" max="0.5">
-                        <span class="hint">API 617 asks for 110% of maximum power.</span>
+                        <span class="hint">API 617 asks for 110% of maximum power. Gearbox and coupling losses come from the Train configuration on the Process Data tab.</span>
                     </div>
                 </div>
             </div>
@@ -684,6 +806,137 @@
             </div>
         </section>
 
+        <!-- ============================ DRIVER ============================ -->
+        <section id="v-driver" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Driver selection</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Driver type and its conditions are set in the Train configuration on the Process Data tab.
+                    The rating chain below is the same one the Results tab shows — shaft power, plus gear and
+                    coupling losses, plus the API 617 margin.
+                </p>
+                <div id="driverOut"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Train speeds — rated / MCS / trip</h2>
+                <div id="speedsOut"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Couplings (API 671)</h2>
+                <div id="couplingOut"></div>
+            </div>
+            <div class="note" style="margin-top:0">
+                <strong>Assumptions.</strong> Motor slip is a flat 1% for induction machines; steam expansion uses
+                the Peng-Robinson EOS for H₂O with saturation-line correlations (±3% class on isentropic drop);
+                turbine efficiency is a size correlation, 60% at 1 MW rising to 80% at 30 MW; gas turbine site
+                derating uses the barometric altitude factor, −0.6%/°C above the 15 °C ISO day, a humidity
+                air-density correction and 2% duct losses. MCS and trip follow API 612 practice: 105% and
+                110% × MCS. Coupling factors are API 671 screening values — motor short-circuit transients are a
+                torsional (API 684) question, not sized here.
+            </div>
+        </section>
+
+        <!-- ============================ GEARBOX ============================ -->
+        <section id="v-gearbox" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Gearbox rating and basic design</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Single-mesh, double-helical, parallel-shaft speed increaser: bull gear on the driver shaft,
+                    pinion on the compressor shaft. The pinion is sized from the API 613 tooth pitting index
+                    (K-factor) at service factor × rated torque; tooth counts are then snapped to a hunting
+                    combination and the compressor is re-solved at the exact output speed they give.
+                </p>
+                <div id="gearOut"></div>
+            </div>
+            <div class="note" style="margin-top:0">
+                <strong>Assumptions.</strong> Screening sizing only — a vendor rating to AGMA 6011 / ISO 6336
+                (bending, scuffing, thermal) will differ. Service factors are the customary API 613 minimums per
+                driver class (API 677 floor 1.1 for general purpose); K-factor allowables are typical for
+                through-hardened vs carburised-and-ground teeth; face width F = 1.0 × pinion diameter net of the
+                apex gap; helix angle 30°, thrust cancelling by symmetry. Mesh loss 1.5% + 0.5% bearings — the
+                same 2% the driver-rating chain has always carried.
+            </div>
+        </section>
+
+        <!-- ============================ LUBE OIL ============================ -->
+        <section id="v-lube" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Lube oil system (API 614)</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Oil flows from the train's heat losses at the design temperature rise, then the console:
+                    pumps, reservoir, cooler, filter, accumulator — and the rundown (overhead) tank sized from
+                    the coast-down time below.
+                </p>
+                <div class="grid-fields mb-4">
+                    <div class="field">
+                        <label>Oil temperature rise ΔT (K)</label>
+                        <input type="number" id="inOilDT" value="20" step="any" min="5" max="40">
+                        <span class="hint">Across a bearing, supply to drain. 15–25 K is usual.</span>
+                    </div>
+                    <div class="field">
+                        <label>Reservoir retention (min)</label>
+                        <input type="number" id="inOilRetention" value="8" step="any" min="3" max="15">
+                        <span class="hint">API 614 special purpose works from 8 minutes of normal flow.</span>
+                    </div>
+                    <div class="field">
+                        <label>Driver inertia override (kg·m²)</label>
+                        <input type="number" id="inJdriverOvr" value="" step="any" placeholder="auto (correlation)">
+                        <span class="hint">Vendor rotor inertia, if known. Blank uses the torque correlation.</span>
+                    </div>
+                    <div class="field">
+                        <label>Compressor inertia override (kg·m²)</label>
+                        <input type="number" id="inJcompOvr" value="" step="any" placeholder="auto (geometry)">
+                    </div>
+                </div>
+                <div id="lubeOut"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Coast-down (rundown) curve</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    J·dω/dt = −(T₀ + c₁ω + c₂ω²) on the combined driver + gearbox + compressor inertia,
+                    reflected to the driver shaft. The retarding torque is anchored to the train's mechanical
+                    losses at rated speed, split 20% boundary friction / 50% viscous / 30% windage. Process-gas
+                    braking is excluded on purpose: it shortens the coast-down, so ignoring it is conservative
+                    for the rundown tank.
+                </p>
+                <div class="chart-wrap" id="chartCoastdown"></div>
+                <div id="inertiaOut" class="mt-4"></div>
+            </div>
+            <div class="note" style="margin-top:0">
+                <strong>Assumptions.</strong> ISO VG 32/46 oil (ρ 860 kg/m³, cp 1.95 kJ/kg·K). Reservoir: retention
+                + 5 min charge + 15% freeboard, per API 614 special-purpose custom. Pumps: main at 120% of normal
+                flow, aux a 100% spare. Accumulator bridges a 6 s aux-pump start. Rundown tank: bearing flow ×
+                coast-down time × 1.2, elevated for 0.7 barg at the bearings during rundown + 20% line loss.
+                Inertias are ±50% correlations unless overridden with vendor numbers.
+            </div>
+        </section>
+
+        <!-- ============================ SEALS ============================ -->
+        <section id="v-seal" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Dry gas seal system (API 692)</h2>
+                <p class="text-xs mb-4" style="color:var(--muted)">
+                    Seal sizing pressure is the settle-out pressure (or suction, whichever governs), computed
+                    from the suction and discharge system volumes on the Process Data tab. Leakage and supply
+                    flows are screening correlations for flare-load and N₂-demand estimates — the seal OEM's
+                    curve is the contractual number.
+                </p>
+                <div id="sealOut"></div>
+            </div>
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-3">Factory acceptance testing (API 692)</h2>
+                <div id="sealTestOut"></div>
+            </div>
+            <div class="note" style="margin-top:0">
+                <strong>Assumptions.</strong> Tandem arrangement by default, tandem with intermediate labyrinth
+                when H₂S is present. Primary leakage ∝ seal size × sealing pressure, anchored at ~3 Nm³/h for a
+                75 mm seal at 100 bara — real seals vary ±50% with gas, temperature and face design. Seal gas
+                supply holds ≥5 m/s across the inner process labyrinth; separation gas is a fixed small N₂ flow
+                per seal. Test criteria and sequence follow customary API 692 Part 3 FAT practice; the purchased
+                edition and the approved vendor procedure define the binding hold times and acceptance values.
+            </div>
+        </section>
+
         <!-- ============================ CHARTS ============================ -->
         <section id="v-charts" class="view">
             <div class="card p-5">
@@ -772,7 +1025,8 @@
             <div class="card p-5 no-print">
                 <h2 class="font-bold text-lg mb-4">Case management</h2>
                 <div class="flex gap-2 flex-wrap">
-                    <button id="btnPrint" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent);color:#fff">Print / save as PDF</button>
+                    <button id="btnPdf" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent);color:#fff">Download PDF train report</button>
+                    <button id="btnPrint" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Print / save as PDF</button>
                     <button id="btnExport" class="text-sm px-4 py-2 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Export JSON</button>
                     <label class="text-sm px-4 py-2 rounded-lg font-semibold cursor-pointer" style="background:var(--accent-soft);color:var(--accent)">
                         Import JSON<input type="file" id="fileImport" accept="application/json" style="display:none">
@@ -827,6 +1081,13 @@
                     trusting a number.</p>
                     <p><strong style="color:var(--text)">Rotordynamics.</strong> The bearing span, critical speed and cross-coupling figures are
                     order-of-magnitude screening indicators only.</p>
+                    <p><strong style="color:var(--text)">Train accessories are screening estimates.</strong> The gearbox sizing (API 613 K-factor with
+                    customary service factors), driver models (steam TSR from a PR-EOS expansion, gas turbine
+                    site derates, motor pole selection), lube oil console (API 614 special-purpose customs),
+                    coast-down (correlated inertias, 20/50/30 loss split) and dry gas seal flows (size × pressure
+                    leakage correlation) are all requisition-level numbers. Vendor rating calculations, the
+                    governing API editions and the purchaser's specification take precedence; inertia overrides
+                    on the Lube Oil tab accept vendor rotor data as it arrives.</p>
                 </div>
             </div>
 
@@ -834,7 +1095,9 @@
                 <h2 class="font-bold text-lg mb-3">Engine self-test</h2>
                 <p class="text-xs mb-3" style="color:var(--muted)">
                     Numerical checks of the thermodynamic and aerodynamic engine against published data and
-                    internal consistency. Run these after changing anything in <code>compressor-eos.js</code>.
+                    internal consistency, plus the train accessory engine (gear, driver, lube, seals,
+                    coast-down). Run these after changing anything in <code>compressor-eos.js</code> or
+                    <code>compressor-train.js</code>.
                 </p>
                 <button id="btnSelfTest" class="text-sm px-4 py-2 rounded-lg font-semibold mb-3" style="background:var(--accent-soft);color:var(--accent)">Run self-test</button>
                 <div id="selfTestOut"></div>
@@ -1183,7 +1446,7 @@ Power at driver = Shaft power · (1 + gear loss) · (1 + coupling loss)<span cla
 Driver rating   = Power at driver · (1 + margin)          margin default 10%  (API 617: 110% of max power)<span class="live" data-f="driverRated"></span>
 
 Standard size: next value ≥ rating from the IEC kW or NEMA hp table.<span class="live" data-f="driverStd"></span></div>
-                <div class="drivers" data-drivers="inMdot,inEtaP,inEtaMech,inGearbox,inMargin"></div>
+                <div class="drivers" data-drivers="inMdot,inEtaP,inEtaMech,inGearboxStd,inMargin"></div>
             </div>
 
             <div class="card p-5" id="help-rotor">
@@ -1579,7 +1842,11 @@ Aungier impeller axial length:
          "E.EMPIRICAL_BANDS is undefined": a fresh HTML page paired with a
          months-old engine. Bump this whenever compressor-eos.js gains
          something the page depends on. -->
-    <script src="compressor-eos.js?v=20260816"></script>
+    <script src="compressor-eos.js?v=20260820"></script>
+    <!-- Train accessory engine (gearbox, driver, lube oil, dry gas seals,
+         coast-down). Pure computation like compressor-eos.js; must load
+         after it - TrainEng leans on CompEng for the EOS. -->
+    <script src="compressor-train.js?v=20260820"></script>
 
     <!-- 6. PAGE LOGIC -->
     <script>
@@ -1603,7 +1870,20 @@ Aungier impeller axial length:
             inT1: 'temperature',
             inMdot: 'massFlow',
             inT2max: 'temperature',
-            inMinD2: 'length'
+            inMinD2: 'length',
+            // Train configuration (driver / seals). inOilDT is deliberately
+            // NOT here: it is a temperature DIFFERENCE in kelvin, and the
+            // degC<->degF conversion of absolute temperatures would corrupt
+            // it on a unit-system switch, exactly like a section's dPcool.
+            // inGtAltitude stays plain metres for the same reason the length
+            // category (mm/in) would misread a site elevation.
+            inSteamPin: 'pressure',
+            inSteamPexh: 'pressure',
+            inSteamTin: 'temperature',
+            inGtTamb: 'temperature',
+            inGtIso: 'power',
+            inVsuction: 'volume',
+            inVdischarge: 'volume'
         };
         // Section fields are dynamic; their categories are held on the element.
 
@@ -2133,9 +2413,11 @@ Aungier impeller axial length:
             const archId = $('inArchitecture').value;
             const arch = E.ARCHITECTURES[archId];
             $('igcPanel').style.display = archId === 'igc' ? '' : 'none';
-            $('gearboxField').style.display = archId === 'igc' ? 'none' : '';
             $('pinionCard').style.display = archId === 'igc' ? '' : 'none';
             $('architectureNote').textContent = arch.note;
+            // The train-config card hides its external-gearbox fields for an
+            // integrally geared machine (the old inGearbox toggle is gone).
+            refreshTrainCfgVisibility();
             renderSections();
         }
 
@@ -3189,8 +3471,12 @@ Aungier impeller axial length:
         function renderResults(train, inp) {
             const first = train.sections[0];
             const last = train.sections[train.sections.length - 1];
+            // Whether the loss chain carries a gearbox now comes from the
+            // resolved train configuration (lastAcc, computed just before
+            // this render); before the accessories exist, fall back to the
+            // frame's own gear-required rule.
             const dr = E.driverRating(train.shaftPower, {
-                gearbox: $('inGearbox').value === '1' || train.frame.gearRequired,
+                gearbox: lastAcc ? lastAcc.hasGear : train.frame.gearRequired,
                 pinions: train.pinions ? train.pinions.length : 0,
                 margin: Number($('inMargin').value)
             });
@@ -3581,54 +3867,683 @@ Aungier impeller axial length:
             });
         }
 
-        function renderDatasheet(train, inp, dr) {
+        /* One list of [label, value] rows feeds both the on-page datasheet
+           and the PDF report's compressor section - the two can never drift. */
+        function datasheetRows(train, inp, dr) {
             const first = train.sections[0], last = train.sections[train.sections.length - 1];
-            const row = (k, v) => `<tr><td data-l="Item" style="text-align:left">${k}</td><td data-l="Value"><strong>${v}</strong></td></tr>`;
+            const rows = [
+                ['Case', $('inCaseName').value || 'Untitled case'],
+                ['Architecture', train.frame.type],
+                ['Equation of state', train.modelName],
+                ['Gas', composition.map(c => E.BY_ID[c.id].name + ' ' + (c.molPct / compTotal() * 100).toFixed(2) + '%').join(', ')],
+                ['Molecular weight', inp.mix.MW.toFixed(3) + ' g/mol'],
+                ['Pressure basis', pressureBasis === 'gauge' ? 'Gauge (barg / psig)' : 'Absolute (bara / psia)'],
+                ['Atmospheric pressure', dispU('pressure', atmPressureSI(), 4)],
+                ['Suction', dispPabsU(first.inlet.P, 3) + ' / ' + dispU('temperature', first.inlet.T, 2)],
+                ['Discharge', dispPabsU(last.P2, 3) + ' / ' + dispU('temperature', last.T2, 2)],
+                ['Overall pressure ratio', (last.P2 / first.inlet.P).toFixed(3)],
+                ['Mass flow', dispU('massFlow', inp.mdot, 1)],
+                ['Inlet volume flow', dispU('volFlow', first.Q1, 2)],
+                ['Inlet compressibility Z', first.inlet.Z.toFixed(4)],
+                ['Inlet acoustic velocity', dispU('velocity', first.inletDerived.sonic, 1)],
+                ['Total polytropic head', dispU('head', train.sections.reduce((a, s) => a + s.HpTotal, 0), 2)],
+                ['Polytropic efficiency', first.etaPoly.toFixed(4) + ' (' + first.etaSource + ')'],
+                ['Isentropic efficiency', first.etaIsen.toFixed(4)],
+                ['Sections', String(train.sections.length)],
+                ['Total stages', String(train.totalStages)],
+                ['Speed', train.sections.map(s => Math.round(s.speed).toLocaleString()).join(' / ') + ' rpm'],
+                ['Impeller diameter D₂', train.sections.map(s => disp('length', s.stages[0].D2, 1)).join(' / ') + ' ' + unitLabel('length')],
+                ['Impeller construction', inp.impeller.label],
+                ['Max peripheral Mach Mu₂', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mu2))).toFixed(3)],
+                ['Max inlet relative Mach', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mrel))).toFixed(3)],
+                ['Flow coefficient φ range', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4) + ' → ' + Math.min(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4)],
+                ['Head coefficient ψ', train.sections[0].stages[0].psi.toFixed(3)],
+                ['Gas (hydraulic) power', dispU('power', train.gasPower, 2)],
+                ['Shaft power', dispU('power', train.shaftPower, 2)],
+                ['Power at driver', dispU('power', dr.atDriver, 2)],
+                ['Driver rating (+' + (dr.margin * 100).toFixed(0) + '%)', dispU('power', dr.rated, 2)],
+                ['Standard motor size', unitSystem === 'US' ? dr.nema_hp.toLocaleString() + ' hp (NEMA)' : dr.iec_kW.toLocaleString() + ' kW (IEC)'],
+                ['Compressor type', train.frame.type],
+                ['Casing', train.frame.casing]
+            ];
+            if (train.pinions) {
+                rows.push(['Pinions', train.pinions.length + ' (' +
+                    train.pinions.map(p => p.id + ': ' + p.stages.join('+') + ' @ ' + Math.round(p.speed).toLocaleString() + ' rpm').join(', ') + ')']);
+                rows.push(['Gear ratio range', Math.min(...train.pinions.map(p => p.ratio)).toFixed(2) + '–' +
+                    Math.max(...train.pinions.map(p => p.ratio)).toFixed(2) + ':1 off a ' +
+                    Math.round(train.pinions[0].bullGearSpeed).toLocaleString() + ' rpm bull gear']);
+            }
+            return rows;
+        }
+
+        function renderDatasheet(train, inp, dr) {
             $('printStamp').textContent = ($('inCaseName').value || 'Untitled case') + ' — generated ' + new Date().toLocaleString();
             $('datasheet').innerHTML = `
                 <table class="data">
                     <thead><tr><th>Item</th><th>Value</th></tr></thead>
                     <tbody>
-                    ${row('Case', esc($('inCaseName').value || 'Untitled case'))}
-                    ${row('Architecture', esc(train.frame.type))}
-                    ${row('Equation of state', esc(train.modelName))}
-                    ${row('Gas', esc(composition.map(c => E.BY_ID[c.id].name + ' ' + (c.molPct / compTotal() * 100).toFixed(2) + '%').join(', ')))}
-                    ${row('Molecular weight', inp.mix.MW.toFixed(3) + ' g/mol')}
-                    ${row('Pressure basis', pressureBasis === 'gauge' ? 'Gauge (barg / psig)' : 'Absolute (bara / psia)')}
-                    ${row('Atmospheric pressure', dispU('pressure', atmPressureSI(), 4))}
-                    ${row('Suction', dispPabsU(first.inlet.P, 3) + ' / ' + dispU('temperature', first.inlet.T, 2))}
-                    ${row('Discharge', dispPabsU(last.P2, 3) + ' / ' + dispU('temperature', last.T2, 2))}
-                    ${row('Overall pressure ratio', (last.P2 / first.inlet.P).toFixed(3))}
-                    ${row('Mass flow', dispU('massFlow', inp.mdot, 1))}
-                    ${row('Inlet volume flow', dispU('volFlow', first.Q1, 2))}
-                    ${row('Inlet compressibility Z', first.inlet.Z.toFixed(4))}
-                    ${row('Inlet acoustic velocity', dispU('velocity', first.inletDerived.sonic, 1))}
-                    ${row('Total polytropic head', dispU('head', train.sections.reduce((a, s) => a + s.HpTotal, 0), 2))}
-                    ${row('Polytropic efficiency', first.etaPoly.toFixed(4) + ' (' + first.etaSource + ')')}
-                    ${row('Isentropic efficiency', first.etaIsen.toFixed(4))}
-                    ${row('Sections', train.sections.length)}
-                    ${row('Total stages', train.totalStages)}
-                    ${row('Speed', train.sections.map(s => Math.round(s.speed).toLocaleString()).join(' / ') + ' rpm')}
-                    ${row('Impeller diameter D₂', train.sections.map(s => disp('length', s.stages[0].D2, 1)).join(' / ') + ' ' + unitLabel('length'))}
-                    ${row('Impeller construction', esc(inp.impeller.label))}
-                    ${row('Max peripheral Mach Mu₂', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mu2))).toFixed(3))}
-                    ${row('Max inlet relative Mach', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.Mrel))).toFixed(3))}
-                    ${row('Flow coefficient φ range', Math.max(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4) + ' → ' + Math.min(...train.sections.flatMap(s => s.stages.map(x => x.phi))).toFixed(4))}
-                    ${row('Head coefficient ψ', train.sections[0].stages[0].psi.toFixed(3))}
-                    ${row('Gas (hydraulic) power', dispU('power', train.gasPower, 2))}
-                    ${row('Shaft power', dispU('power', train.shaftPower, 2))}
-                    ${row('Power at driver', dispU('power', dr.atDriver, 2))}
-                    ${row('Driver rating (+' + (dr.margin * 100).toFixed(0) + '%)', dispU('power', dr.rated, 2))}
-                    ${row('Standard motor size', unitSystem === 'US' ? dr.nema_hp.toLocaleString() + ' hp (NEMA)' : dr.iec_kW.toLocaleString() + ' kW (IEC)')}
-                    ${row('Compressor type', esc(train.frame.type))}
-                    ${row('Casing', esc(train.frame.casing))}
-                    ${train.pinions ? row('Pinions', train.pinions.length + ' (' +
-                        train.pinions.map(p => p.id + ': ' + p.stages.join('+') + ' @ ' + Math.round(p.speed).toLocaleString() + ' rpm').join(', ') + ')') : ''}
-                    ${train.pinions ? row('Gear ratio range', Math.min(...train.pinions.map(p => p.ratio)).toFixed(2) + '–' +
-                        Math.max(...train.pinions.map(p => p.ratio)).toFixed(2) + ':1 off a ' +
-                        Math.round(train.pinions[0].bullGearSpeed).toLocaleString() + ' rpm bull gear') : ''}
+                    ${datasheetRows(train, inp, dr).map(r =>
+                        `<tr><td data-l="Item" style="text-align:left">${esc(r[0])}</td><td data-l="Value"><strong>${esc(r[1])}</strong></td></tr>`).join('')}
                     </tbody>
                 </table>`;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Train accessories: config, visibility, and the four tabs          */
+        /* ---------------------------------------------------------------- */
+
+        function buildTrainCfg() {
+            const driver = $('inDriverType').value;
+            return {
+                driver: driver,
+                freqHz: Number($('inFreq').value) || 50,
+                driverSpeed_rpm: Number($('inDriverSpeed').value) || 0,
+                gearbox: $('inGearboxStd').value,
+                gearRatio: Number($('inGearRatio').value) || 0,
+                gearMaterial: $('inGearMaterial').value,
+                coupling: $('inCouplingType').value,
+                seal: $('inSealSystem').value,
+                margin: Number($('inMargin').value),
+                steam: driver === 'steam' ? {
+                    Pin_Pa: readSI($('inSteamPin'), 'pressure'),
+                    Tin_K: readSI($('inSteamTin'), 'temperature'),
+                    Pexh_Pa: readSI($('inSteamPexh'), 'pressure')
+                } : null,
+                gt: driver === 'gasturbine' ? {
+                    iso_W: readSI($('inGtIso'), 'power'),
+                    altitude_m: Number($('inGtAltitude').value) || 0,
+                    Tamb_K: readSI($('inGtTamb'), 'temperature'),
+                    RH_pct: Number($('inGtRH').value) || 0
+                } : null,
+                volumes: {
+                    Vs_m3: readSI($('inVsuction'), 'volume') || 10,
+                    Vd_m3: readSI($('inVdischarge'), 'volume') || 5
+                },
+                lube: {
+                    dT_K: Number($('inOilDT').value) || 20,
+                    retention_min: Number($('inOilRetention').value) || 8
+                },
+                overrides: {
+                    J_driver: Number($('inJdriverOvr').value) || 0,
+                    J_comp: Number($('inJcompOvr').value) || 0
+                }
+            };
+        }
+
+        /* Show only the config fields the chosen driver / gearbox / seal
+           system actually uses - a steam pressure on a motor-driven train is
+           noise, and hiding it beats explaining it. */
+        function refreshTrainCfgVisibility() {
+            const drv = $('inDriverType').value;
+            const isMotor = drv === 'motor_ind' || drv === 'motor_sync';
+            $('fldFreq').style.display = isMotor ? '' : 'none';
+            $('fldDriverSpeed').style.display = isMotor ? 'none' : '';
+            $('steamFields').style.display = drv === 'steam' ? '' : 'none';
+            $('gtFields').style.display = drv === 'gasturbine' ? '' : 'none';
+            const gearOff = $('inGearboxStd').value === 'none' || $('inArchitecture').value === 'igc';
+            $('fldGearRatio').style.display = gearOff ? 'none' : '';
+            $('fldGearMaterial').style.display = gearOff ? 'none' : '';
+            $('sealVolFields').style.display = $('inSealSystem').value === 'dgs' ? '' : 'none';
+        }
+
+        function accPill(level) {
+            return `<span class="pill ${level === 'pass' ? 'ok' : level === 'warn' ? 'warn' : 'bad'}">${level.toUpperCase()}</span>`;
+        }
+
+        function accChecksTable(checks) {
+            if (!checks || !checks.length) return '';
+            return `<table class="data">
+                <thead><tr><th>Check</th><th>Value</th><th>Limit</th><th>Result</th></tr></thead>
+                <tbody>${checks.map(c => `<tr>
+                    <td data-l="Check" style="text-align:left">${esc(c.name)}${c.note ? `<div class="text-xs" style="color:var(--muted)">${esc(c.note)}</div>` : ''}</td>
+                    <td data-l="Value">${fmtNum(c.value, 2)}${c.unit && c.unit !== '-' ? ' ' + esc(c.unit) : ''}</td>
+                    <td data-l="Limit">${esc(String(c.limit))}</td>
+                    <td data-l="Result">${accPill(c.level)}</td>
+                </tr>`).join('')}</tbody>
+            </table>`;
+        }
+
+        function accUnavailable(el) {
+            $(el).innerHTML = `<div class="note bad">Train accessories could not be computed${lastAccError ? ': ' + esc(lastAccError) : ' — solve the compressor first.'}</div>`;
+        }
+
+        function renderTrainTabs() {
+            // The Gearbox tab only exists while the resolved train has an
+            // external gearbox (or an integral gear train to explain).
+            const gbBtn = document.querySelector('.tab[data-view="v-gearbox"]');
+            if (gbBtn && lastAcc) {
+                gbBtn.style.display = (lastAcc.hasGear || lastAcc.igc) ? '' : 'none';
+                // If the tab being hidden is the one on screen, fall back to Results.
+                if (gbBtn.style.display === 'none' && $('v-gearbox').classList.contains('on')) {
+                    const rb = document.querySelector('.tab[data-view="v-results"]');
+                    if (rb) rb.click();
+                }
+            }
+            renderDriverTab();
+            renderGearboxTab();
+            renderLubeTab();
+            renderSealTab();
+        }
+
+        function renderDriverTab() {
+            if (!lastAcc) { accUnavailable('driverOut'); $('speedsOut').innerHTML = ''; $('couplingOut').innerHTML = ''; return; }
+            const a = lastAcc, d = a.driver, dr = d.rating;
+            const rows = [];
+            const row = (k, v) => `<tr><td data-l="Item" style="text-align:left">${k}</td><td data-l="Value"><strong>${v}</strong></td></tr>`;
+
+            let kpis =
+                kpi(esc(d.label), '', 'Driver (' + esc(d.std) + ')') +
+                kpi(disp('power', dr.atDriver, 1), unitLabel('power'), 'Power at driver') +
+                kpi(disp('power', dr.rated, 1), unitLabel('power'), 'Required rating (+' + (dr.margin * 100).toFixed(0) + '%)') +
+                kpi(Math.round(a.Ndriver_rpm).toLocaleString(), 'rpm', 'Driver shaft speed') +
+                kpi(a.directDrive ? 'Direct' : (a.igc ? 'Integral gear' : 'Through gearbox'), '', 'Drive arrangement');
+
+            if (d.motor) {
+                const m = d.motor, use = a.directDrive ? m.directDrive : m.geared;
+                kpis += kpi(use.poles, '', 'Poles at ' + m.freqHz + ' Hz') +
+                        kpi(unitSystem === 'US' ? dr.nema_hp.toLocaleString() : dr.iec_kW.toLocaleString(),
+                            unitSystem === 'US' ? 'hp' : 'kW', 'Standard motor size');
+                rows.push(row('Synchronous speed', Math.round(use.syncSpeed).toLocaleString() + ' rpm'));
+                rows.push(row('Full-load speed', Math.round(use.fullLoadSpeed).toLocaleString() + ' rpm' + (m.slip ? ' (' + (m.slip * 100).toFixed(1) + '% slip)' : ' (synchronous)')));
+                rows.push(row('Direct drive feasible', m.directDrive.ok
+                    ? 'Yes — ' + m.directDrive.poles + '-pole at ' + Math.round(m.directDrive.syncSpeed).toLocaleString() + ' rpm (' + (m.directDrive.speedError * 100).toFixed(1) + '% off wanted speed)'
+                    : 'No — nearest synchronous speed is ' + (m.directDrive.speedError * 100).toFixed(0) + '% away'));
+            }
+            if (d.steam) {
+                const s = d.steam;
+                kpis += kpi(fmtNum(s.TSR_kg_kWh, 2), 'kg/kWh', 'Theoretical steam rate') +
+                        kpi(fmtNum(s.mdotSteam_tph, 1), 't/h', 'Steam flow');
+                rows.push(row('Steam conditions', dispU('pressure', s.Pin_Pa, 2) + ' / ' + dispU('temperature', s.Tin_K, 1) + ' → ' + dispU('pressure', s.Pexh_Pa, 3)));
+                rows.push(row('Isentropic enthalpy drop', dispU('head', s.dhIsen, 1)));
+                rows.push(row('Estimated isentropic efficiency', (s.eta * 100).toFixed(1) + '% (size correlation)'));
+                rows.push(row('Actual steam rate', fmtNum(s.ASR_kg_kWh, 2) + ' kg/kWh'));
+                rows.push(row('Turbine type', s.condensing ? 'Condensing (exhaust below atmospheric)' : 'Back-pressure'));
+                rows.push(row('Exhaust saturation temperature', dispU('temperature', s.Tsat_exh_K, 1)));
+                if (s.wetExhaust) rows.push(row('Isentropic exhaust quality', (s.exhaustQuality * 100).toFixed(1) + '%'));
+                rows.push(row('API 612 rating (110% of max power)', dispU('power', s.rated_W, 1)));
+                s.notes.forEach(n => rows.push(row('Note', esc(n))));
+            }
+            if (d.gt) {
+                const g = d.gt;
+                kpis += kpi(disp('power', g.siteRating_W, 1), unitLabel('power'), 'Site rating') +
+                        kpi(g.marginPct != null ? g.marginPct.toFixed(1) + '%' : '—', '', 'Margin over required');
+                rows.push(row('ISO rating', dispU('power', g.isoRating_W, 1)));
+                rows.push(row('Altitude factor', g.fAlt.toFixed(4)));
+                rows.push(row('Temperature factor', g.fTemp.toFixed(4)));
+                rows.push(row('Humidity factor', g.fHum.toFixed(4)));
+                rows.push(row('Inlet/exhaust loss factor', g.fLoss.toFixed(2)));
+                rows.push(row('Site rating vs required', dispU('power', g.siteRating_W, 1) + ' vs ' + dispU('power', g.required_W, 1) + ' — ' + (g.ok ? 'adequate' : 'INSUFFICIENT')));
+                rows.push(row('Note', esc(g.note)));
+            }
+            if (d.motor) d.motor.notes.forEach(n => rows.push(row('Note', esc(n))));
+
+            $('driverOut').innerHTML =
+                `<div class="kpi-grid mb-4">${kpis}</div>` +
+                `<table class="data"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+
+            // Train speed table: rated / MCS / trip per shaft.
+            const sp = a.speeds;
+            const fmtN = v => v == null ? '—' : Math.round(v).toLocaleString() + ' rpm';
+            $('speedsOut').innerHTML = `
+                <table class="data">
+                    <thead><tr><th>Shaft</th><th>Rated</th><th>Max continuous (MCS)</th><th>Trip</th></tr></thead>
+                    <tbody>
+                        <tr><td data-l="Shaft" style="text-align:left">Driver${a.igc ? ' / bull gear' : ''}</td>
+                            <td data-l="Rated">${fmtN(sp.driver.rated)}</td><td data-l="MCS">${fmtN(sp.driver.mcs)}</td><td data-l="Trip">${fmtN(sp.driver.trip)}</td></tr>
+                        <tr><td data-l="Shaft" style="text-align:left">Compressor${a.hasGear ? ' (× gear ratio)' : (a.igc ? ' (fastest pinion)' : '')}</td>
+                            <td data-l="Rated">${fmtN(sp.compressor.rated)}</td><td data-l="MCS">${fmtN(sp.compressor.mcs)}</td><td data-l="Trip">${fmtN(sp.compressor.trip)}</td></tr>
+                    </tbody>
+                </table>
+                <p class="text-xs mt-2" style="color:var(--muted)">${esc(sp.note)}</p>
+                ${accChecksTable(sp.checks)}`;
+
+            // Couplings
+            const cRow = (name, c) => c ? `<tr>
+                <td data-l="Coupling" style="text-align:left">${name}</td>
+                <td data-l="Speed">${Math.round(c.N_rpm).toLocaleString()} rpm</td>
+                <td data-l="Nominal torque">${dispU('torque', c.Tnominal, 2)}</td>
+                <td data-l="SF">${c.SF.toFixed(2)}</td>
+                <td data-l="Required rating">${dispU('torque', c.TrequiredContinuous, 2)}</td>
+            </tr>` : '';
+            $('couplingOut').innerHTML = `
+                <table class="data">
+                    <thead><tr><th>Coupling</th><th>Speed</th><th>Nominal torque</th><th>API 671 SF</th><th>Required continuous rating</th></tr></thead>
+                    <tbody>
+                        ${cRow('Low speed (driver' + (a.hasGear ? ' — gearbox' : ' — compressor') + '), ' + esc(TrainEng.COUPLING_SF.types[a.coupling.ls.type].label), a.coupling.ls)}
+                        ${cRow('High speed (gearbox — compressor)', a.coupling.hs)}
+                    </tbody>
+                </table>
+                ${a.coupling.ls.notes.length ? `<p class="text-xs mt-2" style="color:var(--muted)">${esc(a.coupling.ls.notes[0])}</p>` : ''}`;
+        }
+
+        function renderGearboxTab() {
+            if (!lastAcc) { accUnavailable('gearOut'); return; }
+            const a = lastAcc;
+            if (a.igc) {
+                $('gearOut').innerHTML = `
+                    <div class="note">This is an integrally geared machine — its gear train is internal: one bull gear,
+                    one mesh per pinion, no external gearbox. The pinion speeds, ratios and per-pinion checks are on
+                    the Results tab; the mesh losses are carried in the power chain and the lube oil heat load.</div>`;
+                return;
+            }
+            if (!a.hasGear || !a.gear) {
+                $('gearOut').innerHTML = `
+                    <div class="note">No gearbox in the resolved train — the ${esc(a.driver.label.toLowerCase())} drives the
+                    compressor directly at ${Math.round(a.Ndriver_rpm).toLocaleString()} rpm. Select API 613/677 in the
+                    Train configuration to force one.</div>`;
+                return;
+            }
+            const g = a.gear;
+            const row = (k, v) => `<tr><td data-l="Item" style="text-align:left">${k}</td><td data-l="Value"><strong>${v}</strong></td></tr>`;
+            const dDp = unitSystem === 'US' ? 2 : 0;
+            $('gearOut').innerHTML = `
+                <div class="kpi-grid mb-4">
+                    ${kpi(g.ratioActual.toFixed(3) + ':1', '', 'Selected ratio (z ' + g.zBull + '/' + g.zPinion + ')')}
+                    ${kpi(((lastFreeSpeed || g.NoutSelected) / a.Ndriver_rpm).toFixed(3) + ':1', '', 'Required ratio (free optimum)')}
+                    ${kpi(Math.round(g.NoutSelected).toLocaleString(), 'rpm', 'Output shaft speed')}
+                    ${kpi(g.SF.toFixed(2), '', 'Service factor (' + (g.standard === 'api677' ? 'API 677' : 'API 613') + ')')}
+                    ${kpi(fmtNum(g.PLV, 1), 'm/s', 'Pitch line velocity')}
+                    ${kpi((g.K / 1e6).toFixed(2) + ' / ' + (g.Kallow / 1e6).toFixed(2), 'MPa', 'K at rated / allowable')}
+                </div>
+                <table class="data">
+                    <thead><tr><th>Item</th><th>Value</th></tr></thead>
+                    <tbody>
+                    ${row('Arrangement', 'Double helical, single mesh — bull gear (low speed) / pinion (high speed)')}
+                    ${row('Transmitted power', dispU('power', lastTrain.shaftPower, 1))}
+                    ${row('Bull gear torque (input)', dispU('torque', g.Tin, 2))}
+                    ${row('Pinion torque (output)', dispU('torque', g.Tpinion, 2))}
+                    ${row('Tooth counts z<sub>bull</sub> / z<sub>pinion</sub>', g.zBull + ' / ' + g.zPinion + (g.ratioOverridden ? ' (from the manual ratio override)' : ' (hunting-tooth snap of the required ratio)'))}
+                    ${row('Pinion pitch diameter', disp('length', g.dPinion, dDp) + ' ' + unitLabel('length'))}
+                    ${row('Bull gear pitch diameter', disp('length', g.dBull, dDp) + ' ' + unitLabel('length'))}
+                    ${row('Centre distance', disp('length', g.centerDist, dDp) + ' ' + unitLabel('length'))}
+                    ${row('Face width (net, both helices)', disp('length', g.faceWidth, dDp) + ' ' + unitLabel('length'))}
+                    ${row('Module (transverse / normal)', (g.moduleTransverse * 1000).toFixed(1) + ' / ' + (g.moduleNormal * 1000).toFixed(1) + ' mm')}
+                    ${row('Helix angle', g.helixDeg + '° (axial thrust cancels between helices)')}
+                    ${row('Journal surface velocity', fmtNum(g.journalV, 1) + ' m/s')}
+                    ${row('Mesh + bearing loss', dispU('power', g.meshLoss_W + g.bearingLoss_W, 1) + ' (1.5% + 0.5%)')}
+                    ${row('Material', esc(TrainEng.GEAR_MATERIALS[g.material].label))}
+                    ${row('Compressor speed adjustment', 'Solved at ' + Math.round(lastTrain.speedRange.hi).toLocaleString() + ' rpm — the exact output speed of the selected tooth counts (free aero optimum was ' + Math.round(lastFreeSpeed || lastTrain.speedRange.hi).toLocaleString() + ' rpm)')}
+                    </tbody>
+                </table>
+                <div class="mt-4">${accChecksTable(g.checks)}</div>`;
+        }
+
+        function renderLubeTab() {
+            if (!lastAcc) { accUnavailable('lubeOut'); $('chartCoastdown').innerHTML = ''; $('inertiaOut').innerHTML = ''; return; }
+            const a = lastAcc, L = a.lube;
+            const lpm = q => fmtNum(q * 60000, 1) + ' L/min';
+            $('lubeOut').innerHTML = `
+                <div class="kpi-grid mb-4">
+                    ${kpi(fmtNum(L.totalFlow_m3s * 60000, 0), 'L/min', 'Normal oil flow')}
+                    ${kpi(disp('power', L.coolerDuty_W, 1), unitLabel('power'), 'Cooler duty (= heat load)')}
+                    ${kpi(dispU('volume', L.reservoir.gross_m3, 1), '', 'Reservoir (gross)')}
+                    ${kpi(dispU('volume', L.rundownTank ? L.rundownTank.V_m3 : 0, 2), '', 'Rundown tank')}
+                    ${kpi(fmtNum(L.rundownTank ? L.rundownTank.elevation_m : 0, 1), 'm', 'Rundown tank elevation')}
+                    ${kpi(fmtNum(a.coastdown.time_s, 0), 's', 'Coast-down time (to 5%)')}
+                </div>
+                <table class="data">
+                    <thead><tr><th>Element</th><th>Heat loss</th><th>Oil flow (ΔT = ${L.dT_K} K)</th></tr></thead>
+                    <tbody>
+                    ${L.elements.map(e => `<tr>
+                        <td data-l="Element" style="text-align:left">${esc(e.name)}</td>
+                        <td data-l="Loss">${dispU('power', e.loss_W, 1)}</td>
+                        <td data-l="Flow">${lpm(e.flow_m3s)}</td>
+                    </tr>`).join('')}
+                    <tr><td data-l="Element" style="text-align:left"><strong>Total</strong></td>
+                        <td data-l="Loss"><strong>${dispU('power', L.totalLoss_W, 1)}</strong></td>
+                        <td data-l="Flow"><strong>${lpm(L.totalFlow_m3s)}</strong></td></tr>
+                    </tbody>
+                </table>
+                <table class="data mt-4">
+                    <thead><tr><th>Console item</th><th>Sizing</th></tr></thead>
+                    <tbody>
+                    <tr><td data-l="Item" style="text-align:left">Main oil pump</td><td data-l="Sizing"><strong>${lpm(L.pump.main_m3s)}</strong> — ${esc(L.pump.note)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Reservoir</td><td data-l="Sizing"><strong>${dispU('volume', L.reservoir.gross_m3, 1)}</strong> gross — ${L.reservoir.retention_min} min retention (${dispU('volume', L.reservoir.working_m3, 1)}) + charge (${dispU('volume', L.reservoir.charge_m3, 1)}) + 15% freeboard</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Duplex filter</td><td data-l="Sizing"><strong>${lpm(L.filter.flow_m3s)}</strong> at ${L.filter.micron} µm</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Accumulator</td><td data-l="Sizing"><strong>${dispU('volume', L.accumulator.vessel_m3, 2)}</strong> vessel (${dispU('volume', L.accumulator.displaced_m3, 3)} displaced) — bridges a ${L.accumulator.bridge_s} s standby-pump start</td></tr>
+                    ${L.rundownTank ? `<tr><td data-l="Item" style="text-align:left">Rundown (overhead) tank</td><td data-l="Sizing"><strong>${dispU('volume', L.rundownTank.V_m3, 2)}</strong> at <strong>${fmtNum(L.rundownTank.elevation_m, 1)} m</strong> above the bearing centreline — ${esc(L.rundownTank.basis)}</td></tr>` : ''}
+                    </tbody>
+                </table>`;
+
+            drawCoastdownChart();
+            const I = a.inertia;
+            const iRow = (k, v, note) => `<tr><td data-l="Element" style="text-align:left">${k}${note ? `<div class="text-xs" style="color:var(--muted)">${note}</div>` : ''}</td><td data-l="J"><strong>${fmtNum(v, 2)} kg·m²</strong></td></tr>`;
+            $('inertiaOut').innerHTML = `
+                <table class="data">
+                    <thead><tr><th>Inertia ledger</th><th>J (own shaft)</th></tr></thead>
+                    <tbody>
+                    ${iRow('Driver rotor', I.J_driver, I.driverOverridden ? 'vendor override' : 'torque correlation, ±50% class')}
+                    ${iRow('LS coupling', I.J_couplingLS, '5% of adjacent shafts')}
+                    ${a.hasGear ? iRow('Bull gear', I.J_gearLS, 'solid-disc estimate') : ''}
+                    ${a.hasGear ? iRow('Pinion', I.J_gearHS, 'solid-disc estimate') : ''}
+                    ${a.hasGear ? iRow('HS coupling', I.J_couplingHS, '5% of adjacent shafts') : ''}
+                    ${iRow('Compressor rotor', I.J_comp, I.compOverridden ? 'vendor override' : 'impeller geometry + 15% shaft')}
+                    ${iRow('<strong>Total at driver shaft</strong>', I.J_atDriver, a.hasGear ? 'high-speed terms × ratio² (' + I.ratio.toFixed(2) + '²)' : '')}
+                    </tbody>
+                </table>
+                <p class="text-xs mt-2" style="color:var(--muted)">Retarding loss anchored at ${dispU('power', a.lossAtRated_W, 1)} at rated speed (compressor mechanical loss + gear losses + driver bearings).</p>`;
+        }
+
+        function drawCoastdownChart() {
+            if (!lastAcc) return;
+            const cd = lastAcc.coastdown;
+            const tEnd = Math.max(cd.time_s, 1);
+            $('chartCoastdown').innerHTML = svgPlot({
+                title: 'Coast-down: ' + Math.round(cd.N0_rpm).toLocaleString() + ' rpm → ' + Math.round(cd.N0_rpm * cd.NminFrac).toLocaleString() + ' rpm in ' + fmtNum(cd.time_s, 0) + ' s',
+                x0: 0, x1: tEnd * 1.02,
+                y0: 0, y1: cd.N0_rpm * 1.06,
+                xlab: 'Time after trip (s)', ylab: 'Driver shaft speed (rpm)',
+                series: [{ pts: cd.points.map(p => [p.t_s, p.N_rpm]) }],
+                points: [{ x: cd.time_s, y: cd.N0_rpm * cd.NminFrac, label: fmtNum(cd.time_s, 0) + ' s', ok: true }]
+            });
+        }
+
+        function renderSealTab() {
+            if (!lastAcc) { accUnavailable('sealOut'); $('sealTestOut').innerHTML = ''; return; }
+            const a = lastAcc;
+            if (!a.seal) {
+                $('sealOut').innerHTML = `<div class="note">Seal system is set to "None / out of scope" in the Train configuration.</div>`;
+                $('sealTestOut').innerHTML = '';
+                return;
+            }
+            const s = a.seal, so = a.settleOut;
+            const nm3 = v => fmtNum(v, 2) + ' Nm³/h';
+            $('sealOut').innerHTML = `
+                <div class="kpi-grid mb-4">
+                    ${kpi(fmtNum(so.P_corrected_Pa / 1e5, 2), 'bara', 'Settle-out pressure (Z,T-corrected)')}
+                    ${kpi(fmtNum(so.P_simple_Pa / 1e5, 2), 'bara', 'Settle-out (volume-weighted)')}
+                    ${kpi(s.sealSize_mm, 'mm', 'Seal size (from shaft end)')}
+                    ${kpi(esc(s.arrangement), '', 'Arrangement' + (s.sour ? ' (H₂S present)' : ''))}
+                    ${kpi(nm3(s.machine.primaryVentDesign_Nm3h), '', 'Primary vent design (flare), machine')}
+                    ${kpi(nm3(s.machine.supply_Nm3h), '', 'Seal gas supply, machine')}
+                </div>
+                <table class="data">
+                    <thead><tr><th>Item</th><th>Per seal</th><th>Machine (${s.nSeals} seals)</th></tr></thead>
+                    <tbody>
+                    <tr><td data-l="Item" style="text-align:left">Primary seal leakage (expected)</td><td data-l="Per seal">${nm3(s.perSeal.primaryLeak_Nm3h)}</td><td data-l="Machine">${nm3(s.perSeal.primaryLeak_Nm3h * s.nSeals)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Primary vent design (× 1.5)</td><td data-l="Per seal">${nm3(s.perSeal.primaryLeak_Nm3h * 1.5)}</td><td data-l="Machine">${nm3(s.machine.primaryVentDesign_Nm3h)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Secondary seal leakage</td><td data-l="Per seal">${nm3(s.perSeal.secondaryLeak_Nm3h)}</td><td data-l="Machine">${nm3(s.perSeal.secondaryLeak_Nm3h * s.nSeals)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Seal gas supply (≥5 m/s across inner laby)</td><td data-l="Per seal">${nm3(s.perSeal.supply_Nm3h)}</td><td data-l="Machine">${nm3(s.machine.supply_Nm3h)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Separation gas (N₂)</td><td data-l="Per seal">${nm3(s.perSeal.separation_Nm3h)}</td><td data-l="Machine">${nm3(s.machine.separation_Nm3h)}</td></tr>
+                    <tr><td data-l="Item" style="text-align:left">Seal face speed (MCS / trip)</td>
+                        <td data-l="Per seal">${fmtNum(s.faceSpeedMCS, 1)}${s.faceSpeedTrip ? ' / ' + fmtNum(s.faceSpeedTrip, 1) : ''} m/s</td><td data-l="Machine">—</td></tr>
+                    </tbody>
+                </table>
+                <p class="text-xs mt-2" style="color:var(--muted)">${esc(so.note)}${s.note ? ' ' + esc(s.note) : ''}</p>
+                ${accChecksTable(s.checks)}`;
+
+            const t = s.testing;
+            $('sealTestOut').innerHTML = `
+                <h3 class="font-semibold text-sm mb-2">Test criteria for this machine</h3>
+                <table class="data mb-4">
+                    <thead><tr><th>Criterion</th><th>Value</th><th>Basis</th></tr></thead>
+                    <tbody>${t.criteria.map(c => `<tr>
+                        <td data-l="Criterion" style="text-align:left">${esc(c.item)}</td>
+                        <td data-l="Value"><strong>${c.value == null ? 'n/a' : fmtNum(c.value, 1) + ' ' + esc(c.unit)}</strong></td>
+                        <td data-l="Basis">${esc(c.basis)}</td>
+                    </tr>`).join('')}</tbody>
+                </table>
+                <h3 class="font-semibold text-sm mb-2">FAT sequence</h3>
+                <table class="data">
+                    <thead><tr><th>#</th><th>Step</th><th>What is done and accepted</th></tr></thead>
+                    <tbody>${t.steps.map(st => `<tr>
+                        <td data-l="#">${st.step}</td>
+                        <td data-l="Step" style="text-align:left"><strong>${esc(st.name)}</strong></td>
+                        <td data-l="Detail" style="text-align:left">${esc(st.detail)}</td>
+                    </tr>`).join('')}</tbody>
+                </table>
+                <p class="text-xs mt-2" style="color:var(--muted)">${esc(t.note)}</p>`;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* PDF train report (jsPDF + autoTable, same stack as the DGS/TVA    */
+        /* tools on this hub)                                                */
+        /* ---------------------------------------------------------------- */
+
+        /* jsPDF's built-in Helvetica is WinAnsi-encoded: the Greek and
+           subscript glyphs the on-screen tables use (φ ψ η Δ ₂ →) would
+           print as garbage. One sanitizer, applied to every string that
+           enters the PDF, keeps the two renderings honest to each other. */
+        function pdfText(s) {
+            return String(s)
+                .replace(/₀/g, '0').replace(/₁/g, '1').replace(/₂/g, '2').replace(/₃/g, '3')
+                .replace(/φ/g, 'phi').replace(/ψ/g, 'psi').replace(/η/g, 'eta')
+                .replace(/ω/g, 'omega').replace(/Δ/g, 'delta ').replace(/Ø/g, 'dia ')
+                .replace(/→/g, '->').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≈/g, '~')
+                .replace(/[^\x00-\xFF]/g, '?');
+        }
+
+        /* The coast-down curve for the PDF: drawn on an offscreen canvas in
+           print colours (white ground, black axes) regardless of the app
+           theme, then embedded as a PNG. */
+        function coastdownCanvas(cd) {
+            const W = 1000, H = 500, ml = 78, mr = 24, mt = 30, mb = 56;
+            const cv = document.createElement('canvas');
+            cv.width = W; cv.height = H;
+            const g = cv.getContext('2d');
+            g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+            const tEnd = Math.max(cd.time_s, 1), nTop = cd.N0_rpm * 1.06;
+            const px = t => ml + t / tEnd * (W - ml - mr);
+            const py = n => H - mb - n / nTop * (H - mt - mb);
+            g.strokeStyle = '#d0d0d0'; g.lineWidth = 1; g.font = '15px Helvetica,Arial,sans-serif'; g.fillStyle = '#444';
+            const xStep = Math.pow(10, Math.floor(Math.log10(tEnd))) / (tEnd / Math.pow(10, Math.floor(Math.log10(tEnd))) > 5 ? 1 : 2);
+            for (let t = 0; t <= tEnd * 1.001; t += xStep) {
+                g.beginPath(); g.moveTo(px(t), mt); g.lineTo(px(t), H - mb); g.stroke();
+                g.textAlign = 'center'; g.fillText(String(Math.round(t)), px(t), H - mb + 20);
+            }
+            const yStep = Math.ceil(cd.N0_rpm / 6 / 500) * 500 || 500;
+            for (let n = 0; n <= nTop; n += yStep) {
+                g.beginPath(); g.moveTo(ml, py(n)); g.lineTo(W - mr, py(n)); g.stroke();
+                g.textAlign = 'right'; g.fillText(n.toLocaleString(), ml - 8, py(n) + 5);
+            }
+            g.strokeStyle = '#000'; g.lineWidth = 1.5;
+            g.beginPath(); g.moveTo(ml, mt); g.lineTo(ml, H - mb); g.lineTo(W - mr, H - mb); g.stroke();
+            g.strokeStyle = '#1d4ed8'; g.lineWidth = 3;
+            g.beginPath();
+            cd.points.forEach((p, i) => { i ? g.lineTo(px(p.t_s), py(p.N_rpm)) : g.moveTo(px(p.t_s), py(p.N_rpm)); });
+            g.stroke();
+            g.fillStyle = '#000'; g.textAlign = 'center';
+            g.fillText('Time after trip (s)', ml + (W - ml - mr) / 2, H - 10);
+            g.save(); g.translate(18, mt + (H - mt - mb) / 2); g.rotate(-Math.PI / 2);
+            g.fillText('Driver shaft speed (rpm)', 0, 0); g.restore();
+            // JPEG, not PNG: jsPDF re-encodes a PNG as a raw bitmap + alpha
+            // mask (~2 MB for this canvas) but embeds a JPEG stream as-is.
+            return cv.toDataURL('image/jpeg', 0.92);
+        }
+
+        function buildPdf() {
+            if (!window.jspdf || !window.jspdf.jsPDF || !window.jspdf.jsPDF.API.autoTable) {
+                showError('The PDF library did not load (offline or CDN blocked) — use Print / save as PDF instead.');
+                return;
+            }
+            if (!lastTrain || !lastDr) { showError('Solve a case before generating the report.'); return; }
+            const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+            const a = lastAcc, train = lastTrain, inp = lastInput;
+            const caseName = $('inCaseName').value || 'Untitled case';
+            const L = 14;
+            let y = 16;
+
+            doc.setFontSize(15).setFont(undefined, 'bold');
+            doc.text('Compressor Train Selection Report', L, y); y += 6.5;
+            doc.setFontSize(9).setFont(undefined, 'normal').setTextColor(90);
+            doc.text(pdfText(caseName + '  -  generated ' + new Date().toLocaleString()), L, y); y += 4.5;
+            doc.text('Screening-level estimation for preliminary sizing and vendor-bid checking. Not a substitute for vendor', L, y); y += 3.8;
+            doc.text('design or the governing editions of API 612/613/614/616/617/671/677/692.', L, y); y += 2;
+            doc.setTextColor(0);
+
+            const passFailColors = data => {
+                const t = (data.cell.text || []).join(' ');
+                if (data.section !== 'body') return;
+                if (t === 'PASS') { data.cell.styles.textColor = [21, 128, 61]; data.cell.styles.fontStyle = 'bold'; }
+                if (t === 'WARN') { data.cell.styles.textColor = [180, 120, 0]; data.cell.styles.fontStyle = 'bold'; }
+                if (t === 'FAIL') { data.cell.styles.textColor = [185, 28, 28]; data.cell.styles.fontStyle = 'bold'; }
+            };
+            function table(title, head, body, widths) {
+                if (y > 255) { doc.addPage(); y = 16; }
+                doc.setFontSize(11).setFont(undefined, 'bold');
+                doc.text(pdfText(title), L, y + 5);
+                doc.autoTable({
+                    startY: y + 8,
+                    head: [head.map(pdfText)],
+                    body: body.map(r => r.map(c => pdfText(c == null ? '' : String(c)))),
+                    theme: 'grid',
+                    styles: { fontSize: 7.6, cellPadding: 1.3, textColor: 20 },
+                    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 8 },
+                    columnStyles: widths || {},
+                    margin: { left: L, right: 14 },
+                    didParseCell: passFailColors
+                });
+                y = doc.lastAutoTable.finalY + 4;
+            }
+            /* 1. Compressor selection (shared with the on-page datasheet) */
+            table('1. Compressor selection', ['Item', 'Value'], datasheetRows(train, inp, lastDr), { 0: { cellWidth: 62 } });
+
+            if (a) {
+                /* 2. Train speeds */
+                const sp = a.speeds, fN = v => v == null ? 'n/a' : Math.round(v).toLocaleString() + ' rpm';
+                table('2. Train speeds (rated / MCS / trip)', ['Shaft', 'Rated', 'Max continuous', 'Trip'], [
+                    ['Driver' + (a.igc ? ' / bull gear' : ''), fN(sp.driver.rated), fN(sp.driver.mcs), fN(sp.driver.trip)],
+                    ['Compressor' + (a.hasGear ? ' (x gear ratio)' : ''), fN(sp.compressor.rated), fN(sp.compressor.mcs), fN(sp.compressor.trip)],
+                    ['Basis', sp.note, '', '']
+                ]);
+
+                /* 3. Driver */
+                const d = a.driver, dRows = [
+                    ['Driver', d.label + ' (' + d.std + ')'],
+                    ['Arrangement', a.directDrive ? 'Direct drive' : (a.igc ? 'Integral gear (bull gear input)' : 'Through gearbox')],
+                    ['Driver shaft speed', Math.round(a.Ndriver_rpm).toLocaleString() + ' rpm'],
+                    ['Shaft power', dispU('power', train.shaftPower, 2)],
+                    ['Power at driver (losses in)', dispU('power', d.rating.atDriver, 2)],
+                    ['Required rating (+' + (d.rating.margin * 100).toFixed(0) + '%)', dispU('power', d.rating.rated, 2)]
+                ];
+                if (d.motor) {
+                    const m = d.motor, use = a.directDrive ? m.directDrive : m.geared;
+                    dRows.push(['Motor', use.poles + '-pole, ' + m.freqHz + ' Hz, sync ' + Math.round(use.syncSpeed).toLocaleString() + ' rpm, full load ' + Math.round(use.fullLoadSpeed).toLocaleString() + ' rpm']);
+                    dRows.push(['Standard size', d.rating.iec_kW.toLocaleString() + ' kW IEC / ' + d.rating.nema_hp.toLocaleString() + ' hp NEMA']);
+                }
+                if (d.steam) {
+                    const s = d.steam;
+                    dRows.push(['Steam conditions', dispU('pressure', s.Pin_Pa, 2) + ' / ' + dispU('temperature', s.Tin_K, 1) + ' -> ' + dispU('pressure', s.Pexh_Pa, 3)]);
+                    dRows.push(['Isentropic drop / efficiency', dispU('head', s.dhIsen, 1) + ' / ' + (s.eta * 100).toFixed(1) + '%']);
+                    dRows.push(['TSR / ASR', fmtNum(s.TSR_kg_kWh, 2) + ' / ' + fmtNum(s.ASR_kg_kWh, 2) + ' kg/kWh']);
+                    dRows.push(['Steam flow', fmtNum(s.mdotSteam_tph, 1) + ' t/h']);
+                    if (s.wetExhaust) dRows.push(['Isentropic exhaust quality', (s.exhaustQuality * 100).toFixed(1) + '%']);
+                    dRows.push(['API 612 rating (110%)', dispU('power', s.rated_W, 2)]);
+                }
+                if (d.gt) {
+                    const g = d.gt;
+                    dRows.push(['ISO rating', dispU('power', g.isoRating_W, 1)]);
+                    dRows.push(['Derate factors (alt / temp / humidity / ducts)', g.fAlt.toFixed(4) + ' / ' + g.fTemp.toFixed(4) + ' / ' + g.fHum.toFixed(4) + ' / ' + g.fLoss.toFixed(2)]);
+                    dRows.push(['Site rating vs required', dispU('power', g.siteRating_W, 1) + ' vs ' + dispU('power', g.required_W, 1) + (g.marginPct != null ? ' (margin ' + g.marginPct.toFixed(1) + '%)' : '')]);
+                }
+                table('3. Driver', ['Item', 'Value'], dRows, { 0: { cellWidth: 62 } });
+
+                /* 4. Gearbox */
+                if (a.gear) {
+                    const g = a.gear;
+                    table('4. Gearbox - ' + (g.standard === 'api677' ? 'API 677' : 'API 613') + ', double helical', ['Item', 'Value'], [
+                        ['Ratio (required -> selected)', g.ratioRequired.toFixed(3) + ' -> ' + g.ratioActual.toFixed(3) + '  (z ' + g.zBull + '/' + g.zPinion + ')'],
+                        ['Output shaft speed', Math.round(g.NoutSelected).toLocaleString() + ' rpm (compressor re-solved at this speed)'],
+                        ['Service factor', g.SF.toFixed(2) + ' (' + a.driver.label + ' drive)'],
+                        ['Torque (bull / pinion)', dispU('torque', g.Tin, 2) + ' / ' + dispU('torque', g.Tpinion, 2)],
+                        ['Pitch diameters (pinion / bull)', disp('length', g.dPinion, 0) + ' / ' + disp('length', g.dBull, 0) + ' ' + unitLabel('length')],
+                        ['Centre distance / face width', disp('length', g.centerDist, 0) + ' / ' + disp('length', g.faceWidth, 0) + ' ' + unitLabel('length')],
+                        ['Module (transverse / normal), helix', (g.moduleTransverse * 1000).toFixed(1) + ' / ' + (g.moduleNormal * 1000).toFixed(1) + ' mm, ' + g.helixDeg + ' deg'],
+                        ['K-factor at rated / allowable', (g.K / 1e6).toFixed(2) + ' / ' + (g.Kallow / 1e6).toFixed(2) + ' MPa (' + TrainEng.GEAR_MATERIALS[g.material].label + ')'],
+                        ['Pitch line velocity', fmtNum(g.PLV, 1) + ' m/s'],
+                        ['Journal surface velocity', fmtNum(g.journalV, 1) + ' m/s'],
+                        ['Mesh + bearing loss', dispU('power', g.meshLoss_W + g.bearingLoss_W, 1)]
+                    ], { 0: { cellWidth: 62 } });
+                } else if (a.igc) {
+                    table('4. Gearbox', ['Item', 'Value'],
+                        [['Arrangement', 'Integrally geared machine - internal gear train (see pinion table in section 1), no external gearbox.']],
+                        { 0: { cellWidth: 62 } });
+                } else {
+                    table('4. Gearbox', ['Item', 'Value'],
+                        [['Arrangement', 'None - direct drive at ' + Math.round(a.Ndriver_rpm).toLocaleString() + ' rpm.']],
+                        { 0: { cellWidth: 62 } });
+                }
+
+                /* 5. Couplings */
+                const cRows = [['Low speed', TrainEng.COUPLING_SF.types[a.coupling.ls.type].label,
+                    Math.round(a.coupling.ls.N_rpm).toLocaleString() + ' rpm',
+                    dispU('torque', a.coupling.ls.Tnominal, 2), a.coupling.ls.SF.toFixed(2),
+                    dispU('torque', a.coupling.ls.TrequiredContinuous, 2)]];
+                if (a.coupling.hs) cRows.push(['High speed', TrainEng.COUPLING_SF.types[a.coupling.hs.type].label,
+                    Math.round(a.coupling.hs.N_rpm).toLocaleString() + ' rpm',
+                    dispU('torque', a.coupling.hs.Tnominal, 2), a.coupling.hs.SF.toFixed(2),
+                    dispU('torque', a.coupling.hs.TrequiredContinuous, 2)]);
+                table('5. Couplings (API 671)', ['Coupling', 'Type', 'Speed', 'Nominal torque', 'SF', 'Required rating'], cRows);
+
+                /* 6. Lube oil */
+                const lu = a.lube;
+                table('6. Lube oil system (API 614)', ['Item', 'Value'], [
+                    ['Heat load / cooler duty', dispU('power', lu.totalLoss_W, 1)],
+                    ['Normal oil flow (dT ' + lu.dT_K + ' K)', fmtNum(lu.totalFlow_m3s * 60000, 0) + ' L/min'],
+                    ['Loss build-up', lu.elements.map(e => e.name + ': ' + fmtNum(e.loss_W / 1000, 0) + ' kW').join('; ')],
+                    ['Main / standby pumps', fmtNum(lu.pump.main_m3s * 60000, 0) + ' L/min each (main + 100% spare)'],
+                    ['Reservoir (gross)', dispU('volume', lu.reservoir.gross_m3, 1) + ' - ' + lu.reservoir.retention_min + ' min retention + 5 min charge + 15% freeboard'],
+                    ['Duplex filter', fmtNum(lu.filter.flow_m3s * 60000, 0) + ' L/min at ' + lu.filter.micron + ' micron'],
+                    ['Accumulator', dispU('volume', lu.accumulator.vessel_m3, 2) + ' vessel (bridges ' + lu.accumulator.bridge_s + ' s pump start)'],
+                    ['Rundown tank', lu.rundownTank ? dispU('volume', lu.rundownTank.V_m3, 2) + ' at ' + fmtNum(lu.rundownTank.elevation_m, 1) + ' m above bearings' : 'n/a'],
+                    ['Rundown tank basis', lu.rundownTank ? lu.rundownTank.basis : 'n/a']
+                ], { 0: { cellWidth: 62 } });
+
+                /* 7. Coast-down */
+                if (y > 175) { doc.addPage(); y = 16; }
+                doc.setFontSize(11).setFont(undefined, 'bold');
+                doc.text('7. Coast-down from train inertia', L, y + 5);
+                doc.setFontSize(8).setFont(undefined, 'normal').setTextColor(80);
+                doc.text(pdfText('J = ' + fmtNum(a.inertia.J_atDriver, 1) + ' kg.m2 at the driver shaft'
+                    + (a.hasGear ? ' (HS terms x ' + a.inertia.ratio.toFixed(2) + '^2)' : '')
+                    + '; retarding loss ' + fmtNum(a.lossAtRated_W / 1000, 0) + ' kW at rated, split 20/50/30 constant/viscous/windage.'), L, y + 10);
+                doc.setTextColor(0);
+                doc.addImage(coastdownCanvas(a.coastdown), 'JPEG', L, y + 13, 168, 84);
+                y += 101;
+                table('Inertia ledger', ['Element', 'J (own shaft), kg.m2'], [
+                    ['Driver rotor' + (a.inertia.driverOverridden ? ' (vendor)' : ' (correlation)'), fmtNum(a.inertia.J_driver, 2)],
+                    ['LS coupling', fmtNum(a.inertia.J_couplingLS, 2)]
+                ].concat(a.hasGear ? [
+                    ['Bull gear', fmtNum(a.inertia.J_gearLS, 2)],
+                    ['Pinion', fmtNum(a.inertia.J_gearHS, 2)],
+                    ['HS coupling', fmtNum(a.inertia.J_couplingHS, 2)]
+                ] : []).concat([
+                    ['Compressor rotor' + (a.inertia.compOverridden ? ' (vendor)' : ' (geometry)'), fmtNum(a.inertia.J_comp, 2)],
+                    ['Total at driver shaft', fmtNum(a.inertia.J_atDriver, 2)],
+                    ['Coast-down time to ' + Math.round(a.coastdown.NminFrac * 100) + '%', fmtNum(a.coastdown.time_s, 0) + ' s']
+                ]), { 0: { cellWidth: 90 } });
+
+                /* 8. Seals */
+                if (a.seal && a.settleOut) {
+                    const s = a.seal, so = a.settleOut, nm3 = v => fmtNum(v, 2) + ' Nm3/h';
+                    table('8. Dry gas seal system (API 692)', ['Item', 'Value'], [
+                        ['Settle-out pressure (simple / Z,T-corrected)', fmtNum(so.P_simple_Pa / 1e5, 2) + ' / ' + fmtNum(so.P_corrected_Pa / 1e5, 2) + ' bara'],
+                        ['Sealing pressure (governs)', fmtNum(s.sealingPressure_bara, 2) + ' bara'],
+                        ['Seal size / arrangement', s.sealSize_mm + ' mm, ' + s.arrangement + (s.sour ? ' (H2S present)' : '')],
+                        ['Primary leakage (expected)', nm3(s.perSeal.primaryLeak_Nm3h) + ' per seal; machine vent design ' + nm3(s.machine.primaryVentDesign_Nm3h)],
+                        ['Secondary leakage', nm3(s.perSeal.secondaryLeak_Nm3h) + ' per seal'],
+                        ['Seal gas supply', nm3(s.perSeal.supply_Nm3h) + ' per seal; machine ' + nm3(s.machine.supply_Nm3h)],
+                        ['Separation gas (N2)', nm3(s.perSeal.separation_Nm3h) + ' per seal'],
+                        ['Face speed at MCS / trip', fmtNum(s.faceSpeedMCS, 1) + (s.faceSpeedTrip ? ' / ' + fmtNum(s.faceSpeedTrip, 1) : '') + ' m/s']
+                    ], { 0: { cellWidth: 70 } });
+                    table('8a. API 692 test criteria', ['Criterion', 'Value', 'Basis'],
+                        s.testing.criteria.map(c => [c.item, c.value == null ? 'n/a' : fmtNum(c.value, 1) + ' ' + c.unit, c.basis]),
+                        { 0: { cellWidth: 48 }, 1: { cellWidth: 38 } });
+                    table('8b. API 692 factory acceptance test sequence', ['#', 'Step', 'Detail'],
+                        s.testing.steps.map(st => [st.step, st.name, st.detail]),
+                        { 0: { cellWidth: 8 }, 1: { cellWidth: 42 } });
+                }
+
+                /* 9. Validation summary */
+                table('9. Validation summary', ['Check', 'Value', 'Limit', 'Result'],
+                    a.checks.map(c => [c.name + (c.note ? ' - ' + c.note : ''), fmtNum(c.value, 2) + (c.unit && c.unit !== '-' ? ' ' + c.unit : ''), String(c.limit), c.level.toUpperCase() === 'PASS' ? 'PASS' : c.level.toUpperCase()]),
+                    { 0: { cellWidth: 82 } });
+            } else {
+                table('Train accessories', ['Item', 'Value'],
+                    [['Status', 'Not computed' + (lastAccError ? ': ' + lastAccError : '')]]);
+            }
+
+            doc.save((caseName || 'compressor-train').replace(/[^\w\-]+/g, '_') + '_train_report.pdf');
         }
 
         /* ---------------------------------------------------------------- */
@@ -3978,8 +4893,28 @@ Aungier impeller axial length:
             inPinionLayout: { tab: 'v-machine', label: 'Pinion layout' },
             inEtaP: { tab: 'v-machine', label: 'Polytropic efficiency' },
             inEtaMech: { tab: 'v-machine', label: 'Mechanical efficiency' },
-            inGearbox: { tab: 'v-machine', label: 'Gearbox' },
             inMargin: { tab: 'v-machine', label: 'Driver margin' },
+            inDriverType: { tab: 'v-process', label: 'Driver type' },
+            inFreq: { tab: 'v-process', label: 'Grid frequency' },
+            inDriverSpeed: { tab: 'v-process', label: 'Driver rated speed' },
+            inGearboxStd: { tab: 'v-process', label: 'Gearbox standard' },
+            inGearRatio: { tab: 'v-process', label: 'Gear ratio override' },
+            inGearMaterial: { tab: 'v-process', label: 'Gear material' },
+            inCouplingType: { tab: 'v-process', label: 'Coupling type' },
+            inSealSystem: { tab: 'v-process', label: 'Seal system' },
+            inSteamPin: { tab: 'v-process', label: 'Steam inlet pressure' },
+            inSteamTin: { tab: 'v-process', label: 'Steam inlet temperature' },
+            inSteamPexh: { tab: 'v-process', label: 'Steam exhaust pressure' },
+            inGtIso: { tab: 'v-process', label: 'GT ISO rating' },
+            inGtAltitude: { tab: 'v-process', label: 'Site altitude' },
+            inGtTamb: { tab: 'v-process', label: 'Ambient temperature' },
+            inGtRH: { tab: 'v-process', label: 'Relative humidity' },
+            inVsuction: { tab: 'v-process', label: 'Suction system volume' },
+            inVdischarge: { tab: 'v-process', label: 'Discharge system volume' },
+            inOilDT: { tab: 'v-lube', label: 'Oil temperature rise' },
+            inOilRetention: { tab: 'v-lube', label: 'Reservoir retention' },
+            inJdriverOvr: { tab: 'v-lube', label: 'Driver inertia override' },
+            inJcompOvr: { tab: 'v-lube', label: 'Compressor inertia override' },
             // Pseudo-fields: a whole tab or panel rather than one input.
             composition: { tab: 'v-gas', label: 'Gas composition', panel: true },
             sections: { tab: 'v-process', label: 'Section discharge pressures', panel: true }
@@ -4185,19 +5120,55 @@ Aungier impeller axial length:
         /* Main calculation                                                  */
         /* ---------------------------------------------------------------- */
 
-        let lastTrain = null, lastInput = null, lastDr = null;
+        let lastTrain = null, lastInput = null, lastDr = null, lastAcc = null, lastAccError = null;
+        // The pass-1 free-optimum speed, kept so the Gearbox tab can show
+        // "required ratio" against what the aero actually wanted - after the
+        // pass-2 re-solve, the train itself only remembers the snapped speed.
+        let lastFreeSpeed = null;
 
         function recalcCore() {
             const inp = buildInput();
             lastInput = inp;
             renderMixProps(inp);
-            const train = E.runTrain(inp);
+            let train = E.runTrain(inp);
+            lastFreeSpeed = train.speedRange.hi;
+
+            // Train accessories, and the speed feedback loop: when the
+            // resolved train fixes the compressor speed (external gearbox, or
+            // a fixed-speed motor direct drive), re-solve the compressor at
+            // exactly that speed and take the accessories again on the final
+            // machine. One deterministic second pass - the gear's tooth-count
+            // ratio maps the same input speed to the same output speed, so a
+            // third pass could never move. An accessory failure (e.g. a steam
+            // condition that makes no sense yet) must never take down the
+            // compressor solve, so it degrades to a per-tab message instead.
+            lastAcc = null; lastAccError = null;
+            if (window.TrainEng) {
+                try {
+                    const cfg = buildTrainCfg();
+                    let acc = TrainEng.runAccessories({ train: train, input: inp, cfg });
+                    const fb = acc.speedFeedback;
+                    if (fb.apply && isFinite(fb.N_rpm) && fb.N_rpm > 0 &&
+                        Math.abs(fb.N_rpm - train.speedRange.hi) / train.speedRange.hi > 1e-6) {
+                        const inp2 = Object.assign({}, inp, { speedManual: fb.N_rpm });
+                        train = E.runTrain(inp2);
+                        lastInput = inp2;
+                        acc = TrainEng.runAccessories({ train: train, input: inp2, cfg });
+                    }
+                    lastAcc = acc;
+                } catch (e) {
+                    lastAccError = e.message || String(e);
+                    console.error(e);
+                }
+            }
+
             lastTrain = train;
             clearError();
-            renderResults(train, inp);
-            drawCharts(train, inp);
-            renderHelpLive(train, inp);
-            renderSelection(train, inp);
+            renderResults(train, lastInput);
+            drawCharts(train, lastInput);
+            renderHelpLive(train, lastInput);
+            renderSelection(train, lastInput);
+            renderTrainTabs();
             return train;
         }
 
@@ -4255,7 +5226,16 @@ Aungier impeller axial length:
         const SIMPLE_INPUTS = ['inP1', 'inAtmPressure', 'inT1', 'inMdot', 'inModel', 'inArchitecture', 'inImpeller', 'inPsi', 'inPhi',
             'inMu2', 'inMrel', 'inT2max', 'inMaxSpeed', 'inMinD2',
             'inBullSpeedPreset', 'inBullSpeed', 'inPinionLayout',
-            'inEtaModel', 'inEtaP', 'inEtaMech', 'inGearbox', 'inMargin', 'inCaseName'];
+            'inEtaModel', 'inEtaP', 'inEtaMech', 'inMargin', 'inCaseName',
+            // Train configuration (v6). The old inGearbox boolean is retired -
+            // applyState() maps it onto inGearboxStd for pre-v6 files.
+            'inDriverType', 'inFreq', 'inDriverSpeed',
+            'inGearboxStd', 'inGearRatio', 'inGearMaterial',
+            'inCouplingType', 'inSealSystem',
+            'inSteamPin', 'inSteamTin', 'inSteamPexh',
+            'inGtIso', 'inGtAltitude', 'inGtTamb', 'inGtRH',
+            'inVsuction', 'inVdischarge',
+            'inOilDT', 'inOilRetention', 'inJdriverOvr', 'inJcompOvr'];
 
         // Selection-tab controls are saved and restored like SIMPLE_INPUTS,
         // but kept out of that array deliberately: SIMPLE_INPUTS also drives
@@ -4286,7 +5266,13 @@ Aungier impeller axial length:
             // and basis ('app'|'sandberg') in place of the old speedMode, plus
             // D2Manual - an array of impeller diameters in SI metres, one per
             // impeller, so a trimmed supplier section survives a round trip.
-            return { version: 5, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
+            // version 6: adds the train-configuration inputs (driver type and
+            // conditions, gearbox standard/ratio/material, coupling, seal
+            // system, settle-out volumes, lube oil settings, inertia
+            // overrides). All additive via SIMPLE_INPUTS values - absent on
+            // an older save they simply keep the page defaults, except the
+            // retired inGearbox boolean, which applyState() migrates.
+            return { version: 6, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -4364,7 +5350,16 @@ Aungier impeller axial length:
             }
             if (s.values) {
                 Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
+                // Pre-v6 files carried a bare "gearbox yes/no" flag. "Yes"
+                // most plausibly meant a special-purpose box on a special-
+                // purpose machine, so it lands on API 613; "no" lands on
+                // auto, which still adds a gearbox only if the speeds demand
+                // one - the same power numbers as the old flat 2% rule.
+                if ((s.version || 1) < 6 && s.values.inGearbox != null && s.values.inGearboxStd == null) {
+                    $('inGearboxStd').value = s.values.inGearbox === '1' ? 'api613' : 'auto';
+                }
             }
+            refreshTrainCfgVisibility();
             refreshUnitLabels();
             renderComposition();
             refreshArchitectureUI();
@@ -4598,6 +5593,7 @@ Aungier impeller axial length:
             renderSections();
             renderReferences();
             refreshUnitLabels();
+            refreshTrainCfgVisibility();
             $('modelNote').textContent = MODEL_NOTES.PR;
 
             // Tabs
@@ -4614,6 +5610,13 @@ Aungier impeller axial length:
                     // since been superseded while the tab was hidden.
                     if (view === 'v-help' && lastTrain) renderHelpLive(lastTrain, lastInput);
                     if (view === 'v-selection' && lastTrain) renderSelection(lastTrain, lastInput);
+                    // The coast-down SVG needs a real width to lay out, same
+                    // as the Charts tab; the others re-render cheaply so a
+                    // reveal never shows a superseded calculation.
+                    if (view === 'v-driver' && lastTrain) renderDriverTab();
+                    if (view === 'v-gearbox' && lastTrain) renderGearboxTab();
+                    if (view === 'v-lube' && lastTrain) renderLubeTab();
+                    if (view === 'v-seal' && lastTrain) renderSealTab();
                 });
             });
 
@@ -4667,6 +5670,9 @@ Aungier impeller axial length:
                         }
                     }
                     if (id === 'inModel') $('modelNote').textContent = MODEL_NOTES[el.value];
+                    if (id === 'inDriverType' || id === 'inGearboxStd' || id === 'inSealSystem' || id === 'inArchitecture') {
+                        refreshTrainCfgVisibility();
+                    }
                     if (id === 'inBullSpeedPreset') {
                         const custom = el.value === 'custom';
                         $('inBullSpeed').disabled = !custom;
@@ -4790,6 +5796,15 @@ Aungier impeller axial length:
 
             $('btnPrint').addEventListener('click', () => window.print());
 
+            $('btnPdf').addEventListener('click', () => {
+                try {
+                    buildPdf();
+                } catch (e) {
+                    showError('PDF generation failed: ' + (e.message || e));
+                    console.error(e);
+                }
+            });
+
             $('btnExport').addEventListener('click', () => {
                 const blob = new Blob([JSON.stringify(collectState(), null, 2)], { type: 'application/json' });
                 const a = document.createElement('a');
@@ -4829,7 +5844,9 @@ Aungier impeller axial length:
             });
 
             $('btnSelfTest').addEventListener('click', () => {
-                const res = E.selfTest();
+                // Both engines in one run - the train engine's checks live in
+                // compressor-train.js and follow the same result shape.
+                const res = E.selfTest().concat(window.TrainEng ? TrainEng.selfTest() : []);
                 const fails = res.filter(r => !r.pass).length;
                 $('selfTestOut').innerHTML = `
                     <div class="note ${fails ? 'bad' : ''}" style="margin-bottom:0.75rem">
