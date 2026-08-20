@@ -2544,6 +2544,25 @@
                 Object.assign({ code: 'm/s', label: 'm/s' }, lin(1)),
                 Object.assign({ code: 'ft/s', label: 'ft/s' }, lin(0.3048))
             ]
+        },
+        volume: {                               // base m3 (train accessories:
+            base: 'm3',                         // settle-out system volumes,
+            SI: 'm³', US: 'ft³',                // lube reservoir, rundown tank)
+            list: [
+                Object.assign({ code: 'm3', label: 'm³' }, lin(1)),
+                Object.assign({ code: 'L', label: 'L' }, lin(1e-3)),
+                Object.assign({ code: 'ft3', label: 'ft³' }, lin(0.028316846592)),
+                Object.assign({ code: 'usgal', label: 'US gal' }, lin(0.003785411784))
+            ]
+        },
+        torque: {                               // base N·m (gear and coupling
+            base: 'N·m',                        // ratings on the train tabs)
+            SI: 'kN·m', US: 'lbf·ft',
+            list: [
+                Object.assign({ code: 'kNm', label: 'kN·m' }, lin(1e3)),
+                Object.assign({ code: 'Nm', label: 'N·m' }, lin(1)),
+                Object.assign({ code: 'lbfft', label: 'lbf·ft' }, lin(1.3558179483314004))
+            ]
         }
     };
 
@@ -3068,6 +3087,13 @@
                       'Worst relative gap ' + (worst * 100).toFixed(1) + '%.');
             });
         })();
+
+        /* ---- 12. Unit catalogue round trips (volume & torque, added for the
+                   train accessory tabs) ---------------------------------- */
+        check('Volume: 1000 L = 1 m3', convert('volume', 'L', 'm3', 1000), 1, 1e-12);
+        check('Volume: 1 ft3 in US gal', convert('volume', 'ft3', 'usgal', 1), 7.48052, 1e-4);
+        check('Torque: 1 kN·m in lbf·ft', convert('torque', 'kNm', 'lbfft', 1), 737.562, 0.01);
+        check('systemUnits covers every category', Object.keys(systemUnits('SI')).length, Object.keys(UNITS).length, 0);
 
         return out;
     }
