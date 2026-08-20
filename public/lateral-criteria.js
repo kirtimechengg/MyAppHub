@@ -272,12 +272,12 @@ window.LatEng = (function () {
         const reasons = [];
         let CSR = null, qRatio = null;
 
+        // CSR (Nmc/Nc1) is reported as context only — a healthy supercritical
+        // rotor normally runs well above its first critical (CSR > 1 by design
+        // once the separation-margin check above is satisfied), so no fixed
+        // CSR threshold is a reliable pass/fail signal on its own.
         if (Nmc > 0 && Nc1 > 0) {
             CSR = Nmc / Nc1;
-            if (CSR > 0.9) {
-                reasons.push("CSR (Nmc/Nc1) is above 0.9 — first critical is close to Nmc; " +
-                    "confirm separation margin is still met and re-check against the Annex E chart.");
-            }
         }
         if (Q0 > 0 && QA > 0) {
             qRatio = Q0 / QA;

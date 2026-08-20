@@ -368,7 +368,7 @@
                 sm: { Nc: "", N1: "", N2: "", Nref: "", position: "below" },
                 unbalance: { W: "", N: "", multiplier: "2", cap: template === "gear" ? "25.4" : "50.8" },
                 clearance: { Ao: "", minClearance: "" },
-                mesh: { N: "", teeth: "" },
+                mesh: { N: "", teeth: "", critical1: "", critical2: "" },
                 stability: { Nmc: "", Nc1: "", Q0: "", logDec: "", stages: [{ P: "", D: "", H: "", N: "", B: "3" }] }
             };
         }
@@ -422,6 +422,115 @@
                 }
             } catch (e) { /* ignore corrupt/blocked storage */ }
             return buildDefaultState();
+        }
+
+        // --- SAMPLE DATA ---
+        // A worked, physically-consistent example train, so the calculators
+        // and every new chart render something meaningful without hand-typing
+        // every field. Deliberately includes one FAIL (gearbox HS/pinion
+        // separation margin) and one flagged stability screen (compressor),
+        // so the red/amber states are visible immediately, not just green.
+        const SAMPLE_PROJECT = {
+            endCustomer: "Example Energy Co.",
+            project: "Gulf Coast LNG Train 3 Expansion",
+            specifications: "API 617 8th Ed / API 684 2nd Ed, Purchaser Spec ENG-617-04",
+            service: "Recycle / Sendout Compressor",
+            manufacturer: "Elliott Group",
+            model: "49MB8 Barrel Compressor + 78MB Increaser + 5000 HP Induction Motor"
+        };
+        // Bull gear (87T) at 3600 rpm and pinion (29T) at 10800 rpm mesh at the
+        // same 5220 Hz, matching a 3600 -> 10800 rpm (3.0x) speed increase.
+        const SAMPLE_CALC = {
+            motor: {
+                sm: { Nc: "1450", N1: "1400", N2: "1510", Nref: "3200", position: "below" },
+                unbalance: { W: "180", N: "3600", multiplier: "2", cap: "50.8" },
+                clearance: { Ao: "45", minClearance: "90" },
+                mesh: { N: "", teeth: "", critical1: "", critical2: "" },
+                stability: { Nmc: "", Nc1: "", Q0: "", logDec: "", stages: [{ P: "", D: "", H: "", N: "", B: "3" }] }
+            },
+            gear_ls: {
+                sm: { Nc: "1600", N1: "1540", N2: "1680", Nref: "3400", position: "below" },
+                unbalance: { W: "220", N: "3600", multiplier: "2", cap: "25.4" },
+                clearance: { Ao: "20", minClearance: "60" },
+                mesh: { N: "3600", teeth: "87", critical1: "", critical2: "" },
+                stability: { Nmc: "", Nc1: "", Q0: "", logDec: "", stages: [{ P: "", D: "", H: "", N: "", B: "3" }] }
+            },
+            gear_hs: {
+                sm: { Nc: "9200", N1: "9050", N2: "9380", Nref: "10000", position: "below" },
+                unbalance: { W: "95", N: "10800", multiplier: "2", cap: "25.4" },
+                clearance: { Ao: "15", minClearance: "40" },
+                mesh: { N: "10800", teeth: "29", critical1: "4900", critical2: "6800" },
+                stability: { Nmc: "", Nc1: "", Q0: "", logDec: "", stages: [{ P: "", D: "", H: "", N: "", B: "3" }] }
+            },
+            comp: {
+                sm: { Nc: "7200", N1: "7050", N2: "7370", Nref: "10000", position: "below" },
+                unbalance: { W: "140", N: "10800", multiplier: "2", cap: "50.8" },
+                clearance: { Ao: "55", minClearance: "100" },
+                mesh: { N: "", teeth: "", critical1: "", critical2: "" },
+                stability: {
+                    Nmc: "10800", Nc1: "7200", Q0: "19000", logDec: "0.15",
+                    stages: [
+                        { P: "1200", D: "350", H: "3.5", N: "10800", B: "3" },
+                        { P: "1100", D: "330", H: "3.3", N: "10800", B: "3" },
+                        { P: "1000", D: "310", H: "3.1", N: "10800", B: "3" },
+                        { P: "900", D: "290", H: "2.9", N: "10800", B: "3" }
+                    ]
+                }
+            }
+        };
+        // Items forced to "deviation" so they match the calculator's FAIL/
+        // flagged cases above, keyed by scope ("shared" or a rotor key) then
+        // section id, each with an explanatory note.
+        const SAMPLE_DEVIATIONS = {
+            shared: { foundation: ["sh-f3"], coupling: ["sh-c4"] },
+            gear_hs: { D: ["d4"], E: ["ge2"] },
+            comp: { E: ["ce3"] }
+        };
+        const SAMPLE_NOTES = {
+            "sh-f3": "Impact/structural resonance test report not yet received from the EPC civil contractor; requested before FAT.",
+            "sh-c4": "Solo-run moment simulator plate omitted from the vendor BOM; flagged to procurement for an add-on.",
+            "d4": "Vendor's actual SM at the 1st critical is ~8%, short of the 16% required at AF≈28 — see the Criteria Calculator above. Requested a revised bearing design or a damped response re-run.",
+            "ge2": "A nearby lateral critical at ~4900 Hz sits within 6% of the 1× mesh frequency (5220 Hz) — see the chart above. Vendor asked to confirm damping at this crossing.",
+            "ce3": "Q0/QA = 1.75, short of the commonly used 2× margin. Level II stability analysis requested per Annex E."
+        };
+        function hashStr(s) {
+            let h = 0;
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+            return h;
+        }
+        function seedSampleStatus(sectionsObj, scopeKey) {
+            const next = JSON.parse(JSON.stringify(sectionsObj));
+            const forced = SAMPLE_DEVIATIONS[scopeKey] || {};
+            Object.entries(next).forEach(([secKey, sec]) => {
+                const forcedIds = forced[secKey] || [];
+                sec.items.forEach(item => {
+                    if (forcedIds.includes(item.id)) {
+                        item.status = "deviation"; item.checked = false; item.notes = SAMPLE_NOTES[item.id] || "";
+                    } else if (hashStr(item.id) % 100 < 58) {
+                        item.status = "compliant"; item.checked = true;
+                    } else {
+                        item.status = "pending"; item.checked = false;
+                    }
+                });
+            });
+            return next;
+        }
+        function buildSampleData() {
+            const base = buildDefaultState();
+            const rotors = {};
+            LatData.ROTORS.forEach(r => {
+                rotors[r.key] = {
+                    label: base.rotors[r.key].label,
+                    template: base.rotors[r.key].template,
+                    calc: SAMPLE_CALC[r.key],
+                    sections: seedSampleStatus(base.rotors[r.key].sections, r.key)
+                };
+            });
+            return {
+                project: { ...SAMPLE_PROJECT, configuration: base.project.configuration },
+                shared: seedSampleStatus(base.shared, "shared"),
+                rotors
+            };
         }
 
         function debounce(func, wait) {
@@ -478,6 +587,196 @@
 
         const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
 
+        // --- SVG CHART COMPONENTS ---
+        // Chart ink follows the app's own Tailwind palette (blue-600 accent,
+        // slate ink/gridlines, green/red/amber status) rather than a separate
+        // chart palette, so calculator charts read as part of this tool, not
+        // a bolted-on library. Marks: 2px lines, r>=4 markers with a 2px white
+        // ring, hairline (1px) solid gridlines, ~10% opacity area washes.
+        const CHART_INK = { primary: "#0f172a", secondary: "#475569", muted: "#94a3b8", grid: "#e2e8f0" };
+        const CHART_STATUS = { good: "#16a34a", goodWash: "#dcfce7", bad: "#dc2626", badWash: "#fee2e2", warn: "#d97706", warnWash: "#fef3c7", accent: "#2563eb", accentWash: "#dbeafe" };
+
+        // A horizontal rect path rounded only on its "data end" (right edge),
+        // square at the baseline (left edge) — per mark spec.
+        function roundedBarPath(x0, y0, w, h, r) {
+            if (w <= 0) return "";
+            const rr = Math.min(r, w, h / 2);
+            if (rr <= 0.5) return `M${x0},${y0} h${w} v${h} h${-w} Z`;
+            return `M${x0},${y0} H${x0 + w - rr} A${rr},${rr} 0 0 1 ${x0 + w},${y0 + rr} V${y0 + h - rr} A${rr},${rr} 0 0 1 ${x0 + w - rr},${y0 + h} H${x0} Z`;
+        }
+
+        // Illustrative single-DOF resonance shape driven by the entered AF —
+        // not a measured response curve. Visualizes the SM calculator inputs.
+        const ResponseCurveChart = ({ Nc, N1, N2, Nref, position, pass }) => {
+            if (!(Nc > 0 && N1 != null && N2 != null && Nref > 0)) return null;
+            const w = Math.max(1, (N2 - N1) / 2);
+            const xMin = Math.min(N1, Nref, Nc - 4 * w) * 0.97;
+            const xMax = Math.max(N2, Nref, Nc + 4 * w) * 1.03;
+            const W = 600, H = 190, padL = 46, padR = 14, padT = 16, plotW = W - padL - padR, baseY = 150, topY = padT;
+            const sx = (x) => padL + ((x - xMin) / (xMax - xMin)) * plotW;
+            const sy = (a) => baseY - (a / 1.05) * (baseY - topY);
+            const N = 70;
+            let d = "";
+            for (let i = 0; i <= N; i++) {
+                const x = xMin + (i / N) * (xMax - xMin);
+                const a = 1 / Math.sqrt(1 + Math.pow((x - Nc) / w, 2));
+                d += (i === 0 ? "M" : "L") + sx(x).toFixed(1) + "," + sy(a).toFixed(1) + " ";
+            }
+            const zoneX1 = sx(Math.min(Nref, Nc)), zoneX2 = sx(Math.max(Nref, Nc));
+            const zoneColor = pass ? CHART_STATUS.goodWash : CHART_STATUS.badWash;
+            const refLabel = position === "above" ? "Ntrip" : "Nmin";
+            return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Illustrative resonance response curve">
+                    <rect x={zoneX1} y={topY} width={Math.max(0, zoneX2 - zoneX1)} height={baseY - topY} fill={zoneColor} />
+                    <line x1={padL} y1={baseY} x2={padL + plotW} y2={baseY} stroke={CHART_INK.grid} strokeWidth="1" />
+                    <line x1={sx(Nref)} y1={topY} x2={sx(Nref)} y2={baseY} stroke={CHART_INK.secondary} strokeWidth="1.5" strokeDasharray="3,2" />
+                    <text x={sx(Nref)} y={baseY + 14} fontSize="10" textAnchor="middle" fill={CHART_INK.secondary}>{refLabel}</text>
+                    <line x1={sx(Nc)} y1={topY} x2={sx(Nc)} y2={baseY} stroke={CHART_INK.muted} strokeWidth="1" />
+                    <path d={d} fill="none" stroke={CHART_STATUS.accent} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    {[N1, N2].map((n, i) => (
+                        <circle key={i} cx={sx(n)} cy={sy(1 / Math.sqrt(2))} r="4" fill={CHART_STATUS.accent} stroke="#fff" strokeWidth="2">
+                            <title>{(i === 0 ? "N1" : "N2") + ": " + n.toFixed(0) + " rpm (half-power point)"}</title>
+                        </circle>
+                    ))}
+                    <text x={sx(N1)} y={baseY + 14} fontSize="9" textAnchor="middle" fill={CHART_INK.muted}>N1</text>
+                    <text x={sx(N2)} y={baseY + 14} fontSize="9" textAnchor="middle" fill={CHART_INK.muted}>N2</text>
+                    <circle cx={sx(Nc)} cy={sy(1)} r="4" fill={CHART_INK.primary} stroke="#fff" strokeWidth="2"><title>{"Nc: " + Nc.toFixed(0) + " rpm (peak)"}</title></circle>
+                    <text x={sx(Nc)} y={topY + 10} fontSize="10" fontWeight="700" textAnchor="middle" fill={CHART_INK.primary}>Nc</text>
+                    <text x={padL} y={H - 4} fontSize="9" fill={CHART_INK.muted}>Illustrative shape from AF — not measured amplitude</text>
+                </svg>
+            );
+        };
+
+        // Reusable horizontal meter: a value bar against one or two reference
+        // limit ticks. pass=null renders a neutral (informational) blue bar;
+        // pass=true/false renders green/red.
+        const LimitBar = ({ value, valueLabel, limit, limitLabel, secondaryLimit, secondaryLimitLabel, max, pass }) => {
+            if (value == null) return null;
+            const vmax = max || Math.max(value, limit || 0, secondaryLimit || 0) * 1.15 || 1;
+            const W = 600, barH = 18, x0 = 4, barW = W - 8, y0 = 20;
+            const sx = (v) => x0 + Math.max(0, Math.min(1, v / vmax)) * barW;
+            const color = pass == null ? CHART_STATUS.accent : pass ? CHART_STATUS.good : CHART_STATUS.bad;
+            const valueX = sx(value);
+            return (
+                <svg viewBox={`0 0 ${W} 54`} className="w-full h-auto" role="img">
+                    <path d={roundedBarPath(x0, y0, barW, barH, 4)} fill="#f1f5f9" />
+                    <path d={roundedBarPath(x0, y0, Math.max(0, valueX - x0), barH, 4)} fill={color} />
+                    {secondaryLimit != null && (<>
+                        <line x1={sx(secondaryLimit)} x2={sx(secondaryLimit)} y1={y0 - 4} y2={y0 + barH + 4} stroke={CHART_INK.muted} strokeWidth="1.5" strokeDasharray="3,2" />
+                        <text x={sx(secondaryLimit)} y={y0 + barH + 16} fontSize="9" textAnchor="middle" fill={CHART_INK.muted}>{secondaryLimitLabel}</text>
+                    </>)}
+                    {limit != null && (<>
+                        <line x1={sx(limit)} x2={sx(limit)} y1={y0 - 6} y2={y0 + barH + 6} stroke={CHART_INK.secondary} strokeWidth="2" strokeLinecap="round" />
+                        <text x={sx(limit)} y={y0 - 9} fontSize="9" textAnchor="middle" fill={CHART_INK.secondary}>{limitLabel}</text>
+                    </>)}
+                    <text x={Math.min(valueX, W - 4)} y={y0 + barH + 16} fontSize="10" fontWeight="700" textAnchor={valueX > W - 60 ? "end" : "middle"} fill={CHART_INK.primary}>{valueLabel}</text>
+                </svg>
+            );
+        };
+
+        // Gear mesh frequency + 2nd harmonic on a frequency axis, with
+        // optional nearby lateral critical speeds plotted for a quick
+        // 10%-separation visual check.
+        const MeshFreqChart = ({ fm, criticals = [] }) => {
+            if (!(fm > 0)) return null;
+            const validCriticals = criticals.filter(c => c.hz > 0);
+            const xmax = Math.max(fm * 2, ...validCriticals.map(c => c.hz), 1) * 1.2;
+            const W = 600, H = 96, x0 = 12, plotW = W - 24, axisY = 62;
+            const sx = (v) => x0 + (v / xmax) * plotW;
+            const harmonics = [{ mult: "1×", hz: fm, big: true }, { mult: "2×", hz: fm * 2, big: false }];
+            return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img">
+                    <line x1={x0} x2={x0 + plotW} y1={axisY} y2={axisY} stroke={CHART_INK.grid} strokeWidth="1" />
+                    {harmonics.map((h, i) => (
+                        <g key={i}>
+                            <line x1={sx(h.hz)} x2={sx(h.hz)} y1={h.big ? axisY - 40 : axisY - 28} y2={axisY} stroke={CHART_STATUS.accent} strokeWidth={h.big ? 2 : 1.5} opacity={h.big ? 1 : 0.55} strokeLinecap="round" />
+                            <circle cx={sx(h.hz)} cy={h.big ? axisY - 40 : axisY - 28} r="4" fill={CHART_STATUS.accent} opacity={h.big ? 1 : 0.55} stroke="#fff" strokeWidth="2" />
+                            <text x={sx(h.hz)} y={h.big ? axisY - 46 : axisY - 34} fontSize="9" textAnchor="middle" fontWeight={h.big ? "700" : "400"} fill={CHART_INK.primary}>{h.mult} {h.hz.toFixed(0)}Hz</text>
+                        </g>
+                    ))}
+                    {validCriticals.map((c, i) => {
+                        const flagged = Math.abs(c.hz - fm) / fm < 0.1 || Math.abs(c.hz - fm * 2) / (fm * 2) < 0.1;
+                        const color = flagged ? CHART_STATUS.bad : CHART_STATUS.good;
+                        return (
+                            <g key={"c" + i}>
+                                <line x1={sx(c.hz)} x2={sx(c.hz)} y1={axisY} y2={axisY + 16} stroke={color} strokeWidth="2" strokeLinecap="round" />
+                                <circle cx={sx(c.hz)} cy={axisY + 16} r="4" fill={color} stroke="#fff" strokeWidth="2" />
+                                <text x={sx(c.hz)} y={axisY + 28} fontSize="9" textAnchor="middle" fill={color}>{c.label}</text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            );
+        };
+
+        // Illustrative straight-line interpolation between the onset speed
+        // Q0 (log dec = 0, by definition) and the anticipated cross-coupling
+        // QA — not the vendor's computed log-dec curve.
+        const StabilityChart = ({ QA, Q0, logDecAtQA }) => {
+            if (!(QA > 0 && Q0 > 0)) return null;
+            const d = logDecAtQA != null ? logDecAtQA : 0;
+            const dMax = Math.max(0.3, d * 1.4);
+            const dMin = Math.min(0, d * 1.3);
+            const W = 600, H = 168, x0 = 48, y0 = 14, plotW = W - x0 - 16, plotH = 112;
+            const xmax = Math.max(QA, Q0) * 1.25;
+            const sx = (v) => x0 + (v / xmax) * plotW;
+            const sy = (v) => y0 + plotH - ((v - dMin) / (dMax - dMin)) * plotH;
+            const lineColor = d <= 0 ? CHART_STATUS.bad : d < 0.1 ? CHART_STATUS.warn : CHART_STATUS.good;
+            return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img">
+                    <rect x={x0} y={y0} width={Math.max(0, sx(Q0) - x0)} height={plotH} fill={CHART_STATUS.goodWash} />
+                    <rect x={sx(Q0)} y={y0} width={Math.max(0, x0 + plotW - sx(Q0))} height={plotH} fill={CHART_STATUS.badWash} />
+                    <line x1={x0} x2={x0 + plotW} y1={sy(0)} y2={sy(0)} stroke={CHART_INK.grid} strokeWidth="1" />
+                    <line x1={x0} x2={x0 + plotW} y1={sy(0.1)} y2={sy(0.1)} stroke={CHART_INK.muted} strokeWidth="1" strokeDasharray="3,2" />
+                    <text x={x0 + plotW} y={sy(0.1) - 3} fontSize="9" textAnchor="end" fill={CHART_INK.muted}>0.1 min (informal)</text>
+                    <line x1={sx(Q0)} y1={sy(0)} x2={sx(QA)} y2={sy(d)} stroke={lineColor} strokeWidth="2" strokeLinecap="round" />
+                    <circle cx={sx(Q0)} cy={sy(0)} r="4" fill={CHART_INK.primary} stroke="#fff" strokeWidth="2" />
+                    <text x={sx(Q0)} y={y0 + plotH + 16} fontSize="10" fontWeight="700" textAnchor="middle" fill={CHART_INK.primary}>Q0</text>
+                    <circle cx={sx(QA)} cy={sy(d)} r="4" fill={lineColor} stroke="#fff" strokeWidth="2" />
+                    <text x={sx(QA)} y={sy(d) - 10} fontSize="10" fontWeight="700" textAnchor="middle" fill={lineColor}>QA (δ={d.toFixed(2)})</text>
+                    <text x={4} y={y0 + 8} fontSize="9" fill={CHART_INK.muted}>δ</text>
+                    <text x={4} y={H - 4} fontSize="9" fill={CHART_INK.muted}>Illustrative straight-line fit between Q0 and QA — not the vendor's computed curve</text>
+                </svg>
+            );
+        };
+
+        // Rotor-by-rotor review status overview (stacked bars). Placed near
+        // the top of the tool so status is visible without drilling in.
+        const StatusOverviewChart = ({ rows }) => {
+            const W = 640, rowH = 22, rowGap = 12, padL = 130, padR = 92;
+            const barW = W - padL - padR;
+            const H = rows.length * (rowH + rowGap);
+            const GAP = 2;
+            return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img">
+                    {rows.map((r, i) => {
+                        const y = i * (rowH + rowGap);
+                        const total = Math.max(1, r.total);
+                        const segs = [
+                            { v: r.compliant, color: CHART_STATUS.good },
+                            { v: r.deviation, color: CHART_STATUS.bad },
+                            { v: r.pending, color: "#e2e8f0" }
+                        ];
+                        let cx = padL;
+                        return (
+                            <g key={i}>
+                                <text x={padL - 10} y={y + rowH / 2 + 4} fontSize="11" textAnchor="end" fill={CHART_INK.secondary} fontWeight="600">{r.name}</text>
+                                {segs.map((s, si) => {
+                                    if (s.v <= 0) return null;
+                                    const rawW = (s.v / total) * barW;
+                                    const w = Math.max(0, rawW - GAP);
+                                    const el = <rect key={si} x={cx} y={y} width={w} height={rowH} rx="3" fill={s.color} />;
+                                    cx += rawW;
+                                    return el;
+                                })}
+                                <text x={padL + barW + 10} y={y + rowH / 2 + 4} fontSize="10" fill={CHART_INK.muted}>{r.compliant}/{r.total} compliant</text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            );
+        };
+
         const SMCalculator = ({ calc, onChange }) => {
             const Nc = num(calc.Nc), N1 = num(calc.N1), N2 = num(calc.N2), Nref = num(calc.Nref);
             const valid = Nc > 0 && N1 != null && N2 != null && Nref > 0;
@@ -507,6 +806,9 @@
                             </div>
                             <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${result.pass ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{result.pass ? "PASS" : "FAIL"}</span>
                             <p className="text-xs text-slate-400 mt-2">{result.basis}</p>
+                            <div className="mt-3 bg-white border border-slate-200 rounded p-2">
+                                <ResponseCurveChart Nc={Nc} N1={N1} N2={N2} Nref={Nref} position={calc.position} pass={result.pass} />
+                            </div>
                         </div>
                     ) : <p className="text-xs text-slate-400 italic">Enter Nc, N1, N2 and the reference speed to compute.</p>}
                 </div>
@@ -529,7 +831,17 @@
                     </div>
                     <ResultRow label="Allowable Residual Unbalance (U)" r={U} />
                     <ResultRow label={`Analysis Unbalance (${mult}× U)`} r={Uan} />
+                    {Uan && U && (
+                        <div className="bg-white border border-slate-200 rounded p-2 mb-3">
+                            <LimitBar value={Uan.value} valueLabel={Uan.value.toFixed(0) + " g·mm"} limit={U.value} limitLabel={"U = " + U.value.toFixed(0)} pass={null} />
+                        </div>
+                    )}
                     <ResultRow label="Mechanical Test Vibration Limit (A1)" r={A1} />
+                    {A1 && (
+                        <div className="bg-white border border-slate-200 rounded p-2">
+                            <LimitBar value={A1.raw} valueLabel={A1.raw.toFixed(1) + " µm" + (A1.capped ? " (capped)" : "")} limit={cap} limitLabel={"cap " + cap} pass={null} />
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -545,6 +857,11 @@
                         <NumField label="Min. Diametral Clearance" unit="µm" value={calc.minClearance} onChange={v => onChange({ ...calc, minClearance: v })} />
                     </div>
                     <ResultRow label="Ao vs. 75% of Minimum Clearance" r={result} />
+                    {result && (
+                        <div className="mt-2 bg-white border border-slate-200 rounded p-2">
+                            <LimitBar value={Ao} valueLabel={Ao.toFixed(0) + " µm"} limit={result.limit_um} limitLabel="75% limit" secondaryLimit={minC} secondaryLimitLabel="100% clearance" pass={result.pass} />
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -552,15 +869,29 @@
         const MeshCalculator = ({ calc, onChange }) => {
             const N = num(calc.N), teeth = num(calc.teeth);
             const result = (N > 0 && teeth > 0) ? LatEng.meshFrequency(N, teeth) : null;
+            const c1 = num(calc.critical1), c2 = num(calc.critical2);
+            const criticals = [
+                c1 > 0 ? { label: "Critical 1", hz: c1 } : null,
+                c2 > 0 ? { label: "Critical 2", hz: c2 } : null
+            ].filter(Boolean);
             return (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
                     <h4 className="text-sm font-bold text-slate-700 mb-3">Gear Mesh Frequency</h4>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <NumField label="Shaft Speed" unit="rpm" value={calc.N} onChange={v => onChange({ ...calc, N: v })} />
                         <NumField label="Tooth Count" value={calc.teeth} onChange={v => onChange({ ...calc, teeth: v })} />
+                        <NumField label="Nearby Critical 1 (optional)" unit="Hz" value={calc.critical1} onChange={v => onChange({ ...calc, critical1: v })} />
+                        <NumField label="Nearby Critical 2 (optional)" unit="Hz" value={calc.critical2} onChange={v => onChange({ ...calc, critical2: v })} />
                     </div>
                     <ResultRow label="Mesh Frequency" r={result} />
-                    {result && <p className="text-xs text-slate-500 mt-1">2nd harmonic: {(result.value * 2).toFixed(1)} Hz — confirm both are clear of pinion/gear lateral critical speeds.</p>}
+                    {result && (
+                        <>
+                            <p className="text-xs text-slate-500 mt-1 mb-2">2nd harmonic: {(result.value * 2).toFixed(1)} Hz — confirm both are clear of pinion/gear lateral critical speeds (flagged below if within 10%).</p>
+                            <div className="bg-white border border-slate-200 rounded p-2">
+                                <MeshFreqChart fm={result.value} criticals={criticals} />
+                            </div>
+                        </>
+                    )}
                 </div>
             );
         };
@@ -609,6 +940,11 @@
                         <NumField label="Onset Speed Q0" unit="N/mm" value={calc.Q0} onChange={v => onChange({ ...calc, Q0: v })} />
                         <NumField label="Log Dec at QA" value={calc.logDec} onChange={v => onChange({ ...calc, logDec: v })} />
                     </div>
+                    {(qaResult && Q0 > 0) && (
+                        <div className="bg-white border border-slate-200 rounded p-2 mb-3">
+                            <StabilityChart QA={qaResult.value} Q0={Q0} logDecAtQA={logDec} />
+                        </div>
+                    )}
                     <div className="text-sm">
                         <div className="flex gap-6 mb-2">
                             {screen.CSR != null && <p>CSR (Nmc/Nc1): <span className="font-mono font-bold">{screen.CSR.toFixed(3)}</span></p>}
@@ -788,6 +1124,14 @@
                     const def = buildDefaultState();
                     setState(def);
                     if (user) saveToFirebase(def, user.uid);
+                }
+            };
+
+            const loadSampleData = () => {
+                if (confirm("Load worked sample data (project info, calculator inputs and a sample review status for every rotor)? This overwrites current data.")) {
+                    const sample = buildSampleData();
+                    setState(sample);
+                    if (user) saveToFirebase(sample, user.uid);
                 }
             };
 
@@ -1004,6 +1348,20 @@
 
             const ActiveIcon = Icons[currentSections[activeSection]?.iconKey || "Shield"];
 
+            const tallyItems = (sectionsObj) => {
+                let compliant = 0, deviation = 0, pending = 0;
+                Object.values(sectionsObj).forEach(sec => sec.items.forEach(it => {
+                    if (it.status === "compliant") compliant++;
+                    else if (it.status === "deviation") deviation++;
+                    else pending++;
+                }));
+                return { compliant, deviation, pending, total: compliant + deviation + pending };
+            };
+            const statusRows = [
+                { name: "Train (Shared)", ...tallyItems(state.shared) },
+                ...LatData.ROTORS.map(r => ({ name: r.label, ...tallyItems(state.rotors[r.key].sections) }))
+            ];
+
             return (
                 <div className="p-6 max-w-7xl mx-auto">
                     <input type="file" ref={fileInputRef} onChange={handleImportFile} className="hidden" accept=".json" />
@@ -1037,6 +1395,7 @@
                             </div>
                             <div className="flex flex-col md:flex-row justify-end items-center gap-4 pt-2 border-t border-slate-100 mt-2">
                                 <div className="flex flex-wrap items-center gap-2 justify-end w-full">
+                                    <button onClick={loadSampleData} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200"><Icons.Beaker />Sample Data</button>
                                     <button onClick={handleImportClick} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"><Icons.Upload />Import</button>
                                     <button onClick={exportJSON} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"><Icons.Download />Backup</button>
                                     <button onClick={resetData} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"><Icons.RotateCcw />Reset</button>
@@ -1071,6 +1430,21 @@
                                     <input type="text" readOnly value={state.project.configuration} className="w-full text-sm p-2 border border-slate-200 rounded bg-slate-50 text-slate-500" />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Review Status Overview */}
+                    {!searchQuery && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2"><Icons.Table />Review Status Overview</h3>
+                                <div className="flex items-center gap-4 text-xs text-slate-500">
+                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-600 inline-block"></span>Compliant</span>
+                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-600 inline-block"></span>Deviation</span>
+                                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-slate-200 inline-block"></span>Pending</span>
+                                </div>
+                            </div>
+                            <StatusOverviewChart rows={statusRows} />
                         </div>
                     )}
 
