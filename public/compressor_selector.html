@@ -297,6 +297,7 @@
             <button class="tab" data-view="v-lube">Lube Oil</button>
             <button class="tab" data-view="v-seal">Seals</button>
             <button class="tab" data-view="v-charts">Charts</button>
+            <button class="tab" data-view="v-sat">SAT (PTC 10)</button>
             <button class="tab" data-view="v-report">Report</button>
             <button class="tab" data-view="v-help">Help &amp; Formulas</button>
             <button class="tab" data-view="v-reference">Reference</button>
@@ -1020,6 +1021,223 @@
             </div>
         </section>
 
+        <!-- ============================ SAT ============================ -->
+        <section id="v-sat" class="view space-y-5">
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Site acceptance test — basis</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Reduces measured site data against the machine this tool has just selected, following
+                    Kurz, Davis, Kaiser, Brun &amp; McBain, <em>Site Performance Testing of Centrifugal
+                    Compressors and Gas Turbine Drivers</em> (Turbomachinery Laboratory, Texas A&amp;M, 2021),
+                    on ASME PTC 10, PTC 19.1 and ISO 5389. Cited throughout as [SPT].
+                </p>
+                <div id="satBasis"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Test point</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Station-averaged readings for the point being evaluated. Enter every instrument at a
+                    station — the average, and the dismiss-one-of-four rule, are applied per [SPT] p.25.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Section under test</label>
+                        <select id="inSatSection"></select>
+                        <span class="hint">Each section is reduced against its own design point.</span>
+                    </div>
+                    <div class="field">
+                        <label>Speed <span class="unitlbl">rpm</span></label>
+                        <input type="number" id="inSatN" value="0" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Mass flow <span class="unit" data-unit="massFlow"></span></label>
+                        <input type="number" id="inSatW" value="0" step="any">
+                        <span class="hint">From the flow element, reduced at its own p and T.</span>
+                    </div>
+                    <div class="field">
+                        <label>Impeller diameter <span class="unit" data-unit="length"></span></label>
+                        <input type="number" id="inSatD2" value="0" step="any">
+                        <span class="hint">Defaults to the selected machine's D₂.</span>
+                    </div>
+                </div>
+                <div class="grid-fields mt-3">
+                    <div class="field">
+                        <label>Suction pressure — 4 readings <span class="unit" data-unit="pressureRef"></span></label>
+                        <input type="text" id="inSatP1" placeholder="e.g. 30.1, 30.0, 29.9, 30.05">
+                        <span class="hint">Comma separated, scanned at the same instant.</span>
+                    </div>
+                    <div class="field">
+                        <label>Suction temperature — 4 readings <span class="unit" data-unit="temperature"></span></label>
+                        <input type="text" id="inSatT1" placeholder="e.g. 40.1, 40.0, 39.9, 40.0">
+                    </div>
+                    <div class="field">
+                        <label>Discharge pressure — 4 readings <span class="unit" data-unit="pressureRef"></span></label>
+                        <input type="text" id="inSatP2" placeholder="e.g. 60.2, 60.1, 60.0, 60.1">
+                    </div>
+                    <div class="field">
+                        <label>Discharge temperature — 4 readings <span class="unit" data-unit="temperature"></span></label>
+                        <input type="text" id="inSatT2" placeholder="e.g. 120.5, 121.0, 120.2, 120.6">
+                        <span class="hint">A volute leaves a non-uniform exit field — four probes is the [SPT] Table 2 quantity.</span>
+                    </div>
+                </div>
+                <div class="mt-3 no-print">
+                    <button id="btnSatFillPredicted" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Fill from predicted point</button>
+                    <span class="text-xs ml-2" style="color:var(--muted)">Loads the tool's own predicted values as a synthetic test point, for checking the chain end to end.</span>
+                </div>
+                <div id="satStations" class="mt-4"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Data reduction <span class="text-xs font-normal" style="color:var(--muted)">[SPT] Eqs. 1–14</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Real-gas throughout, on the same EOS the prediction used. Actual head H (Eq. 9) sets the
+                    absorbed power; the isentropic head H* (Eq. 8) is the quantity the process data fixes
+                    unambiguously; the polytropic head needs the efficiency as well, so two independent
+                    routes are shown with their spread.
+                </p>
+                <div id="satReduction"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Driver power reconciliation</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Two independent determinations of shaft power. [SPT] p.30 records a case that opened at
+                    4.4 % apart and closed to near-identical once a leaking valve and a wrong flow-meter
+                    calibration coefficient were found — the disagreement is the finding, not the tolerance.
+                </p>
+                <div id="satDriverInputs" class="grid-fields mb-4"></div>
+                <div id="satReconcile"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Steady state <span class="text-xs font-normal" style="color:var(--muted)">[SPT] p.24</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Over a 10-minute interval: speed constant within 5 rpm, efficiency within ±0.5 points of
+                    average, head and actual flow within ±0.5 % of average, at least three data sets. If the
+                    process is not steady, storage effects break the conservation equations the whole
+                    reduction rests on.
+                </p>
+                <div class="field mb-3">
+                    <label>Time samples — one row per scan: t[s], speed[rpm], η<sub>p</sub>[–], head[kJ/kg], flow[m³/s], power[kW]</label>
+                    <textarea id="inSatSamples" rows="5" style="width:100%;font-family:ui-monospace,monospace;font-size:0.8rem" placeholder="0, 11500, 0.78, 95.2, 1.12, 7250&#10;120, 11502, 0.781, 95.3, 1.121, 7255&#10;240, 11499, 0.779, 95.1, 1.119, 7248&#10;360, 11501, 0.780, 95.2, 1.120, 7252&#10;480, 11503, 0.781, 95.4, 1.122, 7258&#10;600, 11500, 0.780, 95.2, 1.120, 7251"></textarea>
+                    <span class="hint">Comma or tab separated. Leave empty to skip the steadiness gate.</span>
+                </div>
+                <div id="satSteady"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Uncertainty <span class="text-xs font-normal" style="color:var(--muted)">ASME PTC 19.1, finite differences</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Because PTC 10's polytropic work is iterative, the Taylor-series partial derivatives are
+                    replaced by finite differences ([SPT] p.20): each measured variable is perturbed by its
+                    systematic uncertainty in turn and the parameter re-evaluated.
+                </p>
+                <div class="grid-fields mb-4">
+                    <div class="field">
+                        <label>Pressure chain accuracy <span class="unitlbl">% of reading</span></label>
+                        <input type="number" id="inSatUp" value="0.5" step="any">
+                        <span class="hint">[SPT] Table 3: 0.3–2.0 % full scale, whole chain.</span>
+                    </div>
+                    <div class="field">
+                        <label>Temperature chain accuracy <span class="unitlbl">K</span></label>
+                        <input type="number" id="inSatUt" value="0.5" step="any">
+                        <span class="hint">[SPT] Table 3: 0.3–4.0 K, whole chain.</span>
+                    </div>
+                    <div class="field">
+                        <label>Flow chain accuracy <span class="unitlbl">% of value</span></label>
+                        <input type="number" id="inSatUw" value="1.0" step="any">
+                        <span class="hint">[SPT] Table 3: 0.5–2.0 % of value.</span>
+                    </div>
+                    <div class="field">
+                        <label>Coverage factor t</label>
+                        <select id="inSatCoverage">
+                            <option value="2">2 — PTC 19.1 95 % form (default)</option>
+                            <option value="1">1 — reproduces the paper's printed values</option>
+                        </select>
+                        <span class="hint">See the note in the engine on Eqs. 20–21.</span>
+                    </div>
+                </div>
+                <div id="satUncertainty"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Acceptance verdict <span class="text-xs font-normal" style="color:var(--muted)">[SPT] p.26</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Only deviations outside the test uncertainty range are significant. If the uncertainty
+                    ellipse drawn around the test point still covers the prediction, the test does not
+                    contradict the prediction.
+                </p>
+                <div id="satVerdict"></div>
+                <div class="chart-wrap mt-4" id="chartSatEllipse"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">PTC-10 deviation from the acceptance conditions</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Type 1 Table 3.1 limits and the Table 3.2 / Fig. 3.3 / Fig. 3.5 similarity bands, shared
+                    with the PTC-10 Type 2 tool on this hub. A benchmark, not a gate: [SPT] p.4 notes site
+                    tests often will not fall within these limits and allowance must be made.
+                </p>
+                <div id="satDeviation"></div>
+                <div class="chart-wrap mt-4" id="chartSatMach"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Speed line and curve diagnosis</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    [SPT] p.24 asks for three complete speed lines, five or more points each, worked from
+                    high flow downward with the acceptance point bracketed. The shape of the measured curve
+                    against prediction is itself diagnostic (p.32).
+                </p>
+                <div class="field mb-3">
+                    <label>Measured points — one row per point: speed[rpm], flow[m³/s], head[kJ/kg]</label>
+                    <textarea id="inSatCurve" rows="5" style="width:100%;font-family:ui-monospace,monospace;font-size:0.8rem" placeholder="11500, 1.35, 88.0&#10;11500, 1.25, 92.0&#10;11500, 1.12, 95.2&#10;11500, 1.00, 97.5&#10;11500, 0.88, 98.4"></textarea>
+                    <span class="hint">Mark the acceptance point by appending a 4th field "A" on its row.</span>
+                </div>
+                <div id="satCurve"></div>
+                <div class="chart-wrap mt-4" id="chartSatCurve"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Instrumentation and installation</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    [SPT] Table 2 instrument quantities for the selected driver, Table 3 achievable chain
+                    accuracies, the straight-run rules of p.25 and the Table 7 probe-length limits.
+                </p>
+                <div class="grid-fields mb-4">
+                    <div class="field">
+                        <label>Flange to elbow <span class="unitlbl">pipe ID</span></label>
+                        <input type="number" id="inSatFlangeD" value="3" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Orifice upstream run <span class="unitlbl">pipe ID</span></label>
+                        <input type="number" id="inSatOrifUpD" value="10" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Probe outer diameter <span class="unitlbl">in</span></label>
+                        <input type="number" id="inSatProbeOD" value="0.5" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Probe insertion length <span class="unitlbl">in</span></label>
+                        <input type="number" id="inSatProbeLen" value="4" step="any">
+                    </div>
+                </div>
+                <div id="satInstrument"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Pre-test checkout and commissioning readiness</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    [SPT] pp.25–26 and pp.32–33. Everything here has to be true before the test is worth
+                    running; several of these items invalidate the result outright if missed.
+                </p>
+                <div id="satChecklist"></div>
+            </div>
+
+        </section>
+
         <!-- ============================ REPORT ============================ -->
         <section id="v-report" class="view space-y-5">
             <div class="card p-5 no-print">
@@ -1160,6 +1378,7 @@
                     <a href="#help-rotor">12. Rotordynamic screening</a>
                     <a href="#help-dew">13. Dew-point screening</a>
                     <a href="#help-limits">14. Where the default limits come from</a>
+                    <a href="#help-sat">15. Site acceptance test (SAT)</a>
                 </div>
             </div>
 
@@ -1539,6 +1758,83 @@ Aungier impeller axial length:
   the published figure fixes the eye ratio and draws one straight line; here D₁/D₂ comes
   from the stage actually solved, so it tracks real geometry<span class="live" data-f="aungierLD"></span></div>
             </div>
+
+            <div class="card p-5" id="help-sat">
+                <h2 class="font-bold text-lg mb-1">15. Site acceptance test (SAT)</h2>
+                <p class="text-sm mb-3" style="color:var(--muted)">
+                    Data reduction, uncertainty and acceptance for a site performance test. Source:
+                    Kurz, Davis, Kaiser, Brun &amp; McBain, <em>Site Performance Testing of Centrifugal
+                    Compressors and Gas Turbine Drivers</em>, Turbomachinery Laboratory, Texas A&amp;M,
+                    2021 — cited as [SPT] — layered on ASME PTC 10, PTC 19.1 and ISO 5389. Equation
+                    numbers below are the paper's.
+                </p>
+                <div class="formula">Data reduction — measured p, T, W in; head, efficiency and power out
+  (7)   ρ    = p / (Z(p,T)·R·T)                     real gas, on the same EOS as the prediction
+  (6)   Q₁   = W / ρ₁                                flow at the COMPRESSOR flange, not at the meter
+  (8)   H*   = h(p₂, s = s₁) − h(p₁, T₁)             isentropic head — fixed by the process data alone
+  (9)   H    = h(p₂, T₂)     − h(p₁, T₁)             actual head — this is what sets the power
+  (10)  H_p  = η_p · H                               polytropic head — needs η_p, which is iterative
+  (11)  η*   = H*/H        η_p = H_p/H
+  (12)  P_g  = ρ₁ · Q₁ · H                           gas power
+  (14)  P    = P_g / η_m                             brake power, η_m ≈ 0.98–0.99
+  (15)  P    = (1/η_m) · Σ P_g,section               multi-section; internal leakage does not affect it
+
+Non-dimensional form — why a site test is compared this way
+  (1)   φ    = Q₁ / (u_tip · D² · π/4)               flow coefficient
+  (2)   ψ    = 2H / u_tip²                           head coefficient, PER STAGE
+  (3)   Q₁/Q₂ held  ⇒  same exit velocity triangle   volume reduction ratio
+  (4)   Ma_u = u_tip / √(k·Z·R·T)                    machine Mach number
+  (5)   Re_u = D_tip · N · b_tip / ν                 machine Reynolds — TIP WIDTH b, not diameter
+  Holding φ and ψ removes the need to test at exactly the predicted speed, and efficiency is
+  already non-dimensional, so the three together pin the operating point.
+
+Two independent determinations of shaft power, then reconcile
+  gas side     P = W·(h₂ − h₁)/η_m                   the heat balance above
+  driver side  torque meter   P = τ·ω                the only DIRECT measurement (0.5–1.5 % of value)
+               motor          P = P_elec · η_motor · η_VFD · η_gear
+               steam turbine  P = W_steam · Δh
+               gas turbine    P = W_fuel · LHV · η_th, or — better — the compressor AS the load cell
+  A gap wider than the combined uncertainty is an instrumentation finding, not a machine finding.
+  [SPT] p.30: one case opened at 4.4 % and closed to near-identical once a leaking valve and a
+  wrong flow-meter calibration coefficient were found.
+
+Uncertainty — ASME PTC 19.1, with finite differences
+  PTC 10's polytropic work is iterative, so the Taylor-series partial derivatives are replaced by
+  finite differences: perturb one measured variable by its systematic uncertainty, re-evaluate.
+  (19)  b_x  = √( Σᵢ (Δᵢ)² )                          Δᵢ = parameter(nominal) − parameter(perturbed)
+  (20)  U_x  = √( b_x² + (t·s_x)² )                   t = 2 for the 95 % form
+  Random scatter sits far below systematic on a well-run test: [SPT] p.19 measured 2.3 / 2.5 / 2.6 %
+  systematic on isentropic head, flow and power, against random std dev under 0.02 / 0.3 / 0.3 %.
+  There is no single test uncertainty for a machine — a low-rise point can sit inside every PTC-10
+  limit and still be too uncertain to settle anything, because efficiency uncertainty scales with
+  the ratio of the temperature error to the temperature rise.
+
+Steady state ([SPT] p.24) — stricter than PTC 10, and stated to be achievable in practice
+  over a 10-minute interval, at least three data sets, all readings scanned at the same instant:
+    speed constant within 5 rpm (full range)
+    efficiency within ±0.5 POINTS of average
+    head and actual flow within ±0.5 % of average
+  Not a noise question: if the process is unsteady, storage effects break the conservation
+  equations the whole reduction rests on.
+
+The verdict ([SPT] p.26)
+  Only deviations OUTSIDE the test uncertainty are significant. If the uncertainty ellipse drawn
+  around the test point still covers the prediction, the test does not contradict the prediction.
+  Efficiency is checked on its own band rather than on the φ–ψ map, because ψ* is built from H*,
+  which contains no discharge temperature — the ellipse is blind to an efficiency error.
+
+Reading a disagreement ([SPT] p.32)
+  curve shifted horizontally, shape intact  →  flow measurement suspect
+  some points on prediction, others not     →  gas composition varied during the test
+  whole curve low, shape intact             →  machine condition, fouling
+
+When the acceptance conditions cannot be reached ([SPT] p.25)
+  Prefer redefining the point over correcting it: pick the reachable point with the SAME φ and the
+  same ψ*, have the OEM re-predict for it, and no Mach or Reynolds correction is applied at all.
+  Correction is the fallback, and "any correction method will introduce a systematic error [which]
+  will increase the larger the difference between the agreed upon and the as tested conditions".</div>
+                <div class="drivers" data-drivers="inSatP1,inSatT1,inSatP2,inSatT2,inSatW,inSatN,inSatUp,inSatUt,inSatUw"></div>
+            </div>
         </section>
 
         <!-- ============================ REFERENCE ============================ -->
@@ -1842,11 +2138,16 @@ Aungier impeller axial length:
          "E.EMPIRICAL_BANDS is undefined": a fresh HTML page paired with a
          months-old engine. Bump this whenever compressor-eos.js gains
          something the page depends on. -->
-    <script src="compressor-eos.js?v=20260820"></script>
+    <script src="compressor-eos.js?v=20260820b"></script>
     <!-- Train accessory engine (gearbox, driver, lube oil, dry gas seals,
          coast-down). Pure computation like compressor-eos.js; must load
          after it - TrainEng leans on CompEng for the EOS. -->
-    <script src="compressor-train.js?v=20260820"></script>
+    <script src="compressor-train.js?v=20260820b"></script>
+    <!-- Site Acceptance Test engine (PTC-10 site / Type 1 data reduction,
+         PTC 19.1 uncertainty, driver power reconciliation). Loads after both
+         of the above: it uses CompEng for the EOS and TrainEng for the steam
+         and gas turbine driver routes. -->
+    <script src="compressor-sat.js?v=20260820b"></script>
 
     <!-- 6. PAGE LOGIC -->
     <script>
@@ -1883,7 +2184,18 @@ Aungier impeller axial length:
             inGtTamb: 'temperature',
             inGtIso: 'power',
             inVsuction: 'volume',
-            inVdischarge: 'volume'
+            inVdischarge: 'volume',
+            // SAT tab. inSatP1/P2 and inSatT1/T2 hold LISTS of readings and are
+            // converted by satStation() rather than by the generic field
+            // machinery, so they are deliberately absent here - a unit-system
+            // switch rewrites them in satSwitchUnits() instead.
+            // The instrument-accuracy fields are percentages and a kelvin
+            // TOLERANCE, never absolute quantities, so they stay out for the
+            // same reason inOilDT does: a degC<->degF conversion would corrupt
+            // them. The straight-run fields are in pipe diameters and the probe
+            // fields are in inches by definition of [SPT] Table 7.
+            inSatW: 'massFlow',
+            inSatD2: 'length'
         };
         // Section fields are dynamic; their categories are held on the element.
 
@@ -1971,9 +2283,28 @@ Aungier impeller axial length:
                 if (captured[i] == null) return;
                 f.el.value = fmtNum(E.fromBase(f.cat, units[f.cat], captured[i]));
             });
+            satSwitchUnits(oldUnits);   // SAT reading LISTS aren't single-value fields
             refreshUnitLabels();
             renderSections();       // sections hold SI; redraw them in the new units
             recalc();
+        }
+
+        /* The SAT station fields each hold a comma-separated LIST of readings,
+           so allUnitFields() - which reads one number per element - cannot carry
+           them across a unit-system switch. Convert every entry in place, using
+           the same old-units-in / new-units-out capture the single fields get.
+           Pressures go through the gauge/absolute basis on both legs so a switch
+           made while showing gauge stays gauge. */
+        function satSwitchUnits(oldUnits) {
+            [['inSatP1', 'pressure', true], ['inSatT1', 'temperature', false],
+             ['inSatP2', 'pressure', true], ['inSatT2', 'temperature', false]].forEach(([id, cat, isP]) => {
+                const el = $(id);
+                if (!el || !el.value.trim()) return;
+                el.value = String(el.value).split(/[,;\s]+/)
+                    .map(v => Number(v)).filter(v => isFinite(v))
+                    .map(v => fmtNum(E.fromBase(cat, units[cat], E.toBase(cat, oldUnits[cat], v))))
+                    .join(', ');
+            });
         }
 
         function refreshUnitLabels() {
@@ -2517,6 +2848,7 @@ Aungier impeller axial length:
          *   bars:   [{x,y,label}]  (drawn on y axis, from y0)
          *   hlines: [{y, color, dash, label, axis}]
          *   points: [{x,y,label,ok}]
+         *   ellipses: [{cx,cy,rx,ry,stroke,fill,dash}]  (rx/ry in DATA units)
          *   legend: [{label,color,dash}]
          * }
          */
@@ -2619,6 +2951,19 @@ Aungier impeller axial length:
             // other, so labels are stacked with a leader line instead of being
             // written at the same height and overlapping into mush.
             const placed = [];
+            // Uncertainty ellipses, drawn under the point markers so the marker
+            // stays readable. rx/ry arrive in data units and are converted per
+            // axis, which is what makes a non-square plot box show the true
+            // shape rather than a circle. [SPT] Fig. 16: the ellipse is the
+            // verdict on a site test, so it has to be visually honest.
+            (o.ellipses || []).forEach(e => {
+                const cx = px(e.cx), cy = py(e.cy);
+                const rx = Math.abs(px(e.cx + e.rx) - cx);
+                const ry = Math.abs(py(e.cy + e.ry) - cy);
+                if (!isFinite(cx) || !isFinite(cy) || !isFinite(rx) || !isFinite(ry)) return;
+                s += `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${e.fill || 'none'}" fill-opacity="${e.fillOpacity == null ? 0.10 : e.fillOpacity}" stroke="${e.stroke || p.muted}" stroke-width="${e.width || 1.2}"${e.dash ? ` stroke-dasharray="${e.dash}"` : ''}/>`;
+            });
+
             (o.points || []).forEach(pt => {
                 if (!isFinite(pt.x) || !isFinite(pt.y)) return;
                 const X = px(pt.x), Y = py(pt.y);
@@ -4295,6 +4640,1000 @@ Aungier impeller axial length:
                 <p class="text-xs mt-2" style="color:var(--muted)">${esc(t.note)}</p>`;
         }
 
+        /* ================================================================ */
+        /* SAT — site acceptance test                                        */
+        /* ---------------------------------------------------------------- */
+        /* Reduces measured site readings against the machine this tool has
+           just selected, per Kurz et al., "Site Performance Testing of
+           Centrifugal Compressors and Gas Turbine Drivers" (Turbomachinery
+           Laboratory, Texas A&M, 2021), cited as [SPT]. All physics lives in
+           compressor-sat.js; everything here is presentation and unit
+           marshalling, the same split the rest of this page uses.            */
+
+        const SAT = window.SatEng;
+
+        /* Driver-side readings for driver kinds that are not on screen right
+           now. renderSatDriverInputs() rebuilds that block whenever the driver
+           changes, which would otherwise throw away what was typed for the
+           previous one. */
+        const satDriverStash = {};
+
+        /* Attach listeners to the driver-side inputs each time that block is
+           rebuilt, and restore anything stashed for the kind now on screen. */
+        function satWireDynamicInputs() {
+            SAT_DYNAMIC_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                if (satDriverStash[id] != null) { el.value = satDriverStash[id]; }
+                el.addEventListener('input', () => {
+                    satDriverStash[id] = el.value;
+                    scheduleSave();
+                    renderSatTab();
+                });
+            });
+        }
+
+        /* Parse a comma/space separated list of readings in DISPLAY units. */
+        function satList(id) {
+            const el = $(id);
+            if (!el) return [];
+            return String(el.value || '').split(/[,;\s]+/)
+                .map(v => Number(v)).filter(v => isFinite(v));
+        }
+
+        /* Station readings -> SI mean, applying the [SPT] p.25 averaging rule. */
+        function satStation(id, cat, isPressure) {
+            const raw = satList(id);
+            if (!raw.length) return null;
+            const si = raw.map(v => isPressure
+                ? (pressureBasis === 'gauge' ? E.toBase('pressure', units.pressure, v) + atmPressureSI()
+                                             : E.toBase('pressure', units.pressure, v))
+                : E.toBase(cat, units[cat], v));
+            /* The stratification limit is expressed in SI so it means the same
+               thing in either unit system: 1 % of the station mean for pressure,
+               2 K for temperature — the point at which [SPT] Table 3's chain
+               accuracy stops explaining the spread. */
+            const m0 = si.reduce((a, b) => a + b, 0) / si.length;
+            const stratLimit = cat === 'temperature' ? 2 : Math.abs(m0) * 0.01;
+            return Object.assign(SAT.averageStations(si, { stratLimit }), { raw, cat, isPressure });
+        }
+
+        function satTextRows(id) {
+            return String(($(id) || {}).value || '').split('\n')
+                .map(l => l.trim()).filter(l => l.length)
+                .map(l => l.split(/[,;\t]+/).map(v => v.trim()));
+        }
+
+        /* The reference (guarantee) point: the section the tool solved. */
+        function satReference() {
+            if (!lastTrain || !lastTrain.sections.length) return null;
+            const idx = Math.max(0, Math.min(lastTrain.sections.length - 1,
+                (Number(($('inSatSection') || {}).value) || 1) - 1));
+            const sec = lastTrain.sections[idx];
+            return { idx, sec, nStages: sec.nStages, D2: sec.D2, N: sec.speed };
+        }
+
+        function satPill(ok) {
+            return ok === null || ok === undefined
+                ? `<span class="pill warn">N/A</span>`
+                : `<span class="pill ${ok ? 'ok' : 'bad'}">${ok ? 'PASS' : 'FAIL'}</span>`;
+        }
+
+        function satTable(head, rows) {
+            return `<table class="data"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                <tbody>${rows.join('')}</tbody></table>`;
+        }
+
+        function satNote(cls, html) {
+            return `<div class="note${cls ? ' ' + cls : ''}">${html}</div>`;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Main render                                                       */
+        /* ---------------------------------------------------------------- */
+
+        function renderSatTab() {
+            if (!SAT) return;
+            const ids = ['satBasis', 'satStations', 'satReduction', 'satDriverInputs', 'satReconcile',
+                'satSteady', 'satUncertainty', 'satVerdict', 'satDeviation', 'satCurve',
+                'satInstrument', 'satChecklist'];
+            if (!$('satBasis')) return;
+
+            if (!lastTrain || !lastInput) {
+                $('satBasis').innerHTML = satNote('bad',
+                    'Solve the compressor first — the SAT tab reduces measured data against the ' +
+                    'selected machine, so it needs a converged design point to compare with.');
+                ids.slice(1).forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                ['chartSatEllipse', 'chartSatMach', 'chartSatCurve'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                return;
+            }
+
+            satSyncSectionPicker();
+            const ref = satReference();
+
+            renderSatBasis(ref);
+            renderSatDriverInputs();
+            renderSatInstrument();
+            renderSatChecklist();
+
+            let pt = null, err = null;
+            try {
+                pt = satReducePoint(ref);
+            } catch (e) {
+                err = e.message || String(e);
+            }
+
+            if (err) {
+                $('satStations').innerHTML = '';
+                $('satReduction').innerHTML = satNote('bad', esc(err));
+                ['satReconcile', 'satUncertainty', 'satVerdict', 'satDeviation'].forEach(i => $(i).innerHTML = '');
+                ['chartSatEllipse', 'chartSatMach'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+            } else if (!pt) {
+                $('satStations').innerHTML = '';
+                $('satReduction').innerHTML = satNote('',
+                    'Enter the four suction and discharge pressure and temperature readings, the mass ' +
+                    'flow and the speed to reduce this point. The <b>Fill from predicted point</b> button ' +
+                    'loads the tool\'s own predicted values as a synthetic test point.');
+                ['satReconcile', 'satUncertainty', 'satVerdict', 'satDeviation'].forEach(i => $(i).innerHTML = '');
+                ['chartSatEllipse', 'chartSatMach'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+            } else {
+                renderSatStations(pt);
+                renderSatReduction(pt, ref);
+                const unc = renderSatUncertainty(pt, ref);
+                renderSatReconcile(pt);
+                renderSatVerdict(pt, ref, unc);
+                renderSatDeviation(pt, ref);
+            }
+
+            renderSatSteady();
+            renderSatCurve(ref);
+        }
+
+        function satSyncSectionPicker() {
+            const el = $('inSatSection');
+            if (!el || !lastTrain) return;
+            const want = lastTrain.sections.length;
+            if (el.options.length !== want) {
+                const cur = el.value;
+                el.innerHTML = lastTrain.sections.map((s, i) =>
+                    `<option value="${i + 1}">Section ${i + 1} — ${s.nStages} stage${s.nStages > 1 ? 's' : ''}</option>`).join('');
+                if (cur && Number(cur) <= want) el.value = cur;
+            }
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatBasis(ref) {
+            const cfg = buildTrainCfg();
+            const d = TrainEng.driverInfo(cfg.driver);
+            const sec = ref.sec;
+            const u = units;
+
+            const kpis = [
+                kpi(disp('volFlow', sec.Q1, 3), unitLabel('volFlow'), 'Inlet volume flow Q₁'),
+                kpi(disp('head', sec.HpTotal, 1), unitLabel('head'), 'Polytropic head'),
+                kpi(fmtNum(sec.etaPoly * 100, 1), '%', 'Polytropic efficiency'),
+                kpi(fmtNum(sec.speed, 0), 'rpm', 'Speed'),
+                kpi(disp('power', sec.shaftPower, 2), unitLabel('power'), 'Shaft power'),
+                kpi(fmtNum(sec.nStages, 0), '', 'Stages')
+            ].join('');
+
+            const eosName = E.MODELS[lastInput.model] || lastInput.model;
+
+            $('satBasis').innerHTML =
+                `<div class="kpi-grid mb-4">${kpis}</div>` +
+                satTable(['Item', 'Value'], [
+                    `<tr><td data-l="Item" style="text-align:left">Test type</td><td data-l="Value"><b>Site test, targeting ASME PTC 10 Type 1 conditions</b></td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Driver</td><td data-l="Value"><b>${esc(d.label)}</b> — ${esc(d.std)}</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Equation of state</td><td data-l="Value"><b>${esc(eosName)}</b> — locked to the prediction</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Impeller diameter D₂</td><td data-l="Value">${dispU('length', sec.D2, 3)}</td></tr>`
+                ]) +
+                satNote('', '<b>EOS discipline.</b> [SPT] p.13 and ISO 5389 both require the test data to be ' +
+                    'reduced on the same equation of state that produced the prediction. It is not a ' +
+                    'formality: on one measured data set the published comparison ([SPT] Table 1) spreads ' +
+                    'isentropic efficiency by up to 2 % and density by 0.5–2.5 % across RK, LKP, BWRS and PR. ' +
+                    'This tab therefore uses <b>' + esc(eosName) + '</b>, taken from Machine &amp; Limits — ' +
+                    'change it there and the reduction changes with it.');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function satReducePoint(ref) {
+            const p1 = satStation('inSatP1', 'pressure', true);
+            const T1 = satStation('inSatT1', 'temperature', false);
+            const p2 = satStation('inSatP2', 'pressure', true);
+            const T2 = satStation('inSatT2', 'temperature', false);
+            const W = readSI($('inSatW'), 'massFlow');
+            const N = Number(($('inSatN') || {}).value);
+            let D2 = readSI($('inSatD2'), 'length');
+            if (!(D2 > 0)) D2 = ref.D2;
+
+            if (!p1 || !T1 || !p2 || !T2 || !(W > 0) || !(N > 0)) return null;
+
+            const r = SAT.reducePoint({
+                mix: lastInput.mix, model: lastInput.model,
+                p1: p1.mean, T1: T1.mean, p2: p2.mean, T2: T2.mean,
+                W, N, D2, nStages: ref.nStages,
+                etaMech: Number($('inEtaMech').value) || 0.985
+            });
+            r.stations = { p1, T1, p2, T2 };
+            r.D2used = D2;
+            return r;
+        }
+
+        function renderSatStations(pt) {
+            const st = pt.stations;
+            const rows = [];
+            const defs = [
+                ['Suction pressure', st.p1, 'pressure', true],
+                ['Suction temperature', st.T1, 'temperature', false],
+                ['Discharge pressure', st.p2, 'pressure', true],
+                ['Discharge temperature', st.T2, 'temperature', false]
+            ];
+            defs.forEach(([label, s, cat, isP]) => {
+                const show = v => isP ? dispPabs(v, 3) : disp(cat, v, 2);
+                rows.push(`<tr>
+                    <td data-l="Station" style="text-align:left">${label}</td>
+                    <td data-l="Readings">${s.n}</td>
+                    <td data-l="Mean"><b>${show(s.mean)}</b> ${esc(unitLabel(cat === 'pressure' ? 'pressureRef' : cat))}</td>
+                    <td data-l="Spread">${isP ? disp('pressure', s.spread, 4) : fmtNum(s.spread, 3)}</td>
+                    <td data-l="Dismissed">${s.discarded ? `#${s.discarded.index + 1}` : '—'}</td>
+                </tr>`);
+            });
+
+            const notes = [];
+            defs.forEach(([label, s]) => (s.notes || []).forEach(n => notes.push(`<li>${esc(label)}: ${esc(n)}</li>`)));
+
+            $('satStations').innerHTML =
+                satTable(['Station', 'Readings', 'Mean', 'Spread', 'Dismissed'], rows) +
+                (notes.length ? satNote('', '<b>Averaging ([SPT] p.25).</b><ul style="margin:6px 0 0 18px">' +
+                    notes.join('') + '</ul>') : '');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatReduction(pt, ref) {
+            const sec = ref.sec;
+            const rows = [
+                ['Inlet volume flow Q₁', dispU('volFlow', pt.Q1, 4), dispU('volFlow', sec.Q1, 4), '(6)'],
+                ['Volume flow ratio Q₁/Q₂', fmtNum(pt.volRatio, 4), '—', '(3)'],
+                ['Actual head H', dispU('head', pt.H, 1), '—', '(9)'],
+                ['Isentropic head H*', dispU('head', pt.Hisen, 1), '—', '(8)'],
+                ['Polytropic head H<sub>p</sub>', dispU('head', pt.Hp, 1), dispU('head', sec.HpTotal, 1), '(10)'],
+                ['Isentropic efficiency η*', fmtNum(pt.etaIsen * 100, 2) + ' %', fmtNum(sec.etaIsen * 100, 2) + ' %', '(11)'],
+                ['Polytropic efficiency η<sub>p</sub>', fmtNum(pt.etaP * 100, 2) + ' %', fmtNum(sec.etaPoly * 100, 2) + ' %', '(11)'],
+                ['Gas power P<sub>g</sub>', dispU('power', pt.Pgas, 3), dispU('power', sec.gasPower, 3), '(12)'],
+                ['Shaft power P', dispU('power', pt.Pshaft, 3), dispU('power', sec.shaftPower, 3), '(14)'],
+                ['Flow coefficient φ', fmtNum(pt.phi, 4), '—', '(1)'],
+                ['Head coefficient ψ* <span class="text-xs" style="color:var(--muted)">per stage</span>', fmtNum(pt.psiIsen, 4), '—', '(2)'],
+                ['Machine Mach number Ma<sub>u</sub>', fmtNum(pt.Mau, 4), '—', '(4)'],
+                ['Machine Reynolds number Re<sub>u</sub>', pt.Reu.toExponential(3), '—', '(5)']
+            ].map(r => `<tr>
+                <td data-l="Quantity" style="text-align:left">${r[0]}</td>
+                <td data-l="Measured"><b>${r[1]}</b></td>
+                <td data-l="Predicted">${r[2]}</td>
+                <td data-l="Eq.">${r[3]}</td></tr>`);
+
+            const spread = pt.HpSpread_pct;
+            const spreadNote = satNote(spread > 1 ? 'warn' : '',
+                `<b>Polytropic head, two routes.</b> Schultz from the measured endpoints gives ` +
+                `${dispU('head', pt.HpSchultz, 1)} (η<sub>p</sub> ${fmtNum(pt.etaPSchultz * 100, 2)} %); ` +
+                `the stepwise ∫v·dP integral, iterated until it reproduces the measured discharge ` +
+                `temperature, gives ${dispU('head', pt.HpPath, 1)} (η<sub>p</sub> ` +
+                `${fmtNum(pt.etaPPath * 100, 2)} %). Spread <b>${fmtNum(spread, 3)} %</b>. ` +
+                `[SPT] Eq. 10 calls η<sub>p</sub> an iterative quantity and cites four different ` +
+                `published methods for it — agree the method before the test, because a spread this ` +
+                `size lands directly on the guarantee.`);
+
+            const powerNote = satNote('',
+                `<b>Why the actual head carries the power.</b> [SPT] p.11: the actual head is not affected ` +
+                `by the choice of a polytropic or isentropic reference process, and it is what sets the ` +
+                `absorbed power. The isentropic head is fixed unambiguously by the process data alone; the ` +
+                `polytropic head additionally needs the efficiency or the discharge temperature. That is ` +
+                `why H (Eq. 9) drives P here and H* (Eq. 8) is the quantity quoted against the ` +
+                `non-dimensional map.`);
+
+            $('satReduction').innerHTML =
+                satTable(['Quantity', 'Measured', 'Predicted', '[SPT] Eq.'], rows) +
+                spreadNote + powerNote +
+                (pt.warnings.length
+                    ? satNote('warn', '<ul style="margin:0 0 0 18px">' +
+                        pt.warnings.map(w => `<li>${esc(w)}</li>`).join('') + '</ul>')
+                    : '');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatDriverInputs() {
+            const cfg = buildTrainCfg();
+            const kind = cfg.driver;
+            const el = $('satDriverInputs');
+            if (!el) return;
+
+            const F = (id, label, val, hint, unitlbl) => `<div class="field">
+                <label>${label}${unitlbl ? ` <span class="unitlbl">${unitlbl}</span>` : ''}</label>
+                <input type="number" id="${id}" value="${val}" step="any">
+                ${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+
+            let html = F('inSatTorque', 'Coupling torque', '0', 'The only direct shaft-power measurement. Leave 0 if not fitted.', 'N·m');
+
+            if (kind === 'motor_ind' || kind === 'motor_sync') {
+                html += F('inSatElecKw', 'Electrical input power', '0', 'Metered at the drive input.', 'kW')
+                     + F('inSatEtaMotor', 'Motor efficiency at full load', '0.968', 'Nameplate.', '–')
+                     + F('inSatEtaVfd', 'VFD efficiency', '0', 'Leave 0 if there is no drive.', '–');
+            } else if (kind === 'steam') {
+                html += F('inSatSteamFlow', 'Steam mass flow', '0', 'Measured at the turbine inlet.', 'kg/s')
+                     + F('inSatEtaTurb', 'Turbine efficiency', '0', 'Leave 0 to use the correlated value.', '–');
+            } else {
+                html += F('inSatFuelFlow', 'Fuel gas mass flow', '0', 'Measured at the engine.', 'kg/s')
+                     + F('inSatFuelLhv', 'Fuel lower heating value', '47000', '', 'kJ/kg')
+                     + F('inSatEtaTh', 'Engine thermal efficiency', '0', 'From the cycle deck at the test conditions.', '–');
+            }
+            if (el.dataset.kind !== kind) {
+                el.innerHTML = html;
+                el.dataset.kind = kind;
+                satWireDynamicInputs();
+            }
+        }
+
+        function satDriverReading() {
+            const cfg = buildTrainCfg();
+            const v = id => Number((($(id) || {}).value) || 0);
+            const r = { torque_Nm: v('inSatTorque'), N_rpm: Number(($('inSatN') || {}).value) || 0 };
+            if (cfg.driver === 'motor_ind' || cfg.driver === 'motor_sync') {
+                r.elecPower_W = v('inSatElecKw') * 1000;
+                r.etaMotor = v('inSatEtaMotor');
+                r.etaMotor100 = v('inSatEtaMotor');
+                r.vfd = v('inSatEtaVfd') > 0;
+                r.etaVfd = v('inSatEtaVfd');
+            } else if (cfg.driver === 'steam') {
+                r.steamFlow_kgs = v('inSatSteamFlow');
+                r.etaTurbine = v('inSatEtaTurb');
+                r.steamPin_Pa = readSI($('inSteamPin'), 'pressure');
+                r.steamTin_K = readSI($('inSteamTin'), 'temperature');
+                r.steamPexh_Pa = readSI($('inSteamPexh'), 'pressure');
+            } else {
+                r.fuelFlow_kgs = v('inSatFuelFlow');
+                r.fuelLHV_Jkg = v('inSatFuelLhv') * 1000;
+                r.etaThermal = v('inSatEtaTh');
+            }
+            return { reading: r, driver: cfg.driver };
+        }
+
+        function renderSatReconcile(pt) {
+            const { reading, driver } = satDriverReading();
+            const dp = SAT.driverPower({
+                driver, reading,
+                ratedPower_W: lastAcc && lastAcc.driver ? lastAcc.driver.rated : undefined
+            });
+
+            /* The gas-power side carries its own uncertainty, taken from the
+               instrument accuracies entered on the uncertainty card rather than
+               from a fixed number, so improving an instrument visibly narrows
+               the reconciliation window too. */
+            const uGas = SAT.SAT_REFS.typicalSystematic.absorbedPower;
+            const gasSide = { P_shaft: pt.Pshaft, u_pct: satPowerUncertaintyPct || uGas };
+
+            const rec = SAT.reconcile(gasSide, dp);
+
+            let html = '';
+            if (!dp.ok && !(dp.P_shaft > 0)) {
+                html += satNote('warn', `<b>${esc(dp.method)}</b> — ` +
+                    (dp.notes || []).map(esc).join(' ') );
+            }
+
+            html += satTable(['Determination', 'Shaft power', 'Uncertainty', 'Method'], [
+                `<tr><td data-l="Determination" style="text-align:left">Compressor gas power (heat balance)</td>
+                     <td data-l="Shaft power"><b>${dispU('power', pt.Pshaft, 3)}</b></td>
+                     <td data-l="Uncertainty">± ${fmtNum(gasSide.u_pct, 2)} %</td>
+                     <td data-l="Method">[SPT] Eqs. 12–14</td></tr>`,
+                `<tr><td data-l="Determination" style="text-align:left">Driver side</td>
+                     <td data-l="Shaft power"><b>${dp.P_shaft > 0 ? dispU('power', dp.P_shaft, 3) : '—'}</b></td>
+                     <td data-l="Uncertainty">${isFinite(dp.u_pct) ? '± ' + fmtNum(dp.u_pct, 2) + ' %' : '—'}</td>
+                     <td data-l="Method">${esc(dp.method)}${dp.direct ? ' <span class="pill ok">DIRECT</span>' : ''}</td></tr>`
+            ]);
+
+            if (rec.available) {
+                html += satNote(rec.ok ? '' : 'bad',
+                    `<b>Δ = ${fmtNum(rec.delta_pct, 2)} %</b> against a combined uncertainty of ` +
+                    `${fmtNum(rec.u_combined_pct, 2)} %. ${esc(rec.verdict)}`);
+                if (rec.causes.length) {
+                    html += satTable(['Look here first', 'Why'],
+                        rec.causes.map(c => `<tr>
+                            <td data-l="Look here first" style="text-align:left"><b>${esc(c.cause)}</b></td>
+                            <td data-l="Why" style="text-align:left">${esc(c.detail)}</td></tr>`));
+                }
+            } else {
+                html += satNote('warn', esc(rec.note));
+            }
+
+            if ((dp.notes || []).length && dp.P_shaft > 0) {
+                html += satNote('', '<ul style="margin:0 0 0 18px">' +
+                    dp.notes.map(n => `<li>${esc(n)}</li>`).join('') + '</ul>');
+            }
+
+            /* Gas turbine: the full-load validity gate. */
+            if (driver === 'gasturbine') {
+                html += satNote('', '<b>Gas turbine full-load points.</b> [SPT] p.8 inverts the usual ' +
+                    'hierarchy here: "Gas turbine output power can be measured using the driven ' +
+                    'compressors." For a full-load rating the compressor is the load cell, its operating ' +
+                    'point does not matter, and only its absorbed power is needed — but the engine must ' +
+                    'genuinely be on a control limit (gas producer speed or firing temperature), not ' +
+                    'capped by fuel gas pressure or by the compressor\'s own speed limit, and its air ' +
+                    'compressor must have been washed or the point is invalid ([SPT] p.15, p.26).');
+            }
+
+            $('satReconcile').innerHTML = html;
+        }
+
+        let satPowerUncertaintyPct = 0;
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatUncertainty(pt, ref) {
+            const upPct = Number($('inSatUp').value) || 0.5;
+            const uT = Number($('inSatUt').value) || 0.5;
+            const uWPct = Number($('inSatUw').value) || 1.0;
+            const cov = Number($('inSatCoverage').value) || 2;
+
+            const steady = satSteadyResult;
+            const fluct = steady && isFinite(steady.powerFluctuation_pct) ? steady.powerFluctuation_pct : 0;
+
+            let unc;
+            try {
+                unc = SAT.pointUncertainty({
+                    point: { p1: pt.inlet.P, T1: pt.inlet.T, p2: pt.outlet.P, T2: pt.outlet.T, W: pt.W },
+                    mix: lastInput.mix, model: lastInput.model,
+                    D2: pt.D2used, N: pt.N, nStages: ref.nStages,
+                    etaMech: pt.etaMech,
+                    u: {
+                        p1: pt.inlet.P * upPct / 100, p2: pt.outlet.P * upPct / 100,
+                        T1: uT, T2: uT, W: pt.W * uWPct / 100
+                    },
+                    coverage: cov,
+                    powerFluctuation_pct: fluct
+                });
+            } catch (e) {
+                $('satUncertainty').innerHTML = satNote('bad', 'Uncertainty analysis failed: ' + esc(e.message || e));
+                return null;
+            }
+
+            satPowerUncertaintyPct = unc.Pshaft ? unc.Pshaft.rel_pct : 0;
+
+            const labels = {
+                etaP: 'Polytropic efficiency η<sub>p</sub>',
+                Hisen: 'Isentropic head H*',
+                Hp: 'Polytropic head H<sub>p</sub>',
+                Q1: 'Actual inlet flow Q₁',
+                Pshaft: 'Absorbed power P'
+            };
+            const bench = { Hisen: 2.3, Q1: 2.5, Pshaft: 2.6 };
+
+            const rows = Object.keys(labels).map(k => {
+                const r = unc[k];
+                if (!r) return '';
+                const b = bench[k];
+                return `<tr>
+                    <td data-l="Parameter" style="text-align:left">${labels[k]}</td>
+                    <td data-l="Uncertainty"><b>± ${fmtNum(r.rel_pct, 2)} %</b></td>
+                    <td data-l="Dominant">${esc(r.dominant || '—')} (${fmtNum(r.contributions.length ? r.contributions[0].share_pct : 0, 0)} %)</td>
+                    <td data-l="Typical site test">${b ? fmtNum(b, 1) + ' %' : '—'}</td>
+                    <td data-l="Result">${b ? satPill(r.rel_pct <= b * 1.5) : ''}</td></tr>`;
+            });
+
+            const eta = unc.etaP;
+            const budget = eta ? satTable(['Variable', 'Perturbation', 'Δη<sub>p</sub>', 'Share'],
+                eta.contributions.map(c => `<tr>
+                    <td data-l="Variable" style="text-align:left">${esc(c.variable)}</td>
+                    <td data-l="Perturbation">${fmtNum(c.perturbation, 4)}</td>
+                    <td data-l="Delta">${fmtNum(c.delta, 5)}</td>
+                    <td data-l="Share">${fmtNum(c.share_pct, 1)} %</td></tr>`)) : '';
+
+            let html = satTable(['Parameter', 'Expanded uncertainty U', 'Dominant contributor', 'Typical site test', ''], rows);
+            html += satNote('', `<b>Where the effort belongs.</b> The efficiency budget below is ranked by ` +
+                `contribution, which is the whole point of running it before the test: [SPT] p.34 asks for ` +
+                `an analysis that "identifies the sources of measurement errors and aims to improve those ` +
+                `instruments that have a significant impact on the overall uncertainty". ` +
+                (eta && eta.dominant ? `Here that is <b>${esc(eta.dominant)}</b>.` : ''));
+            html += budget;
+
+            if (unc._benchmark) {
+                html += satNote('', esc(unc._benchmark.note));
+            }
+            if (unc.Pshaft && unc.Pshaft.unsteadyNote) {
+                html += satNote('warn', `<b>Unsteadiness penalty.</b> Power fluctuated ` +
+                    `${fmtNum(fluct, 2)} % about the mean, adding ${fmtNum(SAT.unsteadyPenalty(fluct), 2)} % ` +
+                    `to the absorbed-power uncertainty per ISO 5389-1992 Table 4. ` + esc(unc.Pshaft.unsteadyNote));
+            }
+
+            /* [SPT] Fig. 17 — the trap worth naming explicitly. */
+            const rise = pt.outlet.T - pt.inlet.T;
+            if (eta && eta.rel_pct > 3) {
+                html += satNote('warn', `<b>Low rise, high uncertainty.</b> The temperature rise across this ` +
+                    `point is ${fmtNum(rise, 1)} K, and efficiency uncertainty scales with the ratio of the ` +
+                    `temperature measurement error to that rise. At ± ${fmtNum(eta.rel_pct, 1)} % this point ` +
+                    `cannot settle a guarantee no matter how well it sits inside the PTC-10 limits. ` +
+                    `[SPT] Fig. 17: there is no single test uncertainty for a machine — higher-head points ` +
+                    `carry lower uncertainty because the relative errors from the pressure and temperature ` +
+                    `measurements shrink. Choose the acceptance point accordingly.`);
+            }
+
+            $('satUncertainty').innerHTML = html;
+            return unc;
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatVerdict(pt, ref, unc) {
+            const sec = ref.sec;
+            if (!unc || !unc.phi || !unc.psiIsen) { $('satVerdict').innerHTML = ''; return; }
+
+            /* Predicted non-dimensionals for the same impeller and stage count. */
+            const uTipRef = Math.PI * sec.D2 * sec.speed / 60;
+            const predPhi = sec.Q1 / (uTipRef * sec.D2 * sec.D2 * Math.PI / 4);
+            const predPsi = 2 * ((sec.path ? sec.path.Hs : sec.HpTotal * sec.etaIsen / sec.etaPoly) / sec.nStages) / (uTipRef * uTipRef);
+
+            const ell = SAT.acceptanceEllipse({
+                phi: pt.phi, psi: pt.psiIsen,
+                uPhi: unc.phi.Ux, uPsi: unc.psiIsen.Ux,
+                predictedPhi: predPhi, predictedPsi: predPsi
+            });
+
+            const contract = SAT.contractCheck({
+                power: pt.Pshaft, powerSpec: sec.shaftPower,
+                head: pt.Hp, headSpec: sec.HpTotal,
+                capacity: pt.Q1, capacitySpec: sec.Q1,
+                eta: pt.etaP, etaSpec: sec.etaPoly
+            });
+
+            /* Efficiency is checked separately, and it has to be.
+               [SPT] p.5: "Efficiency is already a non-dimensional value" - it
+               needs no map, so it never appears on the phi-psi plane. More to
+               the point, the ellipse CANNOT see an efficiency error: psi* is
+               built from the isentropic head H* = h(p2, s1) - h(p1, T1), which
+               does not contain the discharge temperature at all. Put 3 K of
+               error on T2 and the ellipse does not move by a thousandth, while
+               the efficiency moves by nearly two points. An acceptance verdict
+               resting on the ellipse alone would pass a machine that missed its
+               efficiency guarantee outright. */
+            const etaU = unc.etaP ? unc.etaP.Ux : NaN;
+            const etaDev = pt.etaP - sec.etaPoly;
+            const etaCovers = isFinite(etaU) && etaU > 0
+                ? Math.abs(etaDev) <= etaU
+                : null;
+
+            const overall = ell.ok && ell.covers && etaCovers !== false;
+
+            let html = '';
+            if (ell.ok) {
+                html += `<div class="kpi-grid mb-4">
+                    ${kpi(overall ? 'PASS' : 'REVIEW', '', 'Overall verdict ([SPT] p.26)')}
+                    ${kpi(fmtNum(ell.radius, 2), '', 'Ellipse radii to prediction')}
+                    ${kpi(fmtNum(ell.devPhi_pct, 2), '%', 'Flow coefficient deviation')}
+                    ${kpi(fmtNum(ell.devPsi_pct, 2), '%', 'Head coefficient deviation')}
+                    ${kpi(fmtNum(etaDev * 100, 2), 'pts', 'Efficiency deviation')}
+                </div>`;
+                html += satNote(ell.covers ? '' : 'warn',
+                    `<b>Flow and head — the ellipse.</b> ${esc(ell.verdict)}`);
+                html += satNote(etaCovers === false ? 'bad' : '',
+                    `<b>Efficiency — its own band.</b> Measured η<sub>p</sub> ` +
+                    `${fmtNum(pt.etaP * 100, 2)} % against a predicted ${fmtNum(sec.etaPoly * 100, 2)} %, ` +
+                    `a deviation of ${fmtNum(etaDev * 100, 2)} points with an expanded uncertainty of ` +
+                    `± ${fmtNum(etaU * 100, 2)} points. ` +
+                    (etaCovers === null
+                        ? 'No uncertainty available, so this is reported without a verdict.'
+                        : etaCovers
+                            ? 'The deviation is inside the test uncertainty, so it is not significant.'
+                            : 'The deviation is OUTSIDE the test uncertainty, so it is significant. ' +
+                              'Efficiency is checked here rather than on the map because the head ' +
+                              'coefficient is built from the isentropic head, which does not contain ' +
+                              'the discharge temperature — the ellipse is structurally blind to an ' +
+                              'efficiency error and cannot be used to clear one.'));
+            }
+
+            html += `<h3 class="font-semibold text-sm mt-4 mb-2">Contract tolerances</h3>`;
+            const contractUnit = {
+                'Absorbed power': v => dispU('power', v, 3),
+                'Polytropic head': v => dispU('head', v, 1),
+                'Capacity': v => dispU('volFlow', v, 4),
+                'Polytropic efficiency': v => fmtNum(v * 100, 2) + ' %'
+            };
+            const showC = (label, v) => (contractUnit[label] || (x => fmtNum(x, 4)))(v);
+
+            html += satTable(['Parameter', 'Measured', 'Specified', 'Deviation', 'Allowed', 'Result'],
+                contract.rows.map(r => `<tr>
+                    <td data-l="Parameter" style="text-align:left">${esc(r.label)}</td>
+                    <td data-l="Measured">${showC(r.label, r.measured)}</td>
+                    <td data-l="Specified">${showC(r.label, r.specified)}</td>
+                    <td data-l="Deviation">${fmtNum(r.dev_pct, 2)} %</td>
+                    <td data-l="Allowed">${r.lo_pct <= -100 ? '' : fmtNum(r.lo_pct, 1) + ' to '}${fmtNum(r.up_pct, 1)} %</td>
+                    <td data-l="Result">${satPill(r.ok)}</td></tr>`));
+            html += satNote('', '<b>Which finding governs.</b> The contract tolerances above are commercial ' +
+                'limits and are reported as such. The technical finding is the ellipse: a deviation that ' +
+                'sits inside the test uncertainty is not evidence of a shortfall, however it compares with ' +
+                'a tolerance, and a test too uncertain to resolve the tolerance cannot settle the point ' +
+                'either way.');
+
+            $('satVerdict').innerHTML = html;
+
+            /* --- the (φ, ψ) map with uncertainty ellipses --- */
+            const p = pal();
+            const xs = [pt.phi, predPhi], ys = [pt.psiIsen, predPsi];
+            const padX = Math.max(unc.phi.Ux * 2.5, Math.abs(pt.phi) * 0.15);
+            const padY = Math.max(unc.psiIsen.Ux * 2.5, Math.abs(pt.psiIsen) * 0.15);
+            $('chartSatEllipse').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Non-dimensional map — test point with its uncertainty ellipse',
+                xlab: 'Flow coefficient φ', ylab: 'Head coefficient ψ* (per stage)',
+                x0: Math.min.apply(null, xs) - padX, x1: Math.max.apply(null, xs) + padX,
+                y0: Math.min.apply(null, ys) - padY, y1: Math.max.apply(null, ys) + padY,
+                xfmt: v => fmtNum(v, 4), yfmt: v => fmtNum(v, 3),
+                ellipses: [{
+                    cx: pt.phi, cy: pt.psiIsen, rx: unc.phi.Ux, ry: unc.psiIsen.Ux,
+                    stroke: ell.covers ? p.ok : p.bad, fill: ell.covers ? p.ok : p.bad,
+                    fillOpacity: 0.10, width: 1.6
+                }],
+                points: [
+                    { x: pt.phi, y: pt.psiIsen, label: 'Test', ok: true },
+                    { x: predPhi, y: predPsi, label: 'Predicted', ok: ell.covers }
+                ],
+                legend: [
+                    { label: 'Test point', color: p.ok },
+                    { label: 'Predicted', color: ell.covers ? p.ok : p.bad },
+                    { label: 'Expanded uncertainty ellipse (95 %)', color: ell.covers ? p.ok : p.bad }
+                ]
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatDeviation(pt, ref) {
+            const sec = ref.sec;
+            const uTipRef = Math.PI * sec.D2 * sec.speed / 60;
+            const specMau = uTipRef / (sec.inletDerived ? sec.inletDerived.sonic : NaN);
+            const specPhi = sec.Q1 / (uTipRef * sec.D2 * sec.D2 * Math.PI / 4);
+
+            let specReu = NaN;
+            try {
+                const mu = SAT.gasViscosity(lastInput.mix, sec.inlet.T, sec.inlet.P, lastInput.model);
+                specReu = sec.inlet.rho * uTipRef * (0.05 * sec.D2) / mu;
+            } catch (e) { /* leave NaN — the row is simply omitted */ }
+
+            const dev = SAT.deviationCheck({
+                spec: {
+                    p1: sec.inlet.P, T1: sec.inlet.T, N: sec.speed,
+                    MW: lastInput.mix.MW, Q1: sec.Q1,
+                    Mau: specMau, phi: specPhi, Reu: specReu,
+                    // v1/v2, matching reducePoint's Q1/Q2. rho1/rho2 is the
+                    // reciprocal of that and turns an exact match into a
+                    // ratio of 4.4 against a 0.95-1.05 limit.
+                    volRatio: sec.outlet.rho / sec.inlet.rho
+                },
+                test: {
+                    p1: pt.inlet.P, T1: pt.inlet.T, N: pt.N,
+                    MW: lastInput.mix.MW, Q1: pt.Q1,
+                    Mau: pt.Mau, phi: pt.phi, Reu: pt.Reu,
+                    volRatio: pt.volRatio
+                }
+            });
+
+            /* Show test and specified in the display units the rest of the page
+               uses, not raw SI - a bare "3000000" against "3000000" tells the
+               reader nothing about which point was tested. */
+            const showVal = (key, v) => {
+                if (!isFinite(v)) return '—';
+                switch (key) {
+                    case 'p1': return dispPabs(v, 3) + ' ' + unitLabel('pressureRef');
+                    case 'T1': return disp('temperature', v, 2) + ' ' + unitLabel('temperature');
+                    case 'N': return fmtNum(v, 0) + ' rpm';
+                    case 'Q1': return dispU('volFlow', v, 4);
+                    case 'MW': return fmtNum(v, 3) + ' kg/kmol';
+                    case 'Reu': return v.toExponential(3);
+                    default: return fmtNum(v, 4);
+                }
+            };
+
+            const rows = dev.rows.map(r => {
+                let devTxt, limTxt;
+                if (r.dev_pct != null) { devTxt = fmtNum(r.dev_pct, 2) + ' %'; limTxt = '± ' + fmtNum(r.tol_pct, 0) + ' %'; }
+                else if (r.ratio != null) { devTxt = 'ratio ' + fmtNum(r.ratio, 4); limTxt = fmtNum(r.lo, 3) + ' – ' + fmtNum(r.up, 3); }
+                else { devTxt = (r.delta >= 0 ? '+' : '') + fmtNum(r.delta, 4); limTxt = fmtNum(r.lo, 3) + ' to ' + fmtNum(r.up, 3); }
+                return `<tr>
+                    <td data-l="Parameter" style="text-align:left">${esc(r.label)}</td>
+                    <td data-l="Test">${showVal(r.key, r.test)}</td>
+                    <td data-l="Specified">${showVal(r.key, r.spec)}</td>
+                    <td data-l="Deviation">${devTxt}</td>
+                    <td data-l="Limit">${limTxt}</td>
+                    <td data-l="Source">${esc(r.table)}</td>
+                    <td data-l="Result">${satPill(r.ok)}</td></tr>`;
+            });
+
+            let html = satTable(['Parameter', 'Test', 'Specified', 'Deviation', 'Limit', 'Source', ''], rows);
+            html += satNote(dev.level === 'pass' ? '' : 'warn', esc(dev.note));
+
+            /* Fan-law validity — stage-count dependent, [SPT] Fig. 4. */
+            if (dev.mach) {
+                const fl = SAT.fanLawValid({ dMa: dev.mach.dMa, nStages: ref.nStages, Md: specMau });
+                html += satNote(fl.ok ? '' : 'warn',
+                    `<b>Fan-law validity.</b> ${esc(fl.note)} ${esc(fl.verdict)}`);
+            }
+
+            /* The alternate-point route, which the paper prefers to correcting. */
+            if (!dev.allWithin) {
+                const alt = SAT.alternatePoint({
+                    guarantee: { phi: specPhi, psiIsen: 2 * ((sec.path ? sec.path.Hs : sec.HpTotal) / sec.nStages) / (uTipRef * uTipRef), N: sec.speed, D2: sec.D2 },
+                    N_achievable: pt.N, D2: sec.D2
+                });
+                if (alt.ok) {
+                    html += satNote('', `<b>Alternate test point ([SPT] p.25).</b> Rather than correct a ` +
+                        `badly-matched point and carry the correction error, define the point at ` +
+                        `${fmtNum(alt.N, 0)} rpm that holds the guarantee point's φ and ψ*: ` +
+                        `Q₁ = ${dispU('volFlow', alt.Q1, 4)}, H* = ${dispU('head', alt.Hisen, 1)}. ` +
+                        `The OEM re-predicts for that point, and no Mach or Reynolds correction is then ` +
+                        `applied at all — which is exactly why this route is preferable.`);
+                }
+            }
+
+            $('satDeviation').innerHTML = html;
+
+            /* Fig. 3.3 band chart with the test point on it. */
+            if (dev.mach && isFinite(specMau)) {
+                const p = pal();
+                const band = [];
+                for (let m = 0; m <= 1.2001; m += 0.02) band.push(m);
+                $('chartSatMach').innerHTML = svgPlot({
+                    w: 720, h: 380,
+                    title: 'ASME PTC-10 Fig. 3.3 — allowable Mach number departure',
+                    xlab: 'Specified machine Mach number', ylab: 'Mt − Md',
+                    x0: 0, x1: 1.2, y0: -0.30, y1: 0.32,
+                    xfmt: v => fmtNum(v, 2), yfmt: v => fmtNum(v, 2),
+                    series: [
+                        { pts: band.map(m => [m, SAT.machLimits(m).up]), stroke: p.bad, width: 2 },
+                        { pts: band.map(m => [m, SAT.machLimits(m).lo]), stroke: p.bad, width: 2 },
+                        { pts: [[0, 0], [1.2, 0]], stroke: p.muted, dash: '4 4' }
+                    ],
+                    points: [{ x: specMau, y: dev.mach.dMa, label: 'Test', ok: dev.mach.ok }],
+                    legend: [
+                        { label: 'PTC-10 Fig. 3.3 band', color: p.bad },
+                        { label: 'No departure', color: p.muted, dash: '4 4' }
+                    ]
+                });
+            } else if ($('chartSatMach')) {
+                $('chartSatMach').innerHTML = '';
+            }
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        let satSteadyResult = null;
+
+        function renderSatSteady() {
+            const rows = satTextRows('inSatSamples');
+            if (!rows.length) {
+                satSteadyResult = null;
+                $('satSteady').innerHTML = satNote('',
+                    'No time samples entered, so the steadiness gate is not applied and no unsteadiness ' +
+                    'penalty is added to the absorbed-power uncertainty. [SPT] p.24 requires at least ' +
+                    'three data sets over a 10-minute interval per test point.');
+                return;
+            }
+            const samples = rows.map(r => ({
+                t_s: Number(r[0]), N_rpm: Number(r[1]), etaP: Number(r[2]),
+                head: Number(r[3]), flow: Number(r[4]), power: Number(r[5])
+            })).filter(s => isFinite(s.t_s));
+
+            const res = SAT.steadyState(samples);
+            satSteadyResult = res;
+
+            const body = res.checks.map(c => `<tr>
+                <td data-l="Channel" style="text-align:left">${esc(c.label)}${c.basis ? ` <span class="text-xs" style="color:var(--muted)">(${esc(c.basis)})</span>` : ''}</td>
+                <td data-l="Mean">${isFinite(c.mean) ? fmtNum(c.mean, 3) : '—'}</td>
+                <td data-l="Deviation">${isFinite(c.deviation) ? fmtNum(c.deviation, 3) : '—'} ${esc(c.unit || '')}</td>
+                <td data-l="Limit">${isFinite(c.tol) ? fmtNum(c.tol, 2) + ' ' + esc(c.unit || '') : '—'}</td>
+                <td data-l="Result">${satPill(c.ok)}</td></tr>`);
+
+            let html = `<div class="kpi-grid mb-4">
+                ${kpi(res.ok ? 'STEADY' : 'UNSTEADY', '', 'Verdict')}
+                ${kpi(res.nSets, '', 'Data sets')}
+                ${kpi(fmtNum(res.powerFluctuation_pct, 2), '%', 'Power fluctuation')}
+                ${kpi(fmtNum(res.unsteadyPenalty_pct, 2), '%', 'ISO 5389 added uncertainty')}
+            </div>`;
+            html += satTable(['Channel', 'Mean', 'Deviation', 'Limit', ''], body);
+            if (res.notes.length) {
+                html += satNote('warn', '<ul style="margin:0 0 0 18px">' +
+                    res.notes.map(n => `<li>${esc(n)}</li>`).join('') + '</ul>');
+            }
+            if (!res.ok) {
+                html += satNote('bad', '<b>Why this is not just noise.</b> [SPT] p.12: if the process is not ' +
+                    'in a steady state, the conservation equations for flow and energy have to consider ' +
+                    'storage effects. The reduction on the cards above assumes they do not — an unsteady ' +
+                    'point is not a noisier answer to the same question, it is an answer to a different one.');
+            }
+            $('satSteady').innerHTML = html;
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatCurve(ref) {
+            const rows = satTextRows('inSatCurve');
+            const sec = ref.sec;
+            if (!rows.length) {
+                $('satCurve').innerHTML = satNote('',
+                    '[SPT] p.24 recommends three complete speed lines, five or more points each, taken ' +
+                    'starting at the high-flow side and gradually reducing flow, with the acceptance point ' +
+                    'bracketed by two nearby points. Enter the measured points to check the matrix and let ' +
+                    'the curve shape be diagnosed.');
+                if ($('chartSatCurve')) $('chartSatCurve').innerHTML = '';
+                return;
+            }
+
+            const pts = rows.map(r => ({
+                N: Number(r[0]), Q1: Number(r[1]), H: Number(r[2]) * 1000,
+                isAcceptance: /^a/i.test(r[3] || '')
+            })).filter(p => isFinite(p.N) && isFinite(p.Q1) && isFinite(p.H));
+
+            const mtx = SAT.matrixCheck(pts);
+            const fit = SAT.curveFit(pts, { designQ1: sec.Q1 });
+
+            /* Predicted curve for the diagnosis: the same normalised
+               characteristic the Charts tab draws, anchored on this section. */
+            const curve = q => 0.7556 + 1.0158 * q - 0.7714 * q * q;
+            const predicted = [];
+            for (let q = 0.65; q <= 1.2501; q += 0.025) {
+                predicted.push({ x: sec.Q1 * q, y: sec.HpTotal * curve(q) });
+            }
+            const measured = pts.map(p => ({ x: p.Q1, y: p.H }));
+            const diag = SAT.diagnose(measured, predicted);
+
+            let html = satTable(['Matrix check', 'Value', 'Target', ''],
+                mtx.checks.map(c => `<tr>
+                    <td data-l="Matrix check" style="text-align:left">${esc(c.label)}${c.note ? `<div class="text-xs" style="color:var(--muted)">${esc(c.note)}</div>` : ''}</td>
+                    <td data-l="Value">${esc(String(c.value))}</td>
+                    <td data-l="Target">${c.target != null ? esc(String(c.target)) : '—'}</td>
+                    <td data-l="Result">${satPill(c.ok)}</td></tr>`));
+
+            if (fit.ok) {
+                html += `<div class="kpi-grid my-4">
+                    ${kpi(fmtNum(fit.riseToSurge_pct, 1), '%', 'Rise to surge')}
+                    ${kpi(fmtNum(fit.turndown_pct, 1), '%', 'Turndown to lowest point')}
+                    ${kpi(fit.n, '', 'Points on the line')}
+                </div>`;
+                html += satNote('', '<ul style="margin:0 0 0 18px">' +
+                    fit.notes.map(n => `<li>${esc(n)}</li>`).join('') + '</ul>');
+            }
+
+            if (diag.ok) {
+                const cls = diag.finding === 'agrees' ? '' : diag.finding === 'head' ? 'warn' : 'bad';
+                html += satNote(cls, `<b>Curve diagnosis ([SPT] p.32) — ` +
+                    `${esc(diag.finding.toUpperCase())}.</b> ${esc(diag.text)}`);
+            }
+
+            $('satCurve').innerHTML = html;
+
+            const p = pal();
+            const qd = v => E.fromBase('volFlow', units.volFlow, v);
+            const hd = v => E.fromBase('head', units.head, v);
+            const allQ = pts.map(x => x.Q1).concat(predicted.map(x => x.x));
+            const allH = pts.map(x => x.H).concat(predicted.map(x => x.y));
+            $('chartSatCurve').innerHTML = svgPlot({
+                w: 720, h: 420,
+                title: 'Measured points against the predicted characteristic',
+                xlab: 'Inlet volume flow (' + unitLabel('volFlow') + ')',
+                ylab: 'Head (' + unitLabel('head') + ')',
+                x0: qd(Math.min.apply(null, allQ) * 0.92), x1: qd(Math.max.apply(null, allQ) * 1.06),
+                y0: hd(Math.min.apply(null, allH) * 0.92), y1: hd(Math.max.apply(null, allH) * 1.06),
+                xfmt: v => fmtNum(v, 3), yfmt: v => fmtNum(v, 1),
+                series: [{ pts: predicted.map(x => [qd(x.x), hd(x.y)]), stroke: p.accent, width: 2.5 }],
+                points: pts.map(x => ({
+                    x: qd(x.Q1), y: hd(x.H),
+                    label: x.isAcceptance ? 'Acceptance' : '', ok: true
+                })),
+                legend: [
+                    { label: 'Predicted characteristic', color: p.accent },
+                    { label: 'Measured points', color: p.ok }
+                ]
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatInstrument() {
+            const cfg = buildTrainCfg();
+            const plan = SAT.measurementPlan({
+                driver: cfg.driver,
+                nSections: sections.length,
+                nBodies: 1
+            });
+
+            const chan = satTable(['Group', 'Parameter', 'Symbol', 'Quantity'],
+                plan.channels.map(c => `<tr>
+                    <td data-l="Group" style="text-align:left">${esc(c.group)}</td>
+                    <td data-l="Parameter" style="text-align:left">${esc(c.param)}</td>
+                    <td data-l="Symbol">${esc(c.symbol)}</td>
+                    <td data-l="Quantity"><b>${c.qty}</b></td></tr>`));
+
+            const acc = satTable(['Measurement', 'Achievable accuracy', 'Basis'],
+                Object.keys(plan.accuracy).map(k => {
+                    const a = plan.accuracy[k];
+                    return `<tr><td data-l="Measurement" style="text-align:left">${esc(k)}</td>
+                        <td data-l="Achievable accuracy">${a.lo} – ${a.hi}</td>
+                        <td data-l="Basis">${esc(a.unit)}</td></tr>`;
+                }));
+
+            const inst = SAT.installationCheck({
+                flangeToElbow_D: Number($('inSatFlangeD').value),
+                orificeUpstream_D: Number($('inSatOrifUpD').value),
+                probeOD_in: Number($('inSatProbeOD').value),
+                probeLength_in: Number($('inSatProbeLen').value)
+            });
+
+            const instTab = satTable(['Installation check', 'Actual', 'Required', ''],
+                inst.rows.map(r => `<tr>
+                    <td data-l="Installation check" style="text-align:left">${esc(r.label)}</td>
+                    <td data-l="Actual">${fmtNum(r.actual_D, 2)}</td>
+                    <td data-l="Required">${r.inverse ? '≤ ' : '≥ '}${fmtNum(r.required_D, 2)}</td>
+                    <td data-l="Result">${satPill(r.ok)}</td></tr>`));
+
+            $('satInstrument').innerHTML =
+                `<h3 class="font-semibold text-sm mb-2">Instrument quantities — [SPT] Table 2</h3>` + chan +
+                `<h3 class="font-semibold text-sm mt-4 mb-2">Achievable chain accuracy — [SPT] Table 3</h3>` + acc +
+                satNote('', esc(plan.accuracyNote)) +
+                `<h3 class="font-semibold text-sm mt-4 mb-2">Installation</h3>` + instTab +
+                (inst.probe ? satNote(inst.probe.ok ? '' : 'warn', esc(inst.probe.note)) : '') +
+                (plan.notes.length ? satNote('', '<ul style="margin:0 0 0 18px">' +
+                    plan.notes.map(n => `<li>${esc(n)}</li>`).join('') + '</ul>') : '');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderSatChecklist() {
+            const list = (arr, title) => `<h3 class="font-semibold text-sm mt-4 mb-2">${title}</h3>` +
+                satTable(['Item', 'What it means', '[SPT]'],
+                    arr.map(r => `<tr>
+                        <td data-l="Item" style="text-align:left"><b>${esc(r[0])}</b></td>
+                        <td data-l="What it means" style="text-align:left">${esc(r[1])}</td>
+                        <td data-l="Source">${esc(r[2])}</td></tr>`));
+
+            $('satChecklist').innerHTML =
+                list(SAT.PRE_TEST, 'Pre-test checkout') +
+                list(SAT.COMMISSIONING, 'Commissioning-phase readiness') +
+                satNote('', '<b>The single most important item is not on either list.</b> [SPT] p.34: ' +
+                    '"The most critical success factor is to achieve a cognizant agreement between the ' +
+                    'responsible parties prior to the test on how to conduct and evaluate the test." ' +
+                    'Test objective, EOS, instrumentation, acceptance point and the treatment of ' +
+                    'uncertainty are all cheap to settle beforehand and expensive to argue afterwards.');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        /* Loads the tool's own predicted point as a synthetic measurement, so
+           the whole chain can be exercised end to end: a correctly wired SAT tab
+           must return near-zero deviation and an ellipse covering the
+           prediction when fed the machine's own answer. */
+        function satFillPredicted() {
+            const ref = satReference();
+            if (!ref) return;
+            const sec = ref.sec;
+            const jitter = (v, n) => Array.from({ length: n }, (_, i) => v * (1 + (i - 1.5) * 0.0004));
+
+            const setList = (id, siVals, cat, isP) => {
+                const el = $(id); if (!el) return;
+                el.value = siVals.map(v => fmtNum(isP
+                    ? E.fromBase('pressure', units.pressure, pRel(v))
+                    : E.fromBase(cat, units[cat], v), 4)).join(', ');
+            };
+            setList('inSatP1', jitter(sec.inlet.P, 4), 'pressure', true);
+            setList('inSatT1', jitter(sec.inlet.T, 4), 'temperature', false);
+            setList('inSatP2', jitter(sec.outlet.P, 4), 'pressure', true);
+            setList('inSatT2', jitter(sec.outlet.T, 4), 'temperature', false);
+            writeSI($('inSatW'), 'massFlow', lastInput.mdot, 4);
+            $('inSatN').value = fmtNum(sec.speed, 0);
+            writeSI($('inSatD2'), 'length', sec.D2, 4);
+            scheduleSave();
+            renderSatTab();
+        }
+
+
         /* ---------------------------------------------------------------- */
         /* PDF train report (jsPDF + autoTable, same stack as the DGS/TVA    */
         /* tools on this hub)                                                */
@@ -4541,6 +5880,67 @@ Aungier impeller axial length:
             } else {
                 table('Train accessories', ['Item', 'Value'],
                     [['Status', 'Not computed' + (lastAccError ? ': ' + lastAccError : '')]]);
+            }
+
+            /* 10. Site acceptance test - only when a point has actually been
+               reduced. An empty SAT tab has nothing to report, and a blank
+               section in an acceptance-test report is worse than no section. */
+            try {
+                const satRef = satReference();
+                const satPt = satRef ? satReducePoint(satRef) : null;
+                if (satPt) {
+                    const sec = satRef.sec;
+                    table('10. Site acceptance test - reduced point (Kurz et al. 2021, ASME PTC 10)',
+                        ['Quantity', 'Measured', 'Predicted', 'Eq.'], [
+                        ['Inlet volume flow Q1', dispU('volFlow', satPt.Q1, 4), dispU('volFlow', sec.Q1, 4), '(6)'],
+                        ['Volume flow ratio Q1/Q2', fmtNum(satPt.volRatio, 4), '-', '(3)'],
+                        ['Actual head H', dispU('head', satPt.H, 1), '-', '(9)'],
+                        ['Isentropic head H*', dispU('head', satPt.Hisen, 1), '-', '(8)'],
+                        ['Polytropic head Hp', dispU('head', satPt.Hp, 1), dispU('head', sec.HpTotal, 1), '(10)'],
+                        ['Isentropic efficiency', fmtNum(satPt.etaIsen * 100, 2) + ' %', fmtNum(sec.etaIsen * 100, 2) + ' %', '(11)'],
+                        ['Polytropic efficiency', fmtNum(satPt.etaP * 100, 2) + ' %', fmtNum(sec.etaPoly * 100, 2) + ' %', '(11)'],
+                        ['Gas power', dispU('power', satPt.Pgas, 3), dispU('power', sec.gasPower, 3), '(12)'],
+                        ['Shaft power', dispU('power', satPt.Pshaft, 3), dispU('power', sec.shaftPower, 3), '(14)'],
+                        ['Flow coefficient phi', fmtNum(satPt.phi, 4), '-', '(1)'],
+                        ['Head coefficient psi* (per stage)', fmtNum(satPt.psiIsen, 4), '-', '(2)'],
+                        ['Machine Mach number', fmtNum(satPt.Mau, 4), '-', '(4)'],
+                        ['Machine Reynolds number', satPt.Reu.toExponential(3), '-', '(5)'],
+                        ['Polytropic head method spread', fmtNum(satPt.HpSpread_pct, 3) + ' %',
+                         'Schultz vs integrated path', '-']
+                    ], { 0: { cellWidth: 62 } });
+
+                    if (satSteadyResult) {
+                        table('10a. Steady state (10-minute interval)', ['Channel', 'Deviation', 'Limit', 'Result'],
+                            satSteadyResult.checks.map(c => [
+                                c.label,
+                                (isFinite(c.deviation) ? fmtNum(c.deviation, 3) : '-') + ' ' + (c.unit || ''),
+                                (isFinite(c.tol) ? fmtNum(c.tol, 2) : '-') + ' ' + (c.unit || ''),
+                                c.ok === null ? 'N/A' : c.ok ? 'PASS' : 'FAIL'
+                            ]), { 0: { cellWidth: 56 } });
+                    }
+
+                    const satDp = (() => {
+                        const { reading, driver } = satDriverReading();
+                        return SAT.driverPower({ driver, reading });
+                    })();
+                    const satRec = SAT.reconcile(
+                        { P_shaft: satPt.Pshaft, u_pct: satPowerUncertaintyPct || SAT.SAT_REFS.typicalSystematic.absorbedPower },
+                        satDp);
+                    table('10b. Shaft power - two independent determinations',
+                        ['Determination', 'Shaft power', 'Uncertainty', 'Method'], [
+                        ['Compressor gas power (heat balance)', dispU('power', satPt.Pshaft, 3),
+                         '+/- ' + fmtNum(satPowerUncertaintyPct || SAT.SAT_REFS.typicalSystematic.absorbedPower, 2) + ' %',
+                         'PTC 10 Eqs. 12-14'],
+                        ['Driver side', satDp.P_shaft > 0 ? dispU('power', satDp.P_shaft, 3) : '-',
+                         isFinite(satDp.u_pct) ? '+/- ' + fmtNum(satDp.u_pct, 2) + ' %' : '-', satDp.method],
+                        ['Reconciliation', satRec.available ? fmtNum(satRec.delta_pct, 2) + ' %' : 'n/a',
+                         satRec.available ? 'combined ' + fmtNum(satRec.u_combined_pct, 2) + ' %' : '-',
+                         satRec.available ? (satRec.ok ? 'PASS' : 'FAIL') : 'single determination only']
+                    ], { 0: { cellWidth: 52 } });
+                }
+            } catch (e) {
+                table('10. Site acceptance test', ['Item', 'Value'],
+                    [['Status', 'Not reduced: ' + (e.message || String(e))]]);
             }
 
             doc.save((caseName || 'compressor-train').replace(/[^\w\-]+/g, '_') + '_train_report.pdf');
@@ -4915,6 +6315,21 @@ Aungier impeller axial length:
             inOilRetention: { tab: 'v-lube', label: 'Reservoir retention' },
             inJdriverOvr: { tab: 'v-lube', label: 'Driver inertia override' },
             inJcompOvr: { tab: 'v-lube', label: 'Compressor inertia override' },
+            // Site acceptance test.
+            inSatSection: { tab: 'v-sat', label: 'SAT section under test' },
+            inSatN: { tab: 'v-sat', label: 'SAT measured speed' },
+            inSatW: { tab: 'v-sat', label: 'SAT measured mass flow' },
+            inSatD2: { tab: 'v-sat', label: 'SAT impeller diameter' },
+            inSatP1: { tab: 'v-sat', label: 'SAT suction pressure readings' },
+            inSatT1: { tab: 'v-sat', label: 'SAT suction temperature readings' },
+            inSatP2: { tab: 'v-sat', label: 'SAT discharge pressure readings' },
+            inSatT2: { tab: 'v-sat', label: 'SAT discharge temperature readings' },
+            inSatSamples: { tab: 'v-sat', label: 'SAT steady-state time samples' },
+            inSatCurve: { tab: 'v-sat', label: 'SAT measured speed-line points' },
+            inSatUp: { tab: 'v-sat', label: 'SAT pressure chain accuracy' },
+            inSatUt: { tab: 'v-sat', label: 'SAT temperature chain accuracy' },
+            inSatUw: { tab: 'v-sat', label: 'SAT flow chain accuracy' },
+            inSatCoverage: { tab: 'v-sat', label: 'SAT uncertainty coverage factor' },
             // Pseudo-fields: a whole tab or panel rather than one input.
             composition: { tab: 'v-gas', label: 'Gas composition', panel: true },
             sections: { tab: 'v-process', label: 'Section discharge pressures', panel: true }
@@ -5169,6 +6584,7 @@ Aungier impeller axial length:
             renderHelpLive(train, lastInput);
             renderSelection(train, lastInput);
             renderTrainTabs();
+            renderSatTab();
             return train;
         }
 
@@ -5247,10 +6663,38 @@ Aungier impeller axial length:
         // in the sections array and is persisted with it.
         const SEL_PERSIST_INPUTS = ['inSelStages', 'inSelSource', 'inSelEtaFactor', 'inSelValues'];
 
+        // SAT-tab controls (v7). Kept out of SIMPLE_INPUTS for the same reason
+        // as SEL_PERSIST_INPUTS, and more so: these are measured readings, not
+        // design inputs. Typing a discharge temperature must not re-run the
+        // multi-stage EOS train solve - renderSatTab() reduces the point
+        // against the section the app has already solved. They get their own
+        // light listeners that render and save, nothing more.
+        const SAT_PERSIST_INPUTS = [
+            'inSatSection', 'inSatN', 'inSatW', 'inSatD2',
+            'inSatP1', 'inSatT1', 'inSatP2', 'inSatT2',
+            'inSatSamples', 'inSatCurve',
+            'inSatUp', 'inSatUt', 'inSatUw', 'inSatCoverage',
+            'inSatFlangeD', 'inSatOrifUpD', 'inSatProbeOD', 'inSatProbeLen'];
+
+        // The driver-side readings are rebuilt whenever the driver kind changes,
+        // so they are listed by every id they can take rather than by what is on
+        // screen right now. Saving a field that is currently absent is a no-op;
+        // restoring one that is absent is skipped. That way switching driver and
+        // switching back does not silently lose what was typed.
+        const SAT_DYNAMIC_INPUTS = [
+            'inSatTorque', 'inSatElecKw', 'inSatEtaMotor', 'inSatEtaVfd',
+            'inSatSteamFlow', 'inSatEtaTurb',
+            'inSatFuelFlow', 'inSatFuelLhv', 'inSatEtaTh'];
+
         function collectState() {
             const vals = {};
             SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
             SEL_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            SAT_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            SAT_DYNAMIC_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            Object.keys(satDriverStash).forEach(id => {
+                if (vals[id] === undefined) vals[id] = satDriverStash[id];
+            });
             // version 3: sections also carry per-section stage/speed overrides;
             // the old global inSpeedManual/inCommonShaft fields are retired.
             // pressureBasis is purely additive - absent on any older save,
@@ -5272,7 +6716,12 @@ Aungier impeller axial length:
             // overrides). All additive via SIMPLE_INPUTS values - absent on
             // an older save they simply keep the page defaults, except the
             // retired inGearbox boolean, which applyState() migrates.
-            return { version: 6, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
+            // version 7: adds the SAT tab (site acceptance test) inputs - the
+            // station readings, time samples, measured curve, instrument
+            // accuracies and driver-side readings. Purely additive through the
+            // values map, so a version 6 file loads unchanged and simply
+            // arrives with an empty SAT tab.
+            return { version: 7, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -5350,6 +6799,13 @@ Aungier impeller axial length:
             }
             if (s.values) {
                 Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
+                // The SAT driver-side fields only exist while their driver kind
+                // is selected. Hold the rest here so a round trip through a
+                // different driver does not discard them, and so an exported
+                // file carries every driver's readings back in.
+                SAT_DYNAMIC_INPUTS.forEach(id => {
+                    if (s.values[id] != null && !$(id)) satDriverStash[id] = s.values[id];
+                });
                 // Pre-v6 files carried a bare "gearbox yes/no" flag. "Yes"
                 // most plausibly meant a special-purpose box on a special-
                 // purpose machine, so it lands on API 613; "no" lands on
@@ -5617,6 +7073,9 @@ Aungier impeller axial length:
                     if (view === 'v-gearbox' && lastTrain) renderGearboxTab();
                     if (view === 'v-lube' && lastTrain) renderLubeTab();
                     if (view === 'v-seal' && lastTrain) renderSealTab();
+                    // The SAT tab carries three charts of its own, so it needs
+                    // the same reveal-time redraw as Charts.
+                    if (view === 'v-sat') renderSatTab();
                 });
             });
 
@@ -5649,6 +7108,21 @@ Aungier impeller axial length:
                 });
             });
             updateSelMethodUI(selMethodFor(0));
+
+            // SAT tab: measured readings and instrument accuracies re-render
+            // the reduction but never re-solve the train, so they get the same
+            // light treatment as the Selection controls rather than going
+            // through recalc(). 'input' rather than 'change' so a station's
+            // readings update as they are typed.
+            SAT_PERSIST_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                el.addEventListener('input', () => { renderSatTab(); scheduleSave(); });
+                if (el.tagName === 'SELECT') {
+                    el.addEventListener('change', () => { renderSatTab(); scheduleSave(); });
+                }
+            });
+            $('btnSatFillPredicted').addEventListener('click', satFillPredicted);
 
             // Live recalculation on every input
             SIMPLE_INPUTS.forEach(id => {
@@ -5844,9 +7318,14 @@ Aungier impeller axial length:
             });
 
             $('btnSelfTest').addEventListener('click', () => {
-                // Both engines in one run - the train engine's checks live in
-                // compressor-train.js and follow the same result shape.
-                const res = E.selfTest().concat(window.TrainEng ? TrainEng.selfTest() : []);
+                // All three engines in one run - the train and SAT engines'
+                // checks live in their own files and follow the same result
+                // shape. The SAT block includes the worked uncertainty example
+                // from [SPT] Table 5 and a guard that the PTC-10 Fig. 3.3/3.5
+                // curves still match the Type 2 tool they were ported from.
+                const res = E.selfTest()
+                    .concat(window.TrainEng ? TrainEng.selfTest() : [])
+                    .concat(window.SatEng ? SatEng.selfTest() : []);
                 const fails = res.filter(r => !r.pass).length;
                 $('selfTestOut').innerHTML = `
                     <div class="note ${fails ? 'bad' : ''}" style="margin-bottom:0.75rem">
