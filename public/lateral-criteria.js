@@ -306,11 +306,222 @@ window.LatEng = (function () {
         };
     }
 
+    // ---- Train lateral analysis applicability (API 684 Fig 2-9) -----------
+
+    // Coupling types recognised by the applicability screen. Only a flexible
+    // spacer coupling can be screened OUT by the Figure 2-9 chart -- the other
+    // three are the "not of the flexible spacer type" cases named in the text
+    // following the figure (hard coupled single fixed joint, piloted and
+    // unpiloted splines), where a train lateral is expected whatever the
+    // chart position.
+    const COUPLING_TYPES = [
+        { key: "flexible_spacer", label: "Flexible spacer (API 671)" },
+        { key: "hard_coupled", label: "Hard coupled - single fixed joint" },
+        { key: "piloted_spline", label: "Piloted spline" },
+        { key: "unpiloted_spline", label: "Unpiloted spline" }
+    ];
+
+    const FIG29_BASIS = "API 684 2nd Ed, Figure 2-9 (Train Lateral Guideline Diagram) - a " +
+        "guideline for deciding whether a coupled train lateral analysis is needed, not a " +
+        "pass/fail acceptance criterion.";
+
+    /**
+     * The Figure 2-9 boundary curve: the minimum Ncr(spacer)/Nmcos ratio above
+     * which a train lateral analysis is shown as unnecessary, as a function of
+     * the weight ratio x = W(1/2 Cplg) / Wjnl.
+     *
+     * Piecewise linear, read off the published figure:
+     *   (0, 1.5) -> (0.1, 2.0) -> flat 2.0 -> (0.5, 2.0) -> (0.8, 3.0) -> flat 3.0
+     * The rise reflects the coupling's growing influence on train dynamics as
+     * its half weight approaches the journal static reaction.
+     *
+     * x outside 0..1 is clamped to the ends of the plotted range.
+     */
+    function trainLateralBoundary(x) {
+        const v = Number(x);
+        if (!isFinite(v)) return null;
+        const t = Math.max(0, Math.min(1, v));
+        if (t <= 0.1) return 1.5 + (t / 0.1) * 0.5;
+        if (t <= 0.5) return 2.0;
+        if (t <= 0.8) return 2.0 + (t - 0.5) / 0.3;
+        return 3.0;
+    }
+
+    /**
+     * Screen ONE END of one coupling against Figure 2-9.
+     *
+     * Both ends of a coupling share the same spacer critical and the same
+     * shaft speed, so they share y = Ncr(spacer)/Nmcos; each end has its own
+     * half-coupling weight and its own adjacent journal static reaction, so
+     * each end has its own x = W(1/2 Cplg)/Wjnl.
+     *
+     * @param NcrSpacer   coupling spacer critical speed, rpm
+     * @param Nmcos       train maximum continuous speed on this shaft, rpm
+     * @param Whalf       half-coupling weight at this end (any mass unit)
+     * @param Wjnl        journal static bearing reaction at this end (same unit)
+     * @param couplingType one of COUPLING_TYPES[].key (default flexible_spacer)
+     * @param floor       optional minimum required ratio imposed by a customer
+     *                    specification, applied on top of the chart boundary
+     * @returns null if the inputs are incomplete, otherwise the screen result.
+     */
+    function trainLateralEndCheck({ NcrSpacer, Nmcos, Whalf, Wjnl, couplingType = "flexible_spacer", floor = null }) {
+        const ncr = Number(NcrSpacer), nmc = Number(Nmcos), wh = Number(Whalf), wj = Number(Wjnl);
+        if (!(ncr > 0 && nmc > 0 && wj > 0) || !isFinite(wh) || wh < 0) return null;
+
+        const x = wh / wj;
+        const y = ncr / nmc;
+        const chartRequired = trainLateralBoundary(x);
+        const floorNum = Number(floor);
+        const floorApplied = isFinite(floorNum) && floorNum > 0 ? floorNum : null;
+        const required = floorApplied != null ? Math.max(chartRequired, floorApplied) : chartRequired;
+
+        const flexible = couplingType === "flexible_spacer";
+        const reasons = [];
+        let lateralRequired, requiredBy = null, marginal = false;
+
+        if (!flexible) {
+            // Note 2 following Figure 2-9: the chart does not govern a coupling
+            // that is not of the flexible spacer type.
+            lateralRequired = true;
+            requiredBy = "coupling_type";
+            const label = (COUPLING_TYPES.find(c => c.key === couplingType) || {}).label || couplingType;
+            reasons.push("Coupling is not of the flexible spacer type (" + label + ") - a train lateral " +
+                "analysis is expected regardless of the Figure 2-9 position.");
+        } else if (y < required) {
+            lateralRequired = true;
+            requiredBy = (floorApplied != null && chartRequired != null && y >= chartRequired) ? "customer_floor" : "chart";
+            reasons.push("Ncr(spacer)/Nmcos = " + y.toFixed(2) + " is below the " + required.toFixed(2) +
+                " required at W(1/2 Cplg)/Wjnl = " + x.toFixed(3) +
+                (requiredBy === "customer_floor" ? " (customer minimum ratio, above the Figure 2-9 line of " +
+                    chartRequired.toFixed(2) + ")." : " (Figure 2-9 line)."));
+        } else {
+            lateralRequired = false;
+            marginal = (y - required) / required < 0.10;
+            if (marginal) {
+                reasons.push("Ncr(spacer)/Nmcos = " + y.toFixed(2) + " clears the required " +
+                    required.toFixed(2) + " by less than 10% - treat as marginal and confirm with the purchaser.");
+            }
+        }
+
+        return {
+            x, y,
+            chartRequired,
+            floorApplied,
+            required,
+            margin: y - required,
+            couplingType,
+            lateralRequired,
+            requiredBy,
+            marginal,
+            reasons,
+            basis: FIG29_BASIS + (floorApplied != null
+                ? " A customer minimum ratio of " + floorApplied.toFixed(2) + " is applied on top of the " +
+                  "chart - a project/customer interpretation, not an API 684 requirement."
+                : "")
+        };
+    }
+
+    /**
+     * Roll every coupling in the train up into one applicability verdict.
+     *
+     * @param couplings array of
+     *        { id, label, couplingType, NcrSpacer, Nmcos,
+     *          ends: [{ key, label, Whalf, Wjnl }] }
+     * @param floor        optional customer minimum ratio (see trainLateralEndCheck)
+     * @param geared       true when the train contains a gearbox
+     * @param customerSpec "none" | "adnoc"
+     *
+     * A coupling's verdict is the worse of its two ends; the train needs a
+     * lateral analysis if any coupling does.
+     */
+    function trainLateralScreen({ couplings = [], floor = null, geared = false, customerSpec = "none" } = {}) {
+        const adnoc = customerSpec === "adnoc";
+        const results = [];
+        const points = [];
+        const reasons = [];
+        let anyRequired = false, anyEvaluated = false, anyIncomplete = false;
+
+        couplings.forEach((c, ci) => {
+            const type = c.couplingType || "flexible_spacer";
+            const ncr = Number(c.NcrSpacer), nmc = Number(c.Nmcos);
+            const ratio = (ncr > 0 && nmc > 0) ? ncr / nmc : null;
+            const ends = (c.ends || []).map((e, ei) => {
+                const res = trainLateralEndCheck({
+                    NcrSpacer: c.NcrSpacer, Nmcos: c.Nmcos,
+                    Whalf: e.Whalf, Wjnl: e.Wjnl, couplingType: type, floor
+                });
+                if (!res) { anyIncomplete = true; return { key: e.key || ("end" + ei), label: e.label || "", result: null }; }
+                anyEvaluated = true;
+                const point = { couplingId: c.id || ("c" + ci), couplingLabel: c.label || ("Coupling " + (ci + 1)), endKey: e.key || ("end" + ei), endLabel: e.label || "", ...res };
+                points.push(point);
+                return { key: point.endKey, label: point.endLabel, result: res };
+            });
+
+            const evaluated = ends.filter(e => e.result);
+            // Governing end = the one that requires the analysis, or failing
+            // that the one with the least margin over the required ratio.
+            let governing = null;
+            evaluated.forEach(e => {
+                if (!governing) { governing = e; return; }
+                if (e.result.lateralRequired && !governing.result.lateralRequired) { governing = e; return; }
+                if (e.result.lateralRequired === governing.result.lateralRequired && e.result.margin < governing.result.margin) governing = e;
+            });
+
+            const required = evaluated.some(e => e.result.lateralRequired);
+            if (required) anyRequired = true;
+            results.push({
+                id: c.id || ("c" + ci),
+                label: c.label || ("Coupling " + (ci + 1)),
+                couplingType: type,
+                ratio,
+                ends,
+                evaluated: evaluated.length,
+                incomplete: evaluated.length < (c.ends || []).length,
+                lateralRequired: required,
+                marginal: !required && evaluated.some(e => e.result.marginal),
+                governingEnd: governing,
+                reasons: governing ? governing.result.reasons : []
+            });
+        });
+
+        results.forEach(r => { r.reasons.forEach(t => reasons.push(r.label + ": " + t)); });
+
+        // Customer-specific train-level trigger, applied on top of the chart.
+        let trainLevelRequired = false;
+        if (adnoc && geared) {
+            anyRequired = true;
+            trainLevelRequired = true;
+            reasons.push("ADNOC: the selected train includes a gearbox - a coupled train lateral " +
+                "analysis is treated as mandatory irrespective of the Figure 2-9 position.");
+        }
+
+        return {
+            couplings: results,
+            points,
+            lateralRequired: anyRequired,
+            // True when a train-level rule requires the analysis irrespective of
+            // where the couplings fall on the chart.
+            trainLevelRequired,
+            evaluated: anyEvaluated,
+            anyIncomplete,
+            floorApplied: (isFinite(Number(floor)) && Number(floor) > 0) ? Number(floor) : null,
+            customerSpec,
+            geared,
+            reasons,
+            basis: FIG29_BASIS + (adnoc
+                ? " ADNOC mode additionally applies a customer minimum ratio and treats geared trains " +
+                  "as always requiring the analysis - project/customer interpretation, worded by rule; " +
+                  "confirm the governing AGES clause and value with COMPANY."
+                : "")
+        };
+    }
+
     return {
         umToMils, gmmToOzin, kgToLb, lbToKg, NmmToLbfin,
         amplificationFactor, requiredSM, actualSM, separationMarginCheck,
         residualUnbalance, analysisUnbalance,
         vibrationLimit, clearanceCheck, meshFrequency,
-        crossCoupledStiffness, anticipatedQA, stabilityScreen
+        crossCoupledStiffness, anticipatedQA, stabilityScreen,
+        COUPLING_TYPES, trainLateralBoundary, trainLateralEndCheck, trainLateralScreen
     };
 })();

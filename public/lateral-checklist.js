@@ -24,6 +24,12 @@ window.LatData = (function () {
     function section(id, title, iconKey, items) {
         return { id, title, iconKey, items };
     }
+    // A check point that comes from a customer specification rather than from
+    // API itself. `spec` is rendered as a badge in the tool and exported as its
+    // own column, so a reviewer can tell an ADNOC amendment from an API rule.
+    function specItem(spec, id, category, label, requirement, insight) {
+        return { ...item(id, category, label, requirement, insight), spec };
+    }
 
     // ---- Project defaults --------------------------------------------------
     const PROJECT_DEFAULTS = {
@@ -104,8 +110,102 @@ window.LatData = (function () {
             item("sh-t4", "Probes", "Probe Location, Runout & Slow-Roll", "Compensated per API 670", ""),
             item("sh-t5", "Balance", "Trim Balance Limits", "Field balance tolerance per API 617 residual U", ""),
             item("sh-t6", "Acceptance", "Field Acceptance vs. A1", "Unfiltered vibration limit A1 applied at site", "")
+        ]),
+        trainlat: section("trainlat", "6. Train Lateral Applicability", "Activity", [
+            item("tl-1", "Screen", "Figure 2-9 Applicability Screen Documented", "Ncr(spacer)/Nmcos vs. W(1/2 Cplg)/Wjnl evaluated for every coupling",
+                "API 684 Figure 2-9 is the accepted way to decide whether a coupled train lateral analysis is needed at all. Use the panel above to plot each coupling end, and keep the resulting chart and verdict in the review record rather than asserting 'not required' without a basis."),
+            item("tl-2", "Coupling Type", "Coupling Type Declared", "Flexible spacer vs. hard coupled / piloted / unpiloted spline stated",
+                "The chart only screens OUT flexible spacer couplings. A hard-coupled single fixed joint, or a piloted or unpiloted spline, needs a train lateral analysis whatever the chart position — confirm the coupling type is stated explicitly, not assumed."),
+            item("tl-3", "Ncr(spacer)", "Spacer Critical Speed Source", "Traceable to the coupling vendor's certified calculation",
+                "Ncr(spacer) is the coupling spacer's own lateral critical speed and comes from the coupling manufacturer (API 671 scope), not from the machine vendor's rotor model. Confirm the value used in the screen matches the certified coupling calculation for the as-selected spacer length."),
+            item("tl-4", "Nmcos", "Train Maximum Continuous Speed per Shaft", "Correct shaft speed used for each coupling",
+                "On a geared train the low-speed and high-speed couplings run at different speeds. Confirm each coupling was screened against the maximum continuous speed of the shaft it is actually mounted on, not a single train speed applied to both."),
+            item("tl-5", "Weights", "Half-Coupling Weight & Journal Reaction Consistency", "W(1/2 Cplg) and Wjnl match the per-rotor lateral models",
+                "The weight ratio must use the same half-coupling weight fed into the rotor lateral models and the journal static bearing reaction from those same models. A screen run on datasheet estimates while the models use different numbers is not a valid basis."),
+            item("tl-6", "Scope", "Train Lateral Model Scope (if required)", "All rotors in one model, coupling mass and stiffness represented",
+                "Where the screen says a train lateral is needed, confirm the scope: every rotor connected in a single model, with the coupling spacer's mass and torsional/lateral stiffness represented, and the same bearing and support data as the individual rotor runs."),
+            item("tl-7", "Conclusion", "Applicability Conclusion Recorded & Agreed", "Verdict and its basis agreed with the purchaser",
+                "Whether the conclusion is 'required' or 'not required', it should appear in the report with the plotted values behind it and be explicitly agreed with the purchaser — this is the check point most often left as an unstated assumption.")
         ])
     };
+
+    // ---- Customer-specific amendments ------------------------------------
+    // ADNOC additions to the train lateral applicability screen. Worded by
+    // rule, not by AGES paragraph number, per the file header: confirm the
+    // governing clause and any numerical value with COMPANY before relying on
+    // one of these in a real review.
+    const ADNOC_SPEC_LABEL = "ADNOC AGES";
+    const ADNOC_TRAINLAT_ITEMS = [
+        specItem(ADNOC_SPEC_LABEL, "adnoc-tl-1", "Mandatory", "Train Lateral Mandatory for Geared Trains", "Coupled train lateral analysis performed for any train containing a gearbox",
+            "In ADNOC mode the tool treats a geared train as always requiring the coupled analysis, irrespective of where the Figure 2-9 points fall — the gearbox introduces mesh-load-dependent bearing behaviour that the coupling-weight screen does not capture. Confirm the governing AGES clause with COMPANY and record it here."),
+        specItem(ADNOC_SPEC_LABEL, "adnoc-tl-2", "Margin", "Minimum Spacer-Critical Ratio Floor Agreed", "Customer minimum Ncr(spacer)/Nmcos ratio applied and its value agreed with COMPANY",
+            "The panel applies a minimum ratio floor (default 2.0) on top of the Figure 2-9 line, taking the upper end of the 1.5–2.0 margin band API 684's own text recommends rather than crediting the 1.5 relief at low weight ratios. Set the floor to the project value and record COMPANY's agreement."),
+        specItem(ADNOC_SPEC_LABEL, "adnoc-tl-3", "Approval", "No Waiver Without Written COMPANY Approval", "Any decision to skip the train lateral carries written COMPANY approval, listed as a deviation",
+            "A 'not required' verdict driven by the chart alone is not self-approving on an ADNOC project. Confirm the waiver is in writing and appears on the exception/deviation list in section 1, not only in correspondence."),
+        specItem(ADNOC_SPEC_LABEL, "adnoc-tl-4", "Data", "Certified Coupling Data Before Close-Out", "W(1/2 Cplg) taken from the certified API 671 datasheet, not an estimate",
+            "The screen may be run early on estimated coupling weights, but it cannot be closed out on them. Confirm the final screen uses certified coupling weights and the spacer critical from the as-purchased coupling."),
+        specItem(ADNOC_SPEC_LABEL, "adnoc-tl-5", "Change Control", "Screen Re-Run After Any Coupling Change", "Applicability screen re-issued if the coupling selection or spacer length changes",
+            "A spacer length change moves Ncr(spacer) directly, and a hub change moves the weight ratio. Confirm a change-control route exists so the screen (and this section's conclusion) is re-issued rather than left at its pre-order revision.")
+    ];
+
+    // ---- Train arrangements ------------------------------------------------
+    // Drives the coupling list used by the train lateral applicability screen
+    // only — the rotor tabs and their checklists are independent of this.
+    // `geared` feeds the ADNOC "geared trains always need the analysis" rule.
+    const TRAIN_TYPES = [
+        {
+            key: "motor_gear_comp",
+            label: "Motor + Speed-Increaser Gearbox + Barrel (BCL) Centrifugal Compressor",
+            geared: true,
+            couplings: [
+                { label: "Motor \u2192 Bull Gear (LS)", driverLabel: "Motor", drivenLabel: "Bull Gear (LS)" },
+                { label: "Pinion (HS) \u2192 Compressor", driverLabel: "Pinion (HS)", drivenLabel: "Compressor" }
+            ]
+        },
+        {
+            key: "motor_comp",
+            label: "Motor + Centrifugal Compressor (direct drive)",
+            geared: false,
+            couplings: [
+                { label: "Motor \u2192 Compressor", driverLabel: "Motor", drivenLabel: "Compressor" }
+            ]
+        },
+        {
+            key: "motor_gear_comp_comp",
+            label: "Motor + Gearbox + LP Compressor + HP Compressor (tandem)",
+            geared: true,
+            couplings: [
+                { label: "Motor \u2192 Bull Gear (LS)", driverLabel: "Motor", drivenLabel: "Bull Gear (LS)" },
+                { label: "Pinion (HS) \u2192 LP Compressor", driverLabel: "Pinion (HS)", drivenLabel: "LP Compressor" },
+                { label: "LP Compressor \u2192 HP Compressor", driverLabel: "LP Compressor", drivenLabel: "HP Compressor" }
+            ]
+        },
+        {
+            key: "turbine_comp",
+            label: "Steam / Gas Turbine + Centrifugal Compressor",
+            geared: false,
+            couplings: [
+                { label: "Turbine \u2192 Compressor", driverLabel: "Turbine", drivenLabel: "Compressor" }
+            ]
+        },
+        {
+            key: "turbine_gear_comp",
+            label: "Steam / Gas Turbine + Gearbox + Centrifugal Compressor",
+            geared: true,
+            couplings: [
+                { label: "Turbine \u2192 Bull Gear (LS)", driverLabel: "Turbine", drivenLabel: "Bull Gear (LS)" },
+                { label: "Pinion (HS) \u2192 Compressor", driverLabel: "Pinion (HS)", drivenLabel: "Compressor" }
+            ]
+        },
+        {
+            key: "custom",
+            label: "Custom / other arrangement",
+            geared: false,
+            couplings: [
+                { label: "Coupling 1", driverLabel: "Driver", drivenLabel: "Driven" }
+            ]
+        }
+    ];
 
     // ---- Rotor-specific section templates ----------------------------------
     function modelSection(rotorNote) {
@@ -223,5 +323,6 @@ window.LatData = (function () {
         ]
     };
 
-    return { PROJECT_DEFAULTS, ROTORS, SHARED_SECTIONS, ROTOR_TEMPLATES };
+    return { PROJECT_DEFAULTS, ROTORS, SHARED_SECTIONS, ROTOR_TEMPLATES,
+        TRAIN_TYPES, ADNOC_TRAINLAT_ITEMS, ADNOC_SPEC_LABEL };
 })();
