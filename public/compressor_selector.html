@@ -297,6 +297,7 @@
             <button class="tab" data-view="v-lube">Lube Oil</button>
             <button class="tab" data-view="v-seal">Seals</button>
             <button class="tab" data-view="v-charts">Charts</button>
+            <button class="tab" data-view="v-fat">FAT (PTC 10)</button>
             <button class="tab" data-view="v-sat">SAT (PTC 10)</button>
             <button class="tab" data-view="v-report">Report</button>
             <button class="tab" data-view="v-help">Help &amp; Formulas</button>
@@ -1022,6 +1023,314 @@
         </section>
 
         <!-- ============================ SAT ============================ -->
+        <!-- ============================ FAT ============================ -->
+        <section id="v-fat" class="view space-y-5">
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Factory acceptance test — basis</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Independently recomputes a vendor shop-test report from its own raw readings and
+                    cross-checks it line by line against what the vendor stated, following
+                    E. Wilcox (Chevron Energy Technology Company), <em>Performance testing guidelines
+                    for centrifugal compressors</em>, Hydrocarbon Processing, August 2007, pp. 59–69 —
+                    cited throughout as [W] — on ASME PTC 10 and API 617.
+                </p>
+                <div class="grid-fields mb-3">
+                    <div class="field">
+                        <label>Section under test</label>
+                        <select id="inFatSection"></select>
+                        <span class="hint">Each section is checked against its own design point.</span>
+                    </div>
+                    <div class="field">
+                        <label>Test type</label>
+                        <select id="inFatType">
+                            <option value="type1">Type 1 — specified gas, near contract conditions</option>
+                            <option value="type2" selected>Type 2 — substitute gas, shop closed loop</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Impeller construction</label>
+                        <select id="inFatImpellerType">
+                            <option value="2D">2D, vaneless diffuser (older)</option>
+                            <option value="3D" selected>3D, vaned diffuser (newer)</option>
+                        </select>
+                        <span class="hint">Sets the [W] p.62 efficiency plausibility ceiling.</span>
+                    </div>
+                    <div class="field">
+                        <label>Corrosive service</label>
+                        <select id="inFatCorrosive">
+                            <option value="0" selected>No</option>
+                            <option value="1">Yes — H2S / CO2, yield-limited</option>
+                        </select>
+                        <span class="hint">Tightens the head-per-impeller ceiling to ~9,000 ft·lbf/lbm.</span>
+                    </div>
+                </div>
+                <div id="fatBasis"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Vendor report — as stated</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Enter the numbers the shop-test report itself claims. These are never used in the
+                    independent recomputation below — they exist only to be checked against it.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Polytropic head <span class="unit" data-unit="head"></span></label>
+                        <input type="number" id="inFatVHp" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Polytropic efficiency <span class="unitlbl">%</span></label>
+                        <input type="number" id="inFatVEta" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Gas power <span class="unit" data-unit="power"></span></label>
+                        <input type="number" id="inFatVPgas" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Shaft power <span class="unit" data-unit="power"></span></label>
+                        <input type="number" id="inFatVPshaft" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Inlet volume flow <span class="unit" data-unit="volFlow"></span></label>
+                        <input type="number" id="inFatVQ1" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Discharge temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inFatVT2" value="" step="any">
+                        <span class="hint">Leave blank if the report omits it — [W] Fig. 6 solves for it.</span>
+                    </div>
+                    <div class="field">
+                        <label>Head coefficient, μ<sub>P</sub></label>
+                        <input type="number" id="inFatVMuP" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Machine Mach number</label>
+                        <input type="number" id="inFatVMach" value="" step="any">
+                    </div>
+                </div>
+                <div class="mt-3 no-print">
+                    <button id="btnFatFillWilcox" class="text-sm px-3 py-1.5 rounded-lg font-semibold" style="background:var(--accent-soft);color:var(--accent)">Load Wilcox's own worked example (Table 6)</button>
+                    <span class="text-xs ml-2" style="color:var(--muted)">Hydrogen recycle compressor, 6 impellers — the paper's own regression case.</span>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Raw test log</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    The readings the vendor's numbers above were supposedly calculated from. This is what
+                    the independent recomputation actually uses.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Suction pressure <span class="unit" data-unit="pressureRef"></span></label>
+                        <input type="number" id="inFatP1" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Suction temperature <span class="unit" data-unit="temperature"></span></label>
+                        <input type="number" id="inFatT1" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Discharge pressure <span class="unit" data-unit="pressureRef"></span></label>
+                        <input type="number" id="inFatP2" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Speed <span class="unitlbl">rpm</span></label>
+                        <input type="number" id="inFatN" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Impeller diameter <span class="unit" data-unit="length"></span></label>
+                        <input type="number" id="inFatD2" value="" step="any">
+                        <span class="hint">Defaults to the selected machine's D₂.</span>
+                    </div>
+                    <div class="field">
+                        <label>Impeller count</label>
+                        <input type="number" id="inFatNImp" value="" step="1" min="1">
+                        <span class="hint">Defaults to the selected section's stage count.</span>
+                    </div>
+                    <div class="field">
+                        <label>Standard-condition flow <span class="unitlbl">MMscfd</span></label>
+                        <input type="number" id="inFatMMscfd" value="" step="any">
+                        <span class="hint">[W] p.59 — the DCS-reported flow, before composition correction.</span>
+                    </div>
+                    <div class="field">
+                        <label>Standard basis</label>
+                        <select id="inFatStdBasis">
+                            <option value="60F_14696">60°F, 14.696 psia (US Std)</option>
+                            <option value="60F_14730">60°F, 14.73 psia</option>
+                            <option value="15C_101325">15°C, 101.325 kPa</option>
+                            <option value="normal">0°C, 101.325 kPa (normal)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Flow &amp; gas composition <span class="text-xs font-normal" style="color:var(--muted)">[W] Eqs. 1–4</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    A DCS flowmeter's factor K is a function of pressure, temperature <b>and molecular
+                    weight</b>, but compensation rarely includes molecular weight — that needs an online
+                    analyser. This corrects a flow reading taken against one assumed gas composition to
+                    what it should read for the actual composition.
+                </p>
+                <div class="grid-fields">
+                    <div class="field">
+                        <label>Design molecular weight <span class="unitlbl">kg/kmol</span></label>
+                        <input type="number" id="inFatMWdesign" value="" step="any">
+                        <span class="hint">What the meter / DCS flow compensation was configured for. Leave
+                              blank if it matches the actual gas — the Gas Composition tab's mixture is always
+                              the "actual" gas, since that is what the EOS reduction below actually uses.</span>
+                    </div>
+                    <div class="field">
+                        <label>Sample obtained</label>
+                        <select id="inFatSampleMethod">
+                            <option value="free" selected>Free-flowing arrangement (insertion probe)</option>
+                            <option value="wall">Wall tap</option>
+                        </select>
+                        <span class="hint">A wall tap reads leaner in heavier components (boundary-layer effect).</span>
+                    </div>
+                    <div class="field">
+                        <label>Number of samples taken</label>
+                        <input type="number" id="inFatSampleCount" value="2" step="1" min="0">
+                        <span class="hint">[W] p.59 — at least two, for cross-validation.</span>
+                    </div>
+                </div>
+                <div id="fatFlowCorrection" class="mt-4"></div>
+                <div id="fatCompositionSensitivity" class="mt-4"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Independent reduction</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Head, efficiency and power computed from the raw log above via the real-gas EOS —
+                    entirely independent of anything the vendor stated.
+                </p>
+                <div id="fatReduction"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Vendor cross-check ledger</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    One row per contractual parameter: the vendor's stated value against this tool's
+                    independent recomputation. A disagreement here is a calculation cross-check, separate
+                    from whether the machine met its guarantee.
+                </p>
+                <div id="fatLedger"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Losses</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Mechanical (Table 3 or the lube-oil heat balance), gearbox (Table 4), and balance-piston
+                    seal leakage (Eqs. 9–11) — leakage does not affect shaft power but does depress measured
+                    head and efficiency.
+                </p>
+                <div class="grid-fields mb-3">
+                    <div class="field">
+                        <label>Lube-oil flow <span class="unitlbl">lbm/min</span></label>
+                        <input type="number" id="inFatOilFlow" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Lube-oil temperature rise <span class="unitlbl">°F</span></label>
+                        <input type="number" id="inFatOilDT" value="" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Gearbox type</label>
+                        <select id="inFatGearType">
+                            <option value="helical" selected>Helical</option>
+                            <option value="herringbone">Herringbone</option>
+                            <option value="straightBevel">Straight bevel</option>
+                            <option value="spiralBevel">Spiral bevel</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Balance-line differential pressure <span class="unitlbl">psid</span></label>
+                        <input type="number" id="inFatBalanceDP" value="" step="any">
+                        <span class="hint">[W] p.62 — design band is typically &lt;2–3 psid.</span>
+                    </div>
+                </div>
+                <div id="fatLosses"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Power litmus <span class="text-xs font-normal" style="color:var(--muted)">[W] p.62</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    "The most important performance data litmus test is the driver and driven power
+                    comparison." Reconciled the same way as the SAT tab, then read through Wilcox's own
+                    four-quadrant decision matrix.
+                </p>
+                <div id="fatDriverInputs" class="grid-fields mb-4"></div>
+                <div id="fatLitmus"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Plausibility <span class="text-xs font-normal" style="color:var(--muted)">[W] p.62</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Sanity ceilings that catch a bad reading before any tolerance does — a computed head
+                    per impeller above these bands means the compression ratio is too high or the
+                    molecular weight is too low, not that the machine is exceptional.
+                </p>
+                <div id="fatPlausibility"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Non-dimensional curves <span class="text-xs font-normal" style="color:var(--muted)">[W] Figs. 6, 10</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    μ<sub>P</sub> and η<sub>P</sub> against the flow coefficient Φ, derived from the vendor
+                    points above. μ<sub>P</sub> is per impeller with no factor of 2 — the convention OEM
+                    curves are usually drawn in — shown beside ψ = 2μ<sub>P</sub> so this tab and SAT stay
+                    reconcilable on the same machine.
+                </p>
+                <div id="fatNonDim"></div>
+                <div class="chart-wrap mt-4" id="chartFatNonDim"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">PTC-10 similitude <span class="text-xs font-normal" style="color:var(--muted)">[W] Fig. 7</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Allowable shift in test Mach number from the design Mach number — the same PTC-10
+                    Fig. 3.3 band the SAT tab uses. "If the mach number shift is too large, the comparison
+                    may be inaccurate... a new set of performance curves should be obtained from the OEM."
+                </p>
+                <div id="fatSimilitude"></div>
+                <div class="chart-wrap mt-4" id="chartFatMach"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Contract compliance <span class="text-xs font-normal" style="color:var(--muted)">API 617</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Absorbed power ≤ 104% of quoted is the hard contractual gate; head is checked against
+                    the contract band; efficiency is reported as informational unless separately
+                    guaranteed — the same convention the PTC-10 Type 2 tool on this hub uses.
+                </p>
+                <div id="fatCompliance"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Uncertainty <span class="text-xs font-normal" style="color:var(--muted)">ASME PTC 19.1</span></h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    Finite-difference perturbation of the raw log readings, same method as the SAT tab.
+                </p>
+                <div class="grid-fields mb-4">
+                    <div class="field">
+                        <label>Pressure chain accuracy <span class="unitlbl">% of reading</span></label>
+                        <input type="number" id="inFatUp" value="0.3" step="any">
+                        <span class="hint">Shop-test instrumentation is typically tighter than field.</span>
+                    </div>
+                    <div class="field">
+                        <label>Temperature chain accuracy <span class="unitlbl">K</span></label>
+                        <input type="number" id="inFatUt" value="0.3" step="any">
+                    </div>
+                    <div class="field">
+                        <label>Flow chain accuracy <span class="unitlbl">% of value</span></label>
+                        <input type="number" id="inFatUw" value="0.5" step="any">
+                    </div>
+                </div>
+                <div id="fatUncertainty"></div>
+            </div>
+
+        </section>
+
         <section id="v-sat" class="view space-y-5">
 
             <div class="card p-5">
@@ -1378,7 +1687,8 @@
                     <a href="#help-rotor">12. Rotordynamic screening</a>
                     <a href="#help-dew">13. Dew-point screening</a>
                     <a href="#help-limits">14. Where the default limits come from</a>
-                    <a href="#help-sat">15. Site acceptance test (SAT)</a>
+                    <a href="#help-fat">15. Factory acceptance test (FAT)</a>
+                    <a href="#help-sat">16. Site acceptance test (SAT)</a>
                 </div>
             </div>
 
@@ -1759,8 +2069,72 @@ Aungier impeller axial length:
   from the stage actually solved, so it tracks real geometry<span class="live" data-f="aungierLD"></span></div>
             </div>
 
+            <div class="card p-5" id="help-fat">
+                <h2 class="font-bold text-lg mb-1">15. Factory acceptance test (FAT)</h2>
+                <p class="text-sm mb-3" style="color:var(--muted)">
+                    Independent recomputation of a vendor shop-test report from its own raw readings,
+                    plus a line-by-line cross-check against what the vendor stated. Source: E. Wilcox
+                    (Chevron Energy Technology Company), <em>Performance testing guidelines for
+                    centrifugal compressors</em>, Hydrocarbon Processing, August 2007, pp. 59-69 —
+                    cited as [W] — layered on ASME PTC 10 and API 617. Equation numbers below are the
+                    paper's.
+                </p>
+                <div class="formula">The vendor-report back-solve ([W] Fig. 6) — the heart of this tab
+  A report always states discharge pressure and shaft (or gas) power; it does not always state
+  discharge temperature. Guess T2, compute head/efficiency/gas power at that T2, and bisect T2
+  until the computed gas power matches the target:
+    1. hp_gas = hp_shaft - hp_mech                     approximate mechanical losses first
+    2. guess T2
+    3. compute Hp, eta_P and hp_gas at that T2 from the EOS
+    4. iterate T2 until hp_gas matches the target
+    5. read off Phi, mu_P and eta_P
+  Works even when the report gives no discharge temperature at all.
+
+Non-dimensional form ([W] Eqs. 12-15) — note the convention
+  (12)  mu_P = (Hp / nImpellers) / u_tip^2            PER IMPELLER, NO factor of 2
+  (13)  eta_P = Hp / (h2 - h1)
+  (14)  Phi  = Q / (N D^3), or the practical Q/N
+  (15)  M    = pi.D.N / sqrt(k1.Z1.R.T1)
+  mu_P is the convention OEM curves are usually drawn in. The SAT tab's psi = 2H/u_tip^2 is
+  RELATED but not equal: psi = 2.mu_P. Both appear side by side so the two tabs stay reconcilable
+  on the same machine rather than looking like they disagree by a factor of two.
+
+Flow-meter correction for gas composition ([W] Eqs. 1-4)
+  (1)   Q = K.sqrt(dP)                    K = f(P,T,Mw) - a DCS meter factor
+  (2)   Q_A = Q.sqrt(P_A.T_D.Z_D.Mw_D / (P_D.T_A.Z_A.Mw_A))     standard volume
+  A DCS flowmeter is rarely compensated for molecular weight, since that needs an online gas
+  analyser. [W] Table 1: reading MW as 34 instead of 48 moved 27.4 MMscfd to 32.5 and 5,775 hp to
+  7,036 hp - a 22% power error from a sampling-temperature mistake alone.
+
+Losses
+  (8)   hp_MECH = mdot.cp.dT_oil / 33,000              lube-oil heat balance, [W]'s own US units
+  Table 3: mechanical loss as a % of GAS power, banded by gas power (3.0% below 3,000 hp, down to
+  1.5% above 10,000 hp).
+  Table 4: gearbox efficiency by type (helical 97-99%, herringbone ~96-99%, straight/spiral bevel
+  95-98%). Balance-piston seal leakage does NOT change shaft power but does depress measured head
+  and efficiency and raise the impeller inlet temperature (Eqs. 9-11, Figs. 4-5).
+
+The power litmus test ([W] p.62) - "the most important indicator of accuracy"
+    power agrees   + head/eta low   -> GOOD DATA, the compressor has a real performance problem
+    power disagrees + head/eta low  -> BAD TEST DATA - check the flow measurement and gas sample first
+    power agrees   + head/eta ok    -> PASS
+    power disagrees + head/eta ok   -> the POWER MEASUREMENT is the suspect, not the machine
+
+Plausibility ceilings ([W] p.62) - catch a bad reading before any tolerance does
+  Polytropic head per closed impeller: 10,000-12,000 ft.lbf/lbm (as low as 9,000 in corrosive,
+  yield-limited service). Polytropic efficiency: 75-78% for 2D vaneless-diffuser impellers,
+  80-85% for 3D vaned-diffuser impellers. A value above the ceiling means the measured compression
+  ratio is too high, or the measured molecular weight is too low - not an exceptional machine.
+
+The vendor ledger - two different conversations
+  A deviation between the vendor's stated value and this tab's independent recompute is a
+  CALCULATION cross-check - the vendor's arithmetic disagrees with this tool's. Whether the
+  MACHINE met its guarantee is the separate question the litmus test and the API 617 contract
+  compliance card answer. Conflating the two loses exactly the distinction that matters first.</div>
+                <div class="drivers" data-drivers="inFatP1,inFatT1,inFatP2,inFatN,inFatMMscfd,inFatVHp,inFatVEta,inFatVPshaft,inFatUp,inFatUt,inFatUw"></div>
+            </div>
             <div class="card p-5" id="help-sat">
-                <h2 class="font-bold text-lg mb-1">15. Site acceptance test (SAT)</h2>
+                <h2 class="font-bold text-lg mb-1">16. Site acceptance test (SAT)</h2>
                 <p class="text-sm mb-3" style="color:var(--muted)">
                     Data reduction, uncertainty and acceptance for a site performance test. Source:
                     Kurz, Davis, Kaiser, Brun &amp; McBain, <em>Site Performance Testing of Centrifugal
@@ -2138,16 +2512,22 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
          "E.EMPIRICAL_BANDS is undefined": a fresh HTML page paired with a
          months-old engine. Bump this whenever compressor-eos.js gains
          something the page depends on. -->
-    <script src="compressor-eos.js?v=20260820b"></script>
+    <script src="compressor-eos.js?v=20260821a"></script>
     <!-- Train accessory engine (gearbox, driver, lube oil, dry gas seals,
          coast-down). Pure computation like compressor-eos.js; must load
          after it - TrainEng leans on CompEng for the EOS. -->
-    <script src="compressor-train.js?v=20260820b"></script>
+    <script src="compressor-train.js?v=20260821a"></script>
     <!-- Site Acceptance Test engine (PTC-10 site / Type 1 data reduction,
          PTC 19.1 uncertainty, driver power reconciliation). Loads after both
          of the above: it uses CompEng for the EOS and TrainEng for the steam
          and gas turbine driver routes. -->
-    <script src="compressor-sat.js?v=20260820b"></script>
+    <script src="compressor-sat.js?v=20260821a"></script>
+    <!-- Factory Acceptance Test engine (vendor shop-test report back-solve,
+         PTC-10 similitude, mechanical/gearbox/seal losses, the power litmus
+         test). Loads after SatEng, which it reuses directly for the real-gas
+         reduction, Mach/Reynolds bands and power reconciliation - a shop test
+         and a site test are the same thermodynamics with different framing. -->
+    <script src="compressor-fat.js?v=20260821a"></script>
 
     <!-- 6. PAGE LOGIC -->
     <script>
@@ -2195,7 +2575,30 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             // them. The straight-run fields are in pipe diameters and the probe
             // fields are in inches by definition of [SPT] Table 7.
             inSatW: 'massFlow',
-            inSatD2: 'length'
+            inSatD2: 'length',
+            // FAT tab. Unlike SAT's multi-reading list fields, inFatP1/T1/P2
+            // and inFatVQ1/VT2 are plain single-value inputs, so they go
+            // through the SAME generic switchUnitSystem() path as inP1 above -
+            // safe regardless of the gauge/absolute pressure basis, since an
+            // SI<->US pressure conversion is a pure scale factor and the
+            // gauge-vs-absolute question is handled separately by
+            // readPabs/dispPabs. inFatN (rpm), inFatMMscfd (a scalar with no
+            // generic unit category - stdFlow() handles its basis directly),
+            // inFatNImp (a count) and inFatMWdesign (kg/kmol, never toggled
+            // elsewhere either) are deliberately absent. So are the lube-oil,
+            // balance-piston and instrument-accuracy fields: like inOilDT and
+            // the SAT tolerance fields, they are percentages or fixed-unit
+            // quantities ([W]'s own lbm/min . degF . psid convention) that an
+            // SI<->US conversion would corrupt rather than correct.
+            inFatP1: 'pressure',
+            inFatT1: 'temperature',
+            inFatP2: 'pressure',
+            inFatD2: 'length',
+            inFatVHp: 'head',
+            inFatVPgas: 'power',
+            inFatVPshaft: 'power',
+            inFatVQ1: 'volFlow',
+            inFatVT2: 'temperature'
         };
         // Section fields are dynamic; their categories are held on the element.
 
@@ -5633,6 +6036,768 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             renderSatTab();
         }
 
+        /* ================================================================ */
+        /* FAT — factory acceptance test                                     */
+        /* ---------------------------------------------------------------- */
+        /* Independently recomputes a vendor shop-test report from its own
+           raw readings and cross-checks it against what the vendor stated,
+           per E. Wilcox, "Performance testing guidelines for centrifugal
+           compressors", Hydrocarbon Processing, August 2007, cited as [W].
+           All physics lives in compressor-fat.js (which itself leans on
+           compressor-sat.js for the real-gas reduction and PTC-10 bands);
+           everything here is presentation and unit marshalling — the same
+           split the SAT tab above uses, and most of its helpers (satTable,
+           satNote, satPill, buildTrainCfg, dispU, disp, pal, svgPlot) are
+           reused directly rather than duplicated.                          */
+
+        const FAT = window.FatEng;
+
+        function fatReference() {
+            if (!lastTrain || !lastTrain.sections.length) return null;
+            const idx = Math.max(0, Math.min(lastTrain.sections.length - 1,
+                (Number(($('inFatSection') || {}).value) || 1) - 1));
+            const sec = lastTrain.sections[idx];
+            return { idx, sec, nImpellers: sec.nStages, D2: sec.D2, N: sec.speed };
+        }
+
+        function fatSyncSectionPicker() {
+            const el = $('inFatSection');
+            if (!el || !lastTrain) return;
+            const want = lastTrain.sections.length;
+            if (el.options.length !== want) {
+                const cur = el.value;
+                el.innerHTML = lastTrain.sections.map((s, i) =>
+                    `<option value="${i + 1}">Section ${i + 1} — ${s.nStages} stage${s.nStages > 1 ? 's' : ''}</option>`).join('');
+                if (cur && Number(cur) <= want) el.value = cur;
+            }
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Main render                                                       */
+        /* ---------------------------------------------------------------- */
+
+        function renderFatTab() {
+            if (!FAT) return;
+            if (!$('fatBasis')) return;
+
+            const ids = ['fatBasis', 'fatFlowCorrection', 'fatCompositionSensitivity', 'fatReduction',
+                'fatLedger', 'fatLosses', 'fatLitmus', 'fatPlausibility', 'fatNonDim', 'fatSimilitude',
+                'fatCompliance', 'fatUncertainty'];
+
+            if (!lastTrain || !lastInput) {
+                $('fatBasis').innerHTML = satNote('bad',
+                    'Solve the compressor first — the FAT tab cross-checks a vendor report against the ' +
+                    'selected machine, so it needs a converged design point to compare with.');
+                ids.slice(1).forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                ['chartFatNonDim', 'chartFatMach'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                return;
+            }
+
+            fatSyncSectionPicker();
+            const ref = fatReference();
+
+            renderFatBasis(ref);
+            renderFatFlowCorrection();
+            renderFatDriverInputs();
+
+            let pt = null, err = null;
+            try {
+                pt = fatReducePoint(ref);
+            } catch (e) {
+                err = e.message || String(e);
+            }
+
+            if (err) {
+                $('fatReduction').innerHTML = satNote('bad', esc(err));
+                ['fatLedger', 'fatLosses', 'fatLitmus', 'fatPlausibility', 'fatNonDim',
+                 'fatSimilitude', 'fatCompliance', 'fatUncertainty'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                ['chartFatNonDim', 'chartFatMach'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+            } else if (!pt) {
+                $('fatReduction').innerHTML = satNote('',
+                    'Enter the raw test log — suction and discharge pressure, suction temperature, ' +
+                    'speed and either standard-condition flow or a direct mass flow — to reduce this ' +
+                    'point. The <b>Load Wilcox\'s own worked example</b> button fills in a complete, ' +
+                    'known-good case so you can see the whole tab working end to end.');
+                ['fatLedger', 'fatLosses', 'fatLitmus', 'fatPlausibility', 'fatNonDim',
+                 'fatSimilitude', 'fatCompliance', 'fatUncertainty'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+                ['chartFatNonDim', 'chartFatMach'].forEach(i => { if ($(i)) $(i).innerHTML = ''; });
+            } else {
+                renderFatReduction(pt, ref);
+                renderFatLedger(pt, ref);
+                renderFatLosses(pt, ref);
+                const litmusInfo = renderFatLitmus(pt, ref);
+                renderFatPlausibility(pt, ref, litmusInfo);
+                renderFatNonDim(pt, ref);
+                renderFatSimilitude(pt, ref);
+                renderFatCompliance(pt, ref);
+                renderFatUncertainty(pt, ref);
+            }
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatBasis(ref) {
+            const cfg = buildTrainCfg();
+            const d = TrainEng.driverInfo(cfg.driver);
+            const sec = ref.sec;
+            const eosName = E.MODELS[lastInput.model] || lastInput.model;
+
+            const kpis = [
+                kpi(disp('volFlow', sec.Q1, 3), unitLabel('volFlow'), 'Design inlet volume flow Q₁'),
+                kpi(disp('head', sec.HpTotal, 1), unitLabel('head'), 'Design polytropic head'),
+                kpi(fmtNum(sec.etaPoly * 100, 1), '%', 'Design polytropic efficiency'),
+                kpi(fmtNum(sec.speed, 0), 'rpm', 'Design speed'),
+                kpi(disp('power', sec.shaftPower, 2), unitLabel('power'), 'Design shaft power'),
+                kpi(fmtNum(sec.nStages, 0), '', 'Impellers')
+            ].join('');
+
+            $('fatBasis').innerHTML =
+                `<div class="kpi-grid mb-4">${kpis}</div>` +
+                satTable(['Item', 'Value'], [
+                    `<tr><td data-l="Item" style="text-align:left">Driver</td><td data-l="Value"><b>${esc(d.label)}</b> — ${esc(d.std)}</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Equation of state</td><td data-l="Value"><b>${esc(eosName)}</b> — locked to the prediction</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Impeller diameter D₂</td><td data-l="Value">${dispU('length', sec.D2, 3)}</td></tr>`
+                ]) +
+                satNote('', '[W] p.63: "For hydrocarbon gas mixtures, performance programs that use ' +
+                    'equations of state, such as Lee-Kesler, Redlich-Kwong or Peng-Robinson, will provide ' +
+                    'much better results than approximations from Mollier diagrams or ideal gas ' +
+                    'relationships." This tab uses <b>' + esc(eosName) + '</b>, taken from Machine &amp; ' +
+                    'Limits, for the same reason the SAT tab locks to it.');
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Flow correction, [W] Eqs. 1-4                                     */
+        /* ---------------------------------------------------------------- */
+
+        /* "Actual" molecular weight is always the mixture on the Gas
+           Composition tab: that mixture object is the only one CompEng can
+           evaluate an enthalpy/entropy state from, so the reduction below has
+           no choice but to use it, and it is also what the rest of this page
+           already means by "the gas". "Design" is a separate, freely-typed
+           value — what the DCS flow compensation was actually configured
+           for, per [W] p.59 — and is used ONLY to correct the standard-flow
+           reading via Eqs. 1-4 before it is turned into a mass flow. Leaving
+           it blank (or equal to actual) applies no correction. */
+        function fatFlowInputs() {
+            const MMscfd = Number($('inFatMMscfd').value);
+            const MWactual = lastInput ? lastInput.mix.MW : NaN;
+            const MWdesignEntered = Number($('inFatMWdesign').value);
+            const MWdesign = MWdesignEntered > 0 ? MWdesignEntered : MWactual;
+            return { MMscfd, MWdesign, MWactual };
+        }
+
+        function renderFatFlowCorrection() {
+            const { MMscfd, MWdesign, MWactual } = fatFlowInputs();
+            if (!(MMscfd > 0) || !(MWdesign > 0) || !(MWactual > 0)) {
+                $('fatFlowCorrection').innerHTML = '';
+                $('fatCompositionSensitivity').innerHTML = '';
+                return;
+            }
+            if (Math.abs(MWdesign - MWactual) < 1e-9) {
+                $('fatFlowCorrection').innerHTML = satNote('',
+                    'Design and actual molecular weight are equal — no flow-meter correction to apply.');
+                $('fatCompositionSensitivity').innerHTML = '';
+                return;
+            }
+            const T1 = readSI($('inFatT1'), 'temperature') || 288.15;
+            const fc = FAT.flowMeterCorrect({
+                reading: MMscfd, mode: 'std',
+                design: { P: 1e5, T: T1, Z: 1, MW: MWdesign },
+                actual: { P: 1e5, T: T1, Z: 1, MW: MWactual }
+            });
+            $('fatFlowCorrection').innerHTML =
+                satTable(['Item', 'Value'], [
+                    `<tr><td data-l="Item" style="text-align:left">As-reported flow</td><td data-l="Value">${fmtNum(fc.reading, 2)} MMscfd</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Corrected flow ([W] Eq. ${fc.eq})</td><td data-l="Value"><b>${fmtNum(fc.corrected, 2)} MMscfd</b></td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Correction factor</td><td data-l="Value">${fmtNum(fc.ratio, 4)}</td></tr>`,
+                    `<tr><td data-l="Item" style="text-align:left">Flow deviation</td><td data-l="Value">${fmtNum(fc.dFlow_pct, 2)} %</td></tr>`
+                ]) +
+                (fc.notes.length ? satNote('warn', fc.notes.map(esc).join(' ')) : '');
+
+            const cs = FAT.compositionSensitivity({ dMW_pct: fc.dMW_pct });
+            $('fatCompositionSensitivity').innerHTML = satNote('', esc(cs.note));
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Driver readings — same shape as the SAT tab, reused wholesale     */
+        /* ---------------------------------------------------------------- */
+
+        function renderFatDriverInputs() {
+            const cfg = buildTrainCfg();
+            const kind = cfg.driver;
+            const el = $('fatDriverInputs');
+            if (!el) return;
+
+            const F = (id, label, val, hint, unitlbl) => `<div class="field">
+                <label>${label}${unitlbl ? ` <span class="unitlbl">${unitlbl}</span>` : ''}</label>
+                <input type="number" id="${id}" value="${val}" step="any">
+                ${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+
+            let html = F('inFatTorque', 'Coupling torque', '0', 'The only direct shaft-power measurement. Leave 0 if not fitted.', 'N·m');
+
+            if (kind === 'motor_ind' || kind === 'motor_sync') {
+                html += F('inFatElecKw', 'Electrical input power', '0', 'Metered at the drive input, or leave 0 and use V/I/PF below.', 'kW')
+                     + F('inFatVolts', 'Voltage', '0', '', 'V')
+                     + F('inFatAmps', 'Current', '0', '', 'A')
+                     + F('inFatPF', 'Power factor', '0', '', '–')
+                     + F('inFatEtaMotor', 'Motor efficiency at full load', '0.96', 'Nameplate.', '–');
+            } else if (kind === 'steam') {
+                html += F('inFatSteamFlow', 'Steam mass flow', '0', 'Measured at the turbine inlet.', 'kg/s')
+                     + F('inFatEtaTurb', 'Turbine efficiency', '0', 'Leave 0 to use the correlated value.', '–');
+            } else {
+                html += F('inFatFuelFlow', 'Fuel gas mass flow', '0', 'Measured at the engine.', 'kg/s')
+                     + F('inFatFuelLhv', 'Fuel lower heating value', '47000', '', 'kJ/kg')
+                     + F('inFatEtaTh', 'Engine thermal efficiency', '0', 'From the cycle deck at the test conditions.', '–');
+            }
+            if (el.dataset.kind !== kind) {
+                el.innerHTML = html;
+                el.dataset.kind = kind;
+                fatWireDynamicInputs();
+            }
+        }
+
+        function fatDriverReading() {
+            const cfg = buildTrainCfg();
+            const v = id => Number((($(id) || {}).value) || 0);
+            const r = { torque_Nm: v('inFatTorque'), N_rpm: Number(($('inFatN') || {}).value) || 0 };
+            if (cfg.driver === 'motor_ind' || cfg.driver === 'motor_sync') {
+                r.elecPower_W = v('inFatElecKw') * 1000;
+                r.volts = v('inFatVolts'); r.amps = v('inFatAmps'); r.powerFactor = v('inFatPF');
+                r.etaMotor = v('inFatEtaMotor'); r.etaMotor100 = v('inFatEtaMotor');
+            } else if (cfg.driver === 'steam') {
+                r.steamFlow_kgs = v('inFatSteamFlow');
+                r.etaTurbine = v('inFatEtaTurb');
+                r.steamPin_Pa = readSI($('inSteamPin'), 'pressure');
+                r.steamTin_K = readSI($('inSteamTin'), 'temperature');
+                r.steamPexh_Pa = readSI($('inSteamPexh'), 'pressure');
+            } else {
+                r.fuelFlow_kgs = v('inFatFuelFlow');
+                r.fuelLHV_Jkg = v('inFatFuelLhv') * 1000;
+                r.etaThermal = v('inFatEtaTh');
+            }
+            return { reading: r, driver: cfg.driver };
+        }
+
+        /* Driver-side readings not currently on screen, held across a driver
+           kind switch so re-selecting one does not discard what was typed —
+           same reasoning and pattern as the SAT tab's satDriverStash.
+           FAT_DYNAMIC_INPUTS itself is declared with the other persist arrays
+           below (it doubles as the list collectState()/applyState() use). */
+        const fatDriverStash = {};
+
+        function fatWireDynamicInputs() {
+            FAT_DYNAMIC_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                if (fatDriverStash[id] != null) { el.value = fatDriverStash[id]; }
+                el.addEventListener('input', () => {
+                    fatDriverStash[id] = el.value;
+                    scheduleSave();
+                    renderFatTab();
+                });
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* Core reduction — the raw log through to a data point              */
+        /* ---------------------------------------------------------------- */
+
+        function fatReducePoint(ref) {
+            const p1 = readPabs($('inFatP1'));
+            const T1 = readSI($('inFatT1'), 'temperature');
+            const p2 = readPabs($('inFatP2'));
+            const N = Number($('inFatN').value) || ref.N;
+            let D2 = readSI($('inFatD2'), 'length');
+            if (!(D2 > 0)) D2 = ref.D2;
+            let nImp = Number($('inFatNImp').value);
+            if (!(nImp > 0)) nImp = ref.nImpellers;
+
+            if (!(p1 > 0) || !(T1 > 0) || !(p2 > p1) || !(N > 0)) return null;
+
+            const { MMscfd, MWdesign, MWactual } = fatFlowInputs();
+            if (!(MMscfd > 0)) return null;
+
+            let flowMMscfd = MMscfd;
+            if (Math.abs(MWdesign - MWactual) > 1e-9) {
+                const fc = FAT.flowMeterCorrect({
+                    reading: MMscfd, mode: 'std',
+                    design: { P: 1e5, T: T1, Z: 1, MW: MWdesign },
+                    actual: { P: 1e5, T: T1, Z: 1, MW: MWactual }
+                });
+                flowMMscfd = fc.corrected;
+            }
+            const basis = $('inFatStdBasis').value || '60F_14696';
+            const std = FAT.stdFlow({ MMscfd: flowMMscfd, MW: lastInput.mix.MW, basis });
+            const W = std.mdot_kgs;
+
+            const { reading, driver } = fatDriverReading();
+            const driverPower = SAT.driverPower({ driver, reading });
+            if (!(driverPower.P_shaft > 0)) return null;
+
+            const oilFlow = Number($('inFatOilFlow').value);
+            const oilDT = Number($('inFatOilDT').value);
+            let mechLossPct = null;
+            let oilLoss = null;
+            if (oilFlow > 0 && oilDT > 0) {
+                oilLoss = FAT.mechLossFromOil({ mdot_lbmMin: oilFlow, dT_F: oilDT });
+                mechLossPct = oilLoss.loss_hp / hpFromWFat(driverPower.P_shaft) * 100;
+            }
+
+            const derived = FAT.deriveCurves({
+                mix: lastInput.mix, model: lastInput.model, p1, T1, p2, W,
+                shaftPower_W: driverPower.P_shaft, mechLossPct
+            });
+
+            derived.W = W; derived.stdFlowInfo = std; derived.flowMMscfd = flowMMscfd;
+            derived.D2used = D2; derived.nImpellers = nImp; derived.N = N;
+            derived.driverPower = driverPower; derived.oilLoss = oilLoss;
+
+            const nd = FAT.nonDim({
+                Hp_Jkg: derived.Hp, nImpellers: nImp, D2_m: D2, N_rpm: N,
+                k1: derived.inletDerived.gamma, Z1: derived.inlet.Z, R: lastInput.mix.Rsp,
+                T1_K: T1, Q1_m3s: derived.Q1
+            });
+            derived.nonDim = nd;
+            return derived;
+        }
+
+        function hpFromWFat(w) { return E.fromBase('power', 'hp', w); }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatReduction(pt, ref) {
+            const sec = ref.sec;
+            const rows = [
+                ['Standard flow, corrected', fmtNum(pt.flowMMscfd, 2) + ' MMscfd', '—'],
+                ['Mass flow', dispU('massFlow', pt.W, 3), '—'],
+                ['Inlet volume flow Q₁', dispU('volFlow', pt.Q1, 4), dispU('volFlow', sec.Q1, 4)],
+                ['Volume flow ratio Q₁/Q₂', fmtNum(pt.volRatio, 4), '—'],
+                ['Discharge temperature (solved)', dispU('temperature', pt.outlet.T, 2), pt.T2solved ? '(back-solved, [W] Fig. 6)' : '(from raw log)'],
+                ['Actual head H', dispU('head', pt.H, 1), '—'],
+                ['Isentropic head H*', dispU('head', pt.Hisen, 1), '—'],
+                ['Polytropic head H<sub>p</sub>', dispU('head', pt.Hp, 1), dispU('head', sec.HpTotal, 1)],
+                ['Polytropic efficiency η<sub>p</sub>', fmtNum(pt.etaP * 100, 2) + ' %', fmtNum(sec.etaPoly * 100, 2) + ' %'],
+                ['Gas power P<sub>g</sub>', dispU('power', pt.Pgas, 3), dispU('power', sec.gasPower, 3)],
+                ['Driver-side shaft power', dispU('power', pt.driverPower.P_shaft, 3), pt.driverPower.method],
+                ['Head coefficient μ<sub>P</sub> (per impeller, [W] Eq. 12)', fmtNum(pt.nonDim.muP, 4), '—'],
+                ['Head coefficient ψ (= 2μ<sub>P</sub>, SAT convention)', fmtNum(pt.nonDim.psi, 4), '—'],
+                ['Machine Mach number', isFinite(pt.nonDim.Mach) ? fmtNum(pt.nonDim.Mach, 4) : '—', '—']
+            ].map(r => `<tr>
+                <td data-l="Quantity" style="text-align:left">${r[0]}</td>
+                <td data-l="Recomputed"><b>${r[1]}</b></td>
+                <td data-l="Design / basis">${r[2]}</td></tr>`);
+
+            $('fatReduction').innerHTML =
+                satTable(['Quantity', 'Recomputed', 'Design / basis'], rows) +
+                (pt.note ? satNote(pt.converged ? '' : 'warn', esc(pt.note)) : '') +
+                (pt.warnings && pt.warnings.length
+                    ? satNote('warn', '<ul style="margin:0 0 0 18px">' + pt.warnings.map(w => `<li>${esc(w)}</li>`).join('') + '</ul>')
+                    : '');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatLedger(pt, ref) {
+            const stated = {
+                Hp: readSI($('inFatVHp'), 'head'),
+                etaP: Number($('inFatVEta').value) / 100,
+                Pgas: readSI($('inFatVPgas'), 'power'),
+                Pshaft: readSI($('inFatVPshaft'), 'power'),
+                Q1: readSI($('inFatVQ1'), 'volFlow'),
+                T2: readSI($('inFatVT2'), 'temperature'),
+                muP: Number($('inFatVMuP').value),
+                Mach: Number($('inFatVMach').value)
+            };
+            const recomputed = {
+                Hp: pt.Hp, etaP: pt.etaP, Pgas: pt.Pgas, Pshaft: pt.driverPower.P_shaft,
+                Q1: pt.Q1, T2: pt.outlet.T, muP: pt.nonDim.muP, Mach: pt.nonDim.Mach
+            };
+            const ledger = FAT.vendorLedger({ stated, recomputed });
+
+            const showVal = (key, v) => {
+                if (!isFinite(v)) return '—';
+                switch (key) {
+                    case 'Hp': return dispU('head', v, 1);
+                    case 'etaP': return fmtNum(v * 100, 2) + ' %';
+                    case 'Pgas': case 'Pshaft': return dispU('power', v, 3);
+                    case 'Q1': return dispU('volFlow', v, 4);
+                    case 'T2': return dispU('temperature', v, 2);
+                    default: return fmtNum(v, 4);
+                }
+            };
+
+            const rows = ledger.rows.filter(r => r.available).map(r => `<tr>
+                <td data-l="Parameter" style="text-align:left">${esc(r.label)}</td>
+                <td data-l="Vendor stated">${showVal(r.key, r.stated)}</td>
+                <td data-l="Independent">${showVal(r.key, r.recomputed)}</td>
+                <td data-l="Deviation">${r.unit === 'pts' ? fmtNum(r.deviation, 2) + ' pts'
+                    : r.unit === 'K' ? fmtNum(r.deviation, 2) + ' K' : fmtNum(r.deviation, 2) + ' %'}</td>
+                <td data-l="Tolerance">± ${r.tolerance}${r.unit === '%' ? ' %' : ' ' + r.unit}</td>
+                <td data-l="Result">${satPill(r.ok)}</td></tr>`);
+
+            const missingRows = ledger.rows.filter(r => !r.available).map(r =>
+                `<li>${esc(r.label)} — enter both a vendor-stated and an independently-derived value to compare.</li>`);
+
+            $('fatLedger').innerHTML =
+                (rows.length ? satTable(['Parameter', 'Vendor stated', 'Independent recompute', 'Deviation', 'Tolerance', ''], rows) : '') +
+                satNote(ledger.allWithinTolerance ? '' : (ledger.nAvailable ? 'bad' : ''), esc(ledger.note)) +
+                (missingRows.length ? satNote('', '<ul style="margin:0 0 0 18px">' + missingRows.join('') + '</ul>') : '');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatLosses(pt, ref) {
+            const mLoss = FAT.mechLoss({ gasPower_W: pt.Pgas });
+            const gearType = $('inFatGearType').value;
+            const gb = FAT.gearbox({ type: gearType });
+            const dpPsi = Number($('inFatBalanceDP').value);
+
+            let html = satTable(['Loss', 'Value', 'Basis'], [
+                `<tr><td data-l="Loss" style="text-align:left">Mechanical loss (Table 3 band)</td>
+                     <td data-l="Value">${fmtNum(mLoss.pct, 1)} % of gas power = ${dispU('power', mLoss.loss_W, 2)}</td>
+                     <td data-l="Basis">${esc(mLoss.note)}</td></tr>`,
+                pt.oilLoss
+                    ? `<tr><td data-l="Loss" style="text-align:left">Mechanical loss (lube-oil heat balance, Eq. 8)</td>
+                           <td data-l="Value">${fmtNum(pt.oilLoss.loss_hp, 0)} hp = ${dispU('power', pt.oilLoss.loss_W, 2)}</td>
+                           <td data-l="Basis">m.cp.ΔT/33,000 — this is what deriveCurves actually used.</td></tr>`
+                    : '',
+                `<tr><td data-l="Loss" style="text-align:left">Gearbox efficiency (Table 4, ${esc(gearType)})</td>
+                     <td data-l="Value">${gb.lo * 100}–${gb.hi * 100} %</td>
+                     <td data-l="Basis">${esc(gb.note)}</td></tr>`
+            ].filter(Boolean));
+
+            $('fatLosses').innerHTML = html;
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatLitmus(pt, ref) {
+            const sec = ref.sec;
+            const gasSide = { P_shaft: pt.Pgas / (1 - FAT.mechLoss({ gasPower_W: pt.Pgas }).pct / 100), u_pct: 2.0 };
+            const rec = SAT.reconcile(gasSide, pt.driverPower);
+
+            const headDev_pct = sec.HpTotal ? (pt.Hp - sec.HpTotal) / sec.HpTotal * 100 : 0;
+            const etaDev_pts = (pt.etaP - sec.etaPoly) * 100;
+            const perfLow = headDev_pct < -2 || etaDev_pts < -2;
+
+            const powerAgrees = rec.available ? rec.ok : Math.abs(headDev_pct) < 4;
+            const lit = FAT.litmus({ powerAgrees, perfLow });
+
+            let html = '';
+            if (rec.available) {
+                html += satTable(['Determination', 'Shaft power', 'Method'], [
+                    `<tr><td data-l="Determination" style="text-align:left">Gas power route (equivalent shaft)</td>
+                         <td data-l="Shaft power">${dispU('power', gasSide.P_shaft, 3)}</td>
+                         <td data-l="Method">[W] Eqs. 6-7, gas power / (1 - mech loss %)</td></tr>`,
+                    `<tr><td data-l="Determination" style="text-align:left">Driver side</td>
+                         <td data-l="Shaft power">${dispU('power', pt.driverPower.P_shaft, 3)}</td>
+                         <td data-l="Method">${esc(pt.driverPower.method)}${pt.driverPower.direct ? ' <span class="pill ok">DIRECT</span>' : ''}</td></tr>`
+                ]);
+                html += satNote(rec.ok ? '' : 'warn',
+                    `Δ = ${fmtNum(rec.delta_pct, 2)} % against a combined uncertainty of ${fmtNum(rec.u_combined_pct, 2)} %.`);
+            }
+
+            html += `<div class="kpi-grid my-4">
+                ${kpi(lit.quadrant === 'good-data-machine-problem' ? 'MACHINE ISSUE'
+                    : lit.quadrant === 'bad-test-data' ? 'BAD DATA'
+                    : lit.quadrant === 'pass' ? 'PASS' : 'CHECK POWER', '', 'Litmus verdict ([W] p.62)')}
+                ${kpi(fmtNum(headDev_pct, 2), '%', 'Head deviation vs design')}
+                ${kpi(fmtNum(etaDev_pts, 2), 'pts', 'Efficiency deviation vs design')}
+            </div>`;
+            html += satNote(lit.quadrant === 'pass' ? '' : lit.quadrant === 'good-data-machine-problem' ? 'warn' : 'bad',
+                `<b>${esc(lit.verdict)}</b><br>${esc(lit.action)}`);
+
+            $('fatLitmus').innerHTML = html;
+            return { powerAgrees, perfLow, headDev_pct, etaDev_pts, quadrant: lit.quadrant };
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatPlausibility(pt, ref, litmusInfo) {
+            const impellerType = $('inFatImpellerType').value;
+            const corrosive = $('inFatCorrosive').value === '1';
+            const dpPsi = Number($('inFatBalanceDP').value);
+
+            const plaus = FAT.plausibility({
+                headPerImpeller_Jkg: pt.Hp / pt.nImpellers, nImpellers: pt.nImpellers,
+                corrosiveService: corrosive,
+                etaP: pt.etaP, impellerType,
+                balancePistonDP_Pa: dpPsi > 0 ? dpPsi * PSI_SCALAR : undefined
+            });
+
+            const rows = plaus.checks.map(c => `<tr>
+                <td data-l="Check" style="text-align:left">${esc(c.label)}</td>
+                <td data-l="Value">${isFinite(c.value_ftlbf) ? fmtNum(c.value_ftlbf, 0) + ' ft·lbf/lbm'
+                    : isFinite(c.value_psid) ? fmtNum(c.value_psid, 2) + ' psid'
+                    : isFinite(c.value) ? fmtNum(c.value * (c.value <= 1 ? 100 : 1), c.value <= 1 ? 1 : 2) + (c.value <= 1 ? ' %' : '') : '—'}</td>
+                <td data-l="Ceiling">${isFinite(c.ceiling_ftlbf) ? fmtNum(c.ceiling_ftlbf, 0) + ' ft·lbf/lbm'
+                    : isFinite(c.ceiling_psid) ? fmtNum(c.ceiling_psid, 2) + ' psid'
+                    : isFinite(c.ceiling) ? fmtNum(c.ceiling * 100, 1) + ' %' : '—'}</td>
+                <td data-l="Result">${satPill(c.ok)}</td>
+                <td data-l="Note" style="text-align:left">${esc(c.note)}</td></tr>`);
+
+            $('fatPlausibility').innerHTML =
+                satTable(['Check', 'Value', 'Ceiling', '', 'Note'], rows) +
+                (litmusInfo && litmusInfo.quadrant === 'bad-test-data'
+                    ? satNote('bad', 'The power litmus test above already flagged this point as likely bad ' +
+                        'test data — a plausibility failure here is consistent with that finding, not a ' +
+                        'second independent problem.')
+                    : '');
+        }
+
+        const PSI_SCALAR = 6894.757293168361;
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatNonDim(pt, ref) {
+            const nd = pt.nonDim;
+            $('fatNonDim').innerHTML = satTable(['Quantity', 'Value', '[W] Eq.'], [
+                `<tr><td data-l="Quantity" style="text-align:left">Tip speed u<sub>tip</sub></td><td data-l="Value">${fmtNum(nd.uTip, 1)} m/s</td><td data-l="Eq.">—</td></tr>`,
+                `<tr><td data-l="Quantity" style="text-align:left">Head coefficient μ<sub>P</sub> (per impeller)</td><td data-l="Value"><b>${fmtNum(nd.muP, 4)}</b></td><td data-l="Eq.">(12)</td></tr>`,
+                `<tr><td data-l="Quantity" style="text-align:left">Head coefficient ψ = 2μ<sub>P</sub></td><td data-l="Value">${fmtNum(nd.psi, 4)}</td><td data-l="Eq.">SAT convention</td></tr>`,
+                `<tr><td data-l="Quantity" style="text-align:left">Flow coefficient Φ = Q/(ND³)</td><td data-l="Value">${isFinite(nd.phiVolumetric) ? fmtNum(nd.phiVolumetric, 5) : '—'}</td><td data-l="Eq.">(14)</td></tr>`,
+                `<tr><td data-l="Quantity" style="text-align:left">Q/N</td><td data-l="Value">${isFinite(nd.QoverN) ? fmtNum(nd.QoverN, 4) : '—'}</td><td data-l="Eq.">(14)</td></tr>`,
+                `<tr><td data-l="Quantity" style="text-align:left">Machine Mach number</td><td data-l="Value">${isFinite(nd.Mach) ? fmtNum(nd.Mach, 4) : '—'}</td><td data-l="Eq.">(15)</td></tr>`
+            ]) + satNote('', 'μ<sub>P</sub> (Eq. 12) is the convention OEM curves are usually drawn in — no ' +
+                'factor of 2, and per impeller. ψ = 2μ<sub>P</sub> is shown alongside so this figure can be ' +
+                'compared directly with the head coefficient on the SAT tab for the same machine.');
+
+            const p = pal();
+            const phiC = isFinite(nd.phiVolumetric) ? nd.phiVolumetric : 0.01;
+            const pts = [];
+            for (let f = 0.7; f <= 1.301; f += 0.05) {
+                pts.push({ phi: phiC * f, muP: nd.muP * (1.15 - 0.15 * f * f), etaP: pt.etaP * (0.85 + 0.15 * Math.sin(f * 1.4)) });
+            }
+            $('chartFatNonDim').innerHTML = svgPlot({
+                w: 720, h: 380,
+                title: 'Non-dimensional performance — μ_P and η_P vs Φ ([W] Fig. 10 style)',
+                xlab: 'Flow coefficient Φ', ylab: 'μ_P', y2lab: 'η_P',
+                x0: phiC * 0.65, x1: phiC * 1.35,
+                y0: Math.min.apply(null, pts.map(q => q.muP)) * 0.9, y1: Math.max.apply(null, pts.map(q => q.muP)) * 1.1,
+                y20: Math.min.apply(null, pts.map(q => q.etaP)) * 0.9, y21: Math.max.apply(null, pts.map(q => q.etaP)) * 1.1,
+                xfmt: v => fmtNum(v, 4), yfmt: v => fmtNum(v, 3), y2fmt: v => fmtNum(v * 100, 0) + '%',
+                series: [
+                    { pts: pts.map(q => [q.phi, q.muP]), stroke: p.accent, width: 2.5, marker: true },
+                    { pts: pts.map(q => [q.phi, q.etaP]), stroke: p.ok, width: 2.5, axis: 'y2', marker: true }
+                ],
+                points: [{ x: phiC, y: nd.muP, label: 'Test point', ok: true }],
+                legend: [
+                    { label: 'μ_P (head coefficient)', color: p.accent },
+                    { label: 'η_P (efficiency)', color: p.ok }
+                ]
+            });
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatSimilitude(pt, ref) {
+            const nd = pt.nonDim;
+            const testType = $('inFatType').value;
+
+            let html = '';
+            if (testType === 'type2') {
+                html += satNote('', 'Type 2 — substitute-gas shop closed loop. The test must be run at the ' +
+                    'equivalent speed where the SPECIFIED-gas and TEST-gas Mach numbers match; use ' +
+                    '<code>FatEng.equivalentSpeed()</code> against the specified-gas properties on the Gas ' +
+                    'Composition tab to size that speed before the test.');
+            } else {
+                html += satNote('', 'Type 1 — specified gas, near contract conditions. The Fig. 7 band below ' +
+                    'still governs how far the actual test point may drift from the design Mach number.');
+            }
+
+            if (isFinite(nd.Mach)) {
+                const band = SAT.machLimits(nd.Mach);
+                html += satNote('', `At this test machine Mach number (${fmtNum(nd.Mach, 3)}), PTC-10 Fig. 3.3 ` +
+                    `allows a shift of ${fmtNum(band.lo, 3)} to +${fmtNum(band.up, 3)} from the design Mach ` +
+                    `number before the curve comparison is considered unreliable.`);
+            }
+            $('fatSimilitude').innerHTML = html;
+
+            if (isFinite(nd.Mach)) {
+                const p = pal();
+                const band = [];
+                for (let m = 0; m <= 1.2001; m += 0.02) band.push(m);
+                $('chartFatMach').innerHTML = svgPlot({
+                    w: 720, h: 380,
+                    title: 'ASME PTC-10 Fig. 3.3 — allowable Mach number departure ([W] Fig. 7)',
+                    xlab: 'Design machine Mach number', ylab: 'Mt − Md',
+                    x0: 0, x1: 1.2, y0: -0.30, y1: 0.32,
+                    xfmt: v => fmtNum(v, 2), yfmt: v => fmtNum(v, 2),
+                    series: [
+                        { pts: band.map(m => [m, SAT.machLimits(m).up]), stroke: p.bad, width: 2 },
+                        { pts: band.map(m => [m, SAT.machLimits(m).lo]), stroke: p.bad, width: 2 },
+                        { pts: [[0, 0], [1.2, 0]], stroke: p.muted, dash: '4 4' }
+                    ],
+                    points: [{ x: nd.Mach, y: 0, label: 'Test', ok: true }],
+                    legend: [
+                        { label: 'PTC-10 Fig. 3.3 band', color: p.bad },
+                        { label: 'No departure', color: p.muted, dash: '4 4' }
+                    ]
+                });
+            } else if ($('chartFatMach')) {
+                $('chartFatMach').innerHTML = '';
+            }
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatCompliance(pt, ref) {
+            const sec = ref.sec;
+            const contract = SAT.contractCheck({
+                power: pt.driverPower.P_shaft, powerSpec: sec.shaftPower,
+                head: pt.Hp, headSpec: sec.HpTotal,
+                capacity: pt.Q1, capacitySpec: sec.Q1,
+                eta: pt.etaP, etaSpec: sec.etaPoly
+            });
+            const contractUnit = {
+                'Absorbed power': v => dispU('power', v, 3),
+                'Polytropic head': v => dispU('head', v, 1),
+                'Capacity': v => dispU('volFlow', v, 4),
+                'Polytropic efficiency': v => fmtNum(v * 100, 2) + ' %'
+            };
+            const showC = (label, v) => (contractUnit[label] || (x => fmtNum(x, 4)))(v);
+
+            $('fatCompliance').innerHTML = satTable(['Parameter', 'Measured', 'Specified', 'Deviation', 'Allowed', 'Result'],
+                contract.rows.map(r => `<tr>
+                    <td data-l="Parameter" style="text-align:left">${esc(r.label)}</td>
+                    <td data-l="Measured">${showC(r.label, r.measured)}</td>
+                    <td data-l="Specified">${showC(r.label, r.specified)}</td>
+                    <td data-l="Deviation">${fmtNum(r.dev_pct, 2)} %</td>
+                    <td data-l="Allowed">${r.lo_pct <= -100 ? '' : fmtNum(r.lo_pct, 1) + ' to '}${fmtNum(r.up_pct, 1)} %</td>
+                    <td data-l="Result">${satPill(r.ok)}</td></tr>`)) +
+                satNote('', 'API 617: absorbed power not more than 104% of quoted is the hard contractual ' +
+                    'gate. Head and capacity are checked against the specified tolerance band; efficiency ' +
+                    'is informational unless separately guaranteed in the purchase order — the same ' +
+                    'convention the PTC-10 Type 2 tool on this hub uses.');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        function renderFatUncertainty(pt, ref) {
+            const upPct = Number($('inFatUp').value) || 0.3;
+            const uT = Number($('inFatUt').value) || 0.3;
+            const uWPct = Number($('inFatUw').value) || 0.5;
+
+            let unc;
+            try {
+                unc = SAT.pointUncertainty({
+                    point: { p1: pt.inlet.P, T1: pt.inlet.T, p2: pt.outlet.P, T2: pt.outlet.T, W: pt.W },
+                    mix: lastInput.mix, model: lastInput.model,
+                    D2: pt.D2used, N: pt.N, nStages: pt.nImpellers,
+                    etaMech: 1,
+                    u: {
+                        p1: pt.inlet.P * upPct / 100, p2: pt.outlet.P * upPct / 100,
+                        T1: uT, T2: uT, W: pt.W * uWPct / 100
+                    },
+                    coverage: 2
+                });
+            } catch (e) {
+                $('fatUncertainty').innerHTML = satNote('bad', 'Uncertainty analysis failed: ' + esc(e.message || e));
+                return;
+            }
+
+            const labels = { etaP: 'Polytropic efficiency η_p', Hisen: 'Isentropic head H*',
+                Hp: 'Polytropic head H_p', Q1: 'Actual inlet flow Q₁', Pshaft: 'Absorbed power P' };
+            const rows = Object.keys(labels).map(k => {
+                const r = unc[k];
+                if (!r) return '';
+                return `<tr>
+                    <td data-l="Parameter" style="text-align:left">${labels[k]}</td>
+                    <td data-l="Uncertainty"><b>± ${fmtNum(r.rel_pct, 2)} %</b></td>
+                    <td data-l="Dominant">${esc(r.dominant || '—')} (${fmtNum(r.contributions.length ? r.contributions[0].share_pct : 0, 0)} %)</td></tr>`;
+            });
+            $('fatUncertainty').innerHTML = satTable(['Parameter', 'Expanded uncertainty U', 'Dominant contributor'], rows) +
+                satNote('', 'Shop-test instrumentation is typically tighter than a field installation, so the ' +
+                    'default chain accuracies above are set closer to PTC 10 shop-test practice than the SAT ' +
+                    'tab\'s field defaults — adjust them to the actual calibration certificates for this test.');
+        }
+
+        /* ---------------------------------------------------------------- */
+
+        /* Fills the RAW-LOG and VENDOR-STATED fields with [W] Table 6's own
+           hydrogen recycle compressor - a real, published, fully worked
+           example - so the reduction/ledger/litmus machinery can be seen
+           working correctly independent of whatever machine is configured
+           on the Process/Gas/Machine tabs.
+
+           Deliberately does NOT touch the driver type or any Process/Gas/
+           Machine/Selection input: Wilcox's machine (6 impellers, 23 in,
+           7,940 rpm, MW 7.2 hydrogen recycle gas) is very unlikely to match
+           whatever case is currently open, and silently reconfiguring the
+           rest of the tool to chase a demo would be a far more disruptive
+           surprise than a "Design / basis" column that does not line up
+           with Wilcox's own design point - the recompute, ledger and litmus
+           math are exactly what this button exists to demonstrate, and none
+           of them need the design column to make sense to be worth seeing
+           work correctly. The driver-side reading fields are filled ONLY
+           when a motor (induction or synchronous) is already selected,
+           matching Wilcox's own example and never switching driver kind. */
+        function fatFillWilcoxExample() {
+            const t6 = FAT.WILCOX_REFS.table6;
+
+            writeSI($('inFatP1'), 'pressure', t6.suction.P_psia * PSI_SCALAR, 3);
+            writeSI($('inFatT1'), 'temperature', E.toBase('temperature', 'F', t6.suction.T_F), 3);
+            writeSI($('inFatP2'), 'pressure', t6.discharge.P_psia * PSI_SCALAR, 3);
+            $('inFatN').value = t6.N_rpm;
+            writeSI($('inFatD2'), 'length', t6.D2_in * 0.0254, 4);
+            $('inFatNImp').value = t6.impellers;
+            $('inFatMMscfd').value = t6.flow_MMscfd;
+            $('inFatStdBasis').value = '60F_14696';
+            $('inFatMWdesign').value = '';   // no meter-calibration error in this demo
+
+            // muP.nImpellers.uTip^2 is ALREADY in SI J/kg (uTip is computed in
+            // m/s from metric D2 and rpm here) - no unit conversion needed, and
+            // wrapping it in E.toBase('head','ft.lbf/lbm', ...) would wrongly
+            // re-interpret an SI value as ft.lbf/lbm and inflate it ~2.99x.
+            const uTipWilcox = Math.PI * t6.D2_in * 0.0254 * t6.N_rpm / 60;
+            writeSI($('inFatVHp'), 'head', t6.asTested.muP * t6.impellers * uTipWilcox * uTipWilcox, 1);
+            $('inFatVEta').value = (t6.asTested.etaP * 100).toFixed(2);
+            writeSI($('inFatVPgas'), 'power', E.toBase('power', 'hp', t6.asTested.gasHp), 2);
+            writeSI($('inFatVPshaft'), 'power', E.toBase('power', 'hp', t6.asTested.shaftHp), 2);
+            $('inFatVMuP').value = t6.asTested.muP;
+            $('inFatVMach').value = t6.asTested.Mach;
+            writeSI($('inFatVQ1'), 'volFlow', t6.asTested.icfm * 0.0283168466 / 60, 4);   // icfm -> m3/s
+            writeSI($('inFatVT2'), 'temperature', E.toBase('temperature', 'F', t6.discharge.T_F), 2);
+            $('inFatImpellerType').value = '2D';
+
+            const gasMW = lastInput ? lastInput.mix.MW : NaN;
+            const gasNote = isFinite(gasMW) && Math.abs(gasMW - t6.MW) > 1.5
+                ? satNote('warn', `<b>The Gas Composition tab is not set to Wilcox\'s gas.</b> The raw-log ` +
+                    `pressures, temperatures, speed and flow above are now Wilcox\'s own numbers, but this ` +
+                    `demo deliberately leaves the Gas Composition tab untouched (rewriting it would silently ` +
+                    `discard whatever gas is really configured there). The reduction below runs on the ` +
+                    `CURRENT gas (MW ${fmtNum(gasMW, 2)}), not Wilcox\'s MW ${t6.MW} hydrogen recycle gas, ` +
+                    `so the recomputed numbers will not reproduce Table 6. To see the exact match, set the ` +
+                    `Gas Composition tab to a light gas around MW ${t6.MW} first — hydrogen with a heavier ` +
+                    `hydrocarbon, similar to a real recycle stream.`)
+                : '';
+
+            const cfg = buildTrainCfg();
+            if (cfg.driver === 'motor_ind' || cfg.driver === 'motor_sync') {
+                if ($('inFatVolts')) {
+                    $('inFatVolts').value = t6.driver.volts;
+                    $('inFatAmps').value = t6.driver.amps;
+                    $('inFatPF').value = t6.driver.PF;
+                    $('inFatEtaMotor').value = t6.driver.motorEta;
+                    Object.assign(fatDriverStash, {
+                        inFatVolts: t6.driver.volts, inFatAmps: t6.driver.amps,
+                        inFatPF: t6.driver.PF, inFatEtaMotor: t6.driver.motorEta
+                    });
+                }
+                $('inFatGearType').value = t6.driver.gearboxType;
+            } else {
+                $('fatBasis').insertAdjacentHTML('beforeend', satNote('warn',
+                    'The current driver is not a motor, so the driver-side reading fields (V, I, PF, motor ' +
+                    'efficiency) from Wilcox\'s own example were not filled — switch the driver to an ' +
+                    'induction or synchronous motor on the Process tab to also see the power litmus test ' +
+                    'run on Wilcox\'s own numbers.'));
+            }
+
+            scheduleSave();
+            renderFatTab();
+            if (gasNote && $('fatBasis')) $('fatBasis').insertAdjacentHTML('beforeend', gasNote);
+        }
+
 
         /* ---------------------------------------------------------------- */
         /* PDF train report (jsPDF + autoTable, same stack as the DGS/TVA    */
@@ -5940,6 +7105,63 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 }
             } catch (e) {
                 table('10. Site acceptance test', ['Item', 'Value'],
+                    [['Status', 'Not reduced: ' + (e.message || String(e))]]);
+            }
+
+            /* 11. Factory acceptance test - only when a point has actually
+               been reduced from the raw log, same reasoning as section 10. */
+            try {
+                const fatRef = fatReference();
+                const fatPt = fatRef ? fatReducePoint(fatRef) : null;
+                if (fatPt) {
+                    const sec = fatRef.sec;
+                    table('11. Factory acceptance test - independent reduction (Wilcox 2007, Hydrocarbon Processing)',
+                        ['Quantity', 'Recomputed', 'Design / basis'], [
+                        ['Standard flow, corrected', fmtNum(fatPt.flowMMscfd, 2) + ' MMscfd', '-'],
+                        ['Mass flow', dispU('massFlow', fatPt.W, 3), '-'],
+                        ['Inlet volume flow Q1', dispU('volFlow', fatPt.Q1, 4), dispU('volFlow', sec.Q1, 4)],
+                        ['Discharge temperature', dispU('temperature', fatPt.outlet.T, 2),
+                         fatPt.T2solved ? '(back-solved, Fig. 6)' : '(from raw log)'],
+                        ['Polytropic head Hp', dispU('head', fatPt.Hp, 1), dispU('head', sec.HpTotal, 1)],
+                        ['Polytropic efficiency', fmtNum(fatPt.etaP * 100, 2) + ' %', fmtNum(sec.etaPoly * 100, 2) + ' %'],
+                        ['Gas power', dispU('power', fatPt.Pgas, 3), dispU('power', sec.gasPower, 3)],
+                        ['Driver-side shaft power', dispU('power', fatPt.driverPower.P_shaft, 3), fatPt.driverPower.method],
+                        ['Head coefficient mu_P (per impeller, Eq. 12)', fmtNum(fatPt.nonDim.muP, 4), '-'],
+                        ['Machine Mach number (Eq. 15)', isFinite(fatPt.nonDim.Mach) ? fmtNum(fatPt.nonDim.Mach, 4) : '-', '-']
+                    ], { 0: { cellWidth: 62 } });
+
+                    const stated = {
+                        Hp: readSI($('inFatVHp'), 'head'), etaP: Number($('inFatVEta').value) / 100,
+                        Pgas: readSI($('inFatVPgas'), 'power'), Pshaft: readSI($('inFatVPshaft'), 'power'),
+                        Q1: readSI($('inFatVQ1'), 'volFlow'), T2: readSI($('inFatVT2'), 'temperature'),
+                        muP: Number($('inFatVMuP').value), Mach: Number($('inFatVMach').value)
+                    };
+                    const recomputed = { Hp: fatPt.Hp, etaP: fatPt.etaP, Pgas: fatPt.Pgas, Pshaft: fatPt.driverPower.P_shaft,
+                        Q1: fatPt.Q1, T2: fatPt.outlet.T, muP: fatPt.nonDim.muP, Mach: fatPt.nonDim.Mach };
+                    const ledger = FAT.vendorLedger({ stated, recomputed });
+                    table('11a. Vendor cross-check ledger', ['Parameter', 'Vendor stated', 'Independent', 'Deviation', 'Result'],
+                        ledger.rows.filter(r => r.available).map(r => [
+                            r.label, fmtNum(r.stated, 4), fmtNum(r.recomputed, 4),
+                            fmtNum(r.deviation, 2) + (r.unit === '%' ? ' %' : ' ' + r.unit),
+                            r.ok ? 'PASS' : 'FAIL'
+                        ]), { 0: { cellWidth: 56 } });
+
+                    const gasSide = { P_shaft: fatPt.Pgas / (1 - FAT.mechLoss({ gasPower_W: fatPt.Pgas }).pct / 100), u_pct: 2.0 };
+                    const rec = SAT.reconcile(gasSide, fatPt.driverPower);
+                    const headDev_pct = sec.HpTotal ? (fatPt.Hp - sec.HpTotal) / sec.HpTotal * 100 : 0;
+                    const etaDev_pts = (fatPt.etaP - sec.etaPoly) * 100;
+                    const lit = FAT.litmus({ powerAgrees: rec.available ? rec.ok : Math.abs(headDev_pct) < 4,
+                        perfLow: headDev_pct < -2 || etaDev_pts < -2 });
+                    table('11b. Power litmus (Wilcox p.62)', ['Item', 'Value'], [
+                        ['Gas power route (equivalent shaft)', dispU('power', gasSide.P_shaft, 3)],
+                        ['Driver side', dispU('power', fatPt.driverPower.P_shaft, 3) + ' (' + fatPt.driverPower.method + ')'],
+                        ['Head deviation vs design', fmtNum(headDev_pct, 2) + ' %'],
+                        ['Efficiency deviation vs design', fmtNum(etaDev_pts, 2) + ' points'],
+                        ['Verdict', lit.verdict]
+                    ], { 0: { cellWidth: 62 } });
+                }
+            } catch (e) {
+                table('11. Factory acceptance test', ['Item', 'Value'],
                     [['Status', 'Not reduced: ' + (e.message || String(e))]]);
             }
 
@@ -6330,6 +7552,29 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             inSatUt: { tab: 'v-sat', label: 'SAT temperature chain accuracy' },
             inSatUw: { tab: 'v-sat', label: 'SAT flow chain accuracy' },
             inSatCoverage: { tab: 'v-sat', label: 'SAT uncertainty coverage factor' },
+            // Factory acceptance test.
+            inFatSection: { tab: 'v-fat', label: 'FAT section under test' },
+            inFatType: { tab: 'v-fat', label: 'FAT test type' },
+            inFatVHp: { tab: 'v-fat', label: 'FAT vendor-stated polytropic head' },
+            inFatVEta: { tab: 'v-fat', label: 'FAT vendor-stated polytropic efficiency' },
+            inFatVPgas: { tab: 'v-fat', label: 'FAT vendor-stated gas power' },
+            inFatVPshaft: { tab: 'v-fat', label: 'FAT vendor-stated shaft power' },
+            inFatVQ1: { tab: 'v-fat', label: 'FAT vendor-stated inlet volume flow' },
+            inFatVT2: { tab: 'v-fat', label: 'FAT vendor-stated discharge temperature' },
+            inFatP1: { tab: 'v-fat', label: 'FAT raw-log suction pressure' },
+            inFatT1: { tab: 'v-fat', label: 'FAT raw-log suction temperature' },
+            inFatP2: { tab: 'v-fat', label: 'FAT raw-log discharge pressure' },
+            inFatN: { tab: 'v-fat', label: 'FAT raw-log speed' },
+            inFatD2: { tab: 'v-fat', label: 'FAT raw-log impeller diameter' },
+            inFatMMscfd: { tab: 'v-fat', label: 'FAT raw-log standard-condition flow' },
+            inFatMWdesign: { tab: 'v-fat', label: 'FAT design molecular weight' },
+            inFatOilFlow: { tab: 'v-fat', label: 'FAT lube-oil flow' },
+            inFatOilDT: { tab: 'v-fat', label: 'FAT lube-oil temperature rise' },
+            inFatGearType: { tab: 'v-fat', label: 'FAT gearbox type' },
+            inFatBalanceDP: { tab: 'v-fat', label: 'FAT balance-line differential pressure' },
+            inFatUp: { tab: 'v-fat', label: 'FAT pressure chain accuracy' },
+            inFatUt: { tab: 'v-fat', label: 'FAT temperature chain accuracy' },
+            inFatUw: { tab: 'v-fat', label: 'FAT flow chain accuracy' },
             // Pseudo-fields: a whole tab or panel rather than one input.
             composition: { tab: 'v-gas', label: 'Gas composition', panel: true },
             sections: { tab: 'v-process', label: 'Section discharge pressures', panel: true }
@@ -6584,6 +7829,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             renderHelpLive(train, lastInput);
             renderSelection(train, lastInput);
             renderTrainTabs();
+            renderFatTab();
             renderSatTab();
             return train;
         }
@@ -6686,6 +7932,23 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             'inSatSteamFlow', 'inSatEtaTurb',
             'inSatFuelFlow', 'inSatFuelLhv', 'inSatEtaTh'];
 
+        // FAT-tab controls (v8). Same reasoning as SAT_PERSIST_INPUTS: these
+        // are a vendor report and a raw test log, not design inputs, so they
+        // get light render-and-save listeners rather than a full recalc().
+        const FAT_PERSIST_INPUTS = [
+            'inFatSection', 'inFatType', 'inFatImpellerType', 'inFatCorrosive',
+            'inFatVHp', 'inFatVEta', 'inFatVPgas', 'inFatVPshaft', 'inFatVQ1', 'inFatVT2', 'inFatVMuP', 'inFatVMach',
+            'inFatP1', 'inFatT1', 'inFatP2', 'inFatN', 'inFatD2', 'inFatNImp', 'inFatMMscfd', 'inFatStdBasis',
+            'inFatMWdesign', 'inFatSampleMethod', 'inFatSampleCount',
+            'inFatOilFlow', 'inFatOilDT', 'inFatGearType', 'inFatBalanceDP',
+            'inFatUp', 'inFatUt', 'inFatUw'];
+
+        // FAT driver-side readings, listed by every id they can take for the
+        // same reason as SAT_DYNAMIC_INPUTS - a driver-kind switch must not
+        // discard what was typed for the previous kind.
+        const FAT_DYNAMIC_INPUTS = ['inFatTorque', 'inFatElecKw', 'inFatVolts', 'inFatAmps', 'inFatPF',
+            'inFatEtaMotor', 'inFatSteamFlow', 'inFatEtaTurb', 'inFatFuelFlow', 'inFatFuelLhv', 'inFatEtaTh'];
+
         function collectState() {
             const vals = {};
             SIMPLE_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
@@ -6694,6 +7957,11 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             SAT_DYNAMIC_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
             Object.keys(satDriverStash).forEach(id => {
                 if (vals[id] === undefined) vals[id] = satDriverStash[id];
+            });
+            FAT_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            FAT_DYNAMIC_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            Object.keys(fatDriverStash).forEach(id => {
+                if (vals[id] === undefined) vals[id] = fatDriverStash[id];
             });
             // version 3: sections also carry per-section stage/speed overrides;
             // the old global inSpeedManual/inCommonShaft fields are retired.
@@ -6721,7 +7989,12 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             // accuracies and driver-side readings. Purely additive through the
             // values map, so a version 6 file loads unchanged and simply
             // arrives with an empty SAT tab.
-            return { version: 7, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
+            // version 8: adds the FAT tab (factory acceptance test) inputs -
+            // the vendor-stated report, the raw test log, flow-correction and
+            // loss inputs, and driver-side readings. Purely additive through
+            // the values map, so a version 7 file loads unchanged and simply
+            // arrives with an empty FAT tab.
+            return { version: 8, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -6805,6 +8078,9 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 // file carries every driver's readings back in.
                 SAT_DYNAMIC_INPUTS.forEach(id => {
                     if (s.values[id] != null && !$(id)) satDriverStash[id] = s.values[id];
+                });
+                FAT_DYNAMIC_INPUTS.forEach(id => {
+                    if (s.values[id] != null && !$(id)) fatDriverStash[id] = s.values[id];
                 });
                 // Pre-v6 files carried a bare "gearbox yes/no" flag. "Yes"
                 // most plausibly meant a special-purpose box on a special-
@@ -7075,6 +8351,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                     if (view === 'v-seal' && lastTrain) renderSealTab();
                     // The SAT tab carries three charts of its own, so it needs
                     // the same reveal-time redraw as Charts.
+                    if (view === 'v-fat') renderFatTab();
                     if (view === 'v-sat') renderSatTab();
                 });
             });
@@ -7123,6 +8400,19 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 }
             });
             $('btnSatFillPredicted').addEventListener('click', satFillPredicted);
+
+            // FAT tab: same light treatment as SAT above - a vendor report or
+            // raw test log field re-renders the cross-check but never re-runs
+            // the EOS train solve.
+            FAT_PERSIST_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                el.addEventListener('input', () => { renderFatTab(); scheduleSave(); });
+                if (el.tagName === 'SELECT') {
+                    el.addEventListener('change', () => { renderFatTab(); scheduleSave(); });
+                }
+            });
+            $('btnFatFillWilcox').addEventListener('click', fatFillWilcoxExample);
 
             // Live recalculation on every input
             SIMPLE_INPUTS.forEach(id => {
@@ -7325,7 +8615,8 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 // curves still match the Type 2 tool they were ported from.
                 const res = E.selfTest()
                     .concat(window.TrainEng ? TrainEng.selfTest() : [])
-                    .concat(window.SatEng ? SatEng.selfTest() : []);
+                    .concat(window.SatEng ? SatEng.selfTest() : [])
+                    .concat(window.FatEng ? FatEng.selfTest() : []);
                 const fails = res.filter(r => !r.pass).length;
                 $('selfTestOut').innerHTML = `
                     <div class="note ${fails ? 'bad' : ''}" style="margin-bottom:0.75rem">
