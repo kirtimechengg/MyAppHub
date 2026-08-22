@@ -298,6 +298,7 @@
             <button class="tab" data-view="v-seal">Seals</button>
             <button class="tab" data-view="v-charts">Charts</button>
             <button class="tab" data-view="v-fat">FAT (PTC 10)</button>
+            <button class="tab" data-view="v-mrt">MRT at shop (API 617)</button>
             <button class="tab" data-view="v-sat">SAT (PTC 10)</button>
             <button class="tab" data-view="v-report">Report</button>
             <button class="tab" data-view="v-help">Help &amp; Formulas</button>
@@ -1019,6 +1020,66 @@
                     and fixed-diameter/speed methods route through.
                 </p>
                 <div class="chart-wrap" id="chartFig16"></div>
+            </div>
+        </section>
+
+        <!-- ============================ MRT ============================ -->
+        <section id="v-mrt" class="view space-y-5">
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Mechanical running test at shop — API 617 workflow</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">
+                    A purchaser-side record for validating the manufacturer’s mechanical running test before release
+                    and after strip inspection. The tool derives maximum continuous speed from the selected compressor,
+                    checks the customary four-hour run, and compares recorded trends with purchaser-entered acceptance limits.
+                    The purchased API 617 edition, purchase order, approved test procedure, and vendor vibration criteria govern.
+                </p>
+                <div class="grid-fields">
+                    <div class="field"><label>Section under test</label><select id="inMrtSection"></select><span class="hint">Uses this section’s solved compressor speed as the default MCS.</span></div>
+                    <div class="field"><label>Maximum continuous speed <span class="unitlbl">rpm</span></label><input type="number" id="inMrtMcs" value="" step="any"><span class="hint">Blank = selected section’s solved speed; enter contractual MCS when different.</span></div>
+                    <div class="field"><label>Recorded test speed <span class="unitlbl">rpm</span></label><input type="number" id="inMrtSpeed" value="" step="any"></div>
+                    <div class="field"><label>Hold at / above MCS <span class="unitlbl">h</span></label><input type="number" id="inMrtDuration" value="4" min="0" step="any"><span class="hint">Four hours is the customary API 617 mechanical run baseline; verify the approved procedure.</span></div>
+                </div>
+                <div id="mrtBasis" class="mt-4"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Pre-test release checklist</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Confirm these at the shop before authorizing the run. Each item is retained with the case export.</p>
+                <div class="grid-fields">
+                    <label class="field"><span><input type="checkbox" id="inMrtPreProcedure"> Approved test procedure, data sheet, and acceptance criteria available</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPreCal"> Instrument calibration / ranges verified and traceable</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPreLube"> Lube-seal system flushed, supplied, and alarms / trips proven</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPreCoupling"> Coupling guard, alignment record, and safe test arrangement released</span></label>
+                </div>
+                <div id="mrtPreChecklist" class="mt-4"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Run log — before / end of hold</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Enter stable readings immediately before the MCS hold and at the end of the hold. Set limits from the purchase order or approved procedure; no generic vibration or temperature limit is imposed.</p>
+                <div class="grid-fields">
+                    <div class="field"><label>Vibration before / end <span class="unitlbl">µm pk-pk</span></label><input type="text" id="inMrtVib" value="" placeholder="e.g. 18 / 21"><span class="hint">Use the same probe/filter convention for both readings.</span></div>
+                    <div class="field"><label>Vibration acceptance limit <span class="unitlbl">µm pk-pk</span></label><input type="number" id="inMrtVibLimit" value="" min="0" step="any"></div>
+                    <div class="field"><label>Bearing metal temp. before / end <span class="unitlbl">°C</span></label><input type="text" id="inMrtBmt" value="" placeholder="e.g. 72 / 75"></div>
+                    <div class="field"><label>Bearing metal temp. limit <span class="unitlbl">°C</span></label><input type="number" id="inMrtBmtLimit" value="" min="0" step="any"></div>
+                    <div class="field"><label>Lube pressure before / end <span class="unitlbl">bar(g)</span></label><input type="text" id="inMrtLubeP" value="" placeholder="e.g. 1.6 / 1.6"></div>
+                    <div class="field"><label>Max lube pressure drift <span class="unitlbl">%</span></label><input type="number" id="inMrtLubeDrift" value="10" min="0" step="any"></div>
+                    <div class="field"><label>Seal leakage before / end <span class="unitlbl">Nm³/h</span></label><input type="text" id="inMrtSealLeak" value="" placeholder="e.g. 0.4 / 0.4"></div>
+                    <div class="field"><label>Max leakage increase <span class="unitlbl">%</span></label><input type="number" id="inMrtLeakRise" value="10" min="0" step="any"></div>
+                </div>
+                <div id="mrtRunValidation" class="mt-4"></div>
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-bold text-lg mb-1">Post-test validation and release</h2>
+                <p class="text-xs mb-3" style="color:var(--muted)">Complete after shutdown and any required strip inspection. A PASS is a completion aid, not a release authorization.</p>
+                <div class="grid-fields">
+                    <label class="field"><span><input type="checkbox" id="inMrtPostNoTrip"> No unexplained trip, alarm, rub, or abnormal noise during the hold</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPostInspect"> Bearings, seals, and internal parts inspected as required; no unacceptable distress</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPostData"> Signed test log, plots, calibration evidence, and deviations attached</span></label>
+                    <label class="field"><span><input type="checkbox" id="inMrtPostClose"> Deviations dispositioned and purchaser / inspector release recorded</span></label>
+                </div>
+                <div id="mrtPostChecklist" class="mt-4"></div>
             </div>
         </section>
 
@@ -6037,6 +6098,67 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
         }
 
         /* ================================================================ */
+        /* MRT — API 617 shop mechanical running test                       */
+        /* This is deliberately a workflow validator, not a rotordynamic or */
+        /* vibration-limit calculator: the binding limits live in the PO.   */
+        function mrtSyncSectionPicker() {
+            const el = $('inMrtSection');
+            if (!el || !lastTrain) return;
+            const current = el.value;
+            el.innerHTML = lastTrain.sections.map((sec, i) =>
+                `<option value="${i + 1}">Section ${i + 1} — ${fmtNum(sec.speed, 0)} rpm solved speed</option>`).join('');
+            if (current && Number(current) <= lastTrain.sections.length) el.value = current;
+        }
+
+        function mrtPair(id) {
+            const values = String(($(id) || {}).value || '').split(/[\/,;]+/).map(Number).filter(v => isFinite(v));
+            return values.length >= 2 ? { before: values[0], end: values[1] } : null;
+        }
+
+        function renderMrtTab() {
+            if (!$('mrtBasis')) return;
+            if (!lastTrain || !lastTrain.sections.length) {
+                $('mrtBasis').innerHTML = satNote('bad', 'Solve the compressor first. The MRT tab uses the selected section to establish a traceable MCS reference.');
+                ['mrtPreChecklist', 'mrtRunValidation', 'mrtPostChecklist'].forEach(id => { $(id).innerHTML = ''; });
+                return;
+            }
+            mrtSyncSectionPicker();
+            const index = Math.max(0, Math.min(lastTrain.sections.length - 1, (Number($('inMrtSection').value) || 1) - 1));
+            const sec = lastTrain.sections[index];
+            const mcsEntered = Number($('inMrtMcs').value);
+            const mcs = mcsEntered > 0 ? mcsEntered : sec.speed;
+            const speed = Number($('inMrtSpeed').value);
+            const duration = Number($('inMrtDuration').value);
+            const check = (label, ok, detail) => `<tr><td data-l="Check" style="text-align:left">${label}</td><td data-l="Evidence">${detail}</td><td data-l="Result">${satPill(ok)}</td></tr>`;
+            const complete = (value, ok) => value == null ? null : ok;
+            $('mrtBasis').innerHTML = `<div class="kpi-grid mb-4">${
+                kpi(fmtNum(mcs, 0), 'rpm', mcsEntered > 0 ? 'Contract MCS entered' : 'MCS from solved section') +
+                kpi(fmtNum(sec.speed, 0), 'rpm', 'Solved section speed') +
+                kpi(fmtNum(sec.nStages, 0), '', 'Impellers') +
+                kpi(disp('power', sec.shaftPower, 2), unitLabel('power'), 'Solved shaft power')}</div>` +
+                satNote('', 'Use the purchase order / approved procedure to confirm the speed definition and all acceptance limits. The automatic checks below only make evidence gaps visible.');
+
+            const pre = [['inMrtPreProcedure', 'Approved procedure and criteria'], ['inMrtPreCal', 'Traceable instrumentation'], ['inMrtPreLube', 'Auxiliary systems and protective devices'], ['inMrtPreCoupling', 'Safe mechanical test arrangement']];
+            const post = [['inMrtPostNoTrip', 'No unexplained abnormal event'], ['inMrtPostInspect', 'Required inspection acceptable'], ['inMrtPostData', 'Signed evidence package complete'], ['inMrtPostClose', 'Deviations and release closed']];
+            const checklist = items => satTable(['Item', 'Status'], items.map(([id, label]) => `<tr><td data-l="Item" style="text-align:left">${label}</td><td data-l="Status">${satPill($(id).checked)}</td></tr>`));
+            $('mrtPreChecklist').innerHTML = checklist(pre);
+            $('mrtPostChecklist').innerHTML = checklist(post);
+
+            const vib = mrtPair('inMrtVib'), bmt = mrtPair('inMrtBmt'), lube = mrtPair('inMrtLubeP'), leak = mrtPair('inMrtSealLeak');
+            const vibLimit = Number($('inMrtVibLimit').value), bmtLimit = Number($('inMrtBmtLimit').value);
+            const driftLimit = Number($('inMrtLubeDrift').value), leakLimit = Number($('inMrtLeakRise').value);
+            const rows = [
+                check('Speed reached MCS', complete(speed > 0 ? speed : null, speed >= mcs), speed > 0 ? `${fmtNum(speed, 0)} rpm recorded; ${fmtNum(mcs, 0)} rpm MCS` : 'Enter recorded test speed.'),
+                check('MCS hold duration', complete(duration >= 0 ? duration : null, duration >= 4), isFinite(duration) ? `${fmtNum(duration, 2)} h recorded; 4 h customary baseline` : 'Enter MCS hold duration.'),
+                check('End vibration within entered limit', complete(vib && vibLimit > 0 ? vib.end : null, vib && vib.end <= vibLimit), vib && vibLimit > 0 ? `${fmtNum(vib.before, 2)} → ${fmtNum(vib.end, 2)} µm pk-pk; limit ${fmtNum(vibLimit, 2)}` : 'Enter before/end readings and contractual limit.'),
+                check('End bearing metal temperature within entered limit', complete(bmt && bmtLimit > 0 ? bmt.end : null, bmt && bmt.end <= bmtLimit), bmt && bmtLimit > 0 ? `${fmtNum(bmt.before, 1)} → ${fmtNum(bmt.end, 1)} °C; limit ${fmtNum(bmtLimit, 1)}` : 'Enter before/end readings and contractual limit.'),
+                check('Lube pressure trend within entered drift', complete(lube && lube.before > 0 && driftLimit >= 0 ? lube.end : null, lube && lube.before > 0 && Math.abs((lube.end - lube.before) / lube.before * 100) <= driftLimit), lube && lube.before > 0 ? `${fmtNum(lube.before, 3)} → ${fmtNum(lube.end, 3)} bar(g); drift ${fmtNum((lube.end - lube.before) / lube.before * 100, 2)} %` : 'Enter before/end lube pressures.'),
+                check('Seal leakage trend within entered rise', complete(leak && leak.before > 0 && leakLimit >= 0 ? leak.end : null, leak && leak.before > 0 && ((leak.end - leak.before) / leak.before * 100) <= leakLimit), leak && leak.before > 0 ? `${fmtNum(leak.before, 3)} → ${fmtNum(leak.end, 3)} Nm³/h; rise ${fmtNum((leak.end - leak.before) / leak.before * 100, 2)} %` : 'Enter before/end leakage readings.')
+            ];
+            $('mrtRunValidation').innerHTML = satTable(['Check', 'Evidence', 'Result'], rows) + satNote('', '“N/A” means the record is incomplete, not that the criterion has passed. Negative leakage change and pressure drift are accepted unless the approved procedure specifies a tighter directional requirement.');
+        }
+
+        /* ================================================================ */
         /* FAT — factory acceptance test                                     */
         /* ---------------------------------------------------------------- */
         /* Independently recomputes a vendor shop-test report from its own
@@ -7830,6 +7952,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             renderSelection(train, lastInput);
             renderTrainTabs();
             renderFatTab();
+            renderMrtTab();
             renderSatTab();
             return train;
         }
@@ -7943,6 +8066,15 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             'inFatOilFlow', 'inFatOilDT', 'inFatGearType', 'inFatBalanceDP',
             'inFatUp', 'inFatUt', 'inFatUw'];
 
+        // MRT controls (v9). These are factory test evidence, not design inputs,
+        // so they render and save without re-solving the compressor.
+        const MRT_PERSIST_INPUTS = [
+            'inMrtSection', 'inMrtMcs', 'inMrtSpeed', 'inMrtDuration',
+            'inMrtVib', 'inMrtVibLimit', 'inMrtBmt', 'inMrtBmtLimit',
+            'inMrtLubeP', 'inMrtLubeDrift', 'inMrtSealLeak', 'inMrtLeakRise',
+            'inMrtPreProcedure', 'inMrtPreCal', 'inMrtPreLube', 'inMrtPreCoupling',
+            'inMrtPostNoTrip', 'inMrtPostInspect', 'inMrtPostData', 'inMrtPostClose'];
+
         // FAT driver-side readings, listed by every id they can take for the
         // same reason as SAT_DYNAMIC_INPUTS - a driver-kind switch must not
         // discard what was typed for the previous kind.
@@ -7959,6 +8091,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 if (vals[id] === undefined) vals[id] = satDriverStash[id];
             });
             FAT_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
+            MRT_PERSIST_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.type === 'checkbox' ? el.checked : el.value; });
             FAT_DYNAMIC_INPUTS.forEach(id => { const el = $(id); if (el) vals[id] = el.value; });
             Object.keys(fatDriverStash).forEach(id => {
                 if (vals[id] === undefined) vals[id] = fatDriverStash[id];
@@ -7989,12 +8122,13 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
             // accuracies and driver-side readings. Purely additive through the
             // values map, so a version 6 file loads unchanged and simply
             // arrives with an empty SAT tab.
+            // version 9: adds MRT-at-shop evidence, limits and release checks.
             // version 8: adds the FAT tab (factory acceptance test) inputs -
             // the vendor-stated report, the raw test log, flow-correction and
             // loss inputs, and driver-side readings. Purely additive through
             // the values map, so a version 7 file loads unchanged and simply
             // arrives with an empty FAT tab.
-            return { version: 8, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
+            return { version: 9, savedAt: Date.now(), unitSystem, pressureBasis, composition, sections, references, values: vals };
         }
 
         function applyState(s) {
@@ -8071,7 +8205,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 references = [];
             }
             if (s.values) {
-                Object.keys(s.values).forEach(id => { const el = $(id); if (el) el.value = s.values[id]; });
+                Object.keys(s.values).forEach(id => { const el = $(id); if (el) { if (el.type === 'checkbox') el.checked = s.values[id] === true || s.values[id] === 'true'; else el.value = s.values[id]; } });
                 // The SAT driver-side fields only exist while their driver kind
                 // is selected. Hold the rest here so a round trip through a
                 // different driver does not discard them, and so an exported
@@ -8352,6 +8486,7 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                     // The SAT tab carries three charts of its own, so it needs
                     // the same reveal-time redraw as Charts.
                     if (view === 'v-fat') renderFatTab();
+                    if (view === 'v-mrt') renderMrtTab();
                     if (view === 'v-sat') renderSatTab();
                 });
             });
@@ -8413,6 +8548,13 @@ When the acceptance conditions cannot be reached ([SPT] p.25)
                 }
             });
             $('btnFatFillWilcox').addEventListener('click', fatFillWilcoxExample);
+
+            MRT_PERSIST_INPUTS.forEach(id => {
+                const el = $(id);
+                if (!el) return;
+                const event = el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input';
+                el.addEventListener(event, () => { renderMrtTab(); scheduleSave(); });
+            });
 
             // Live recalculation on every input
             SIMPLE_INPUTS.forEach(id => {
